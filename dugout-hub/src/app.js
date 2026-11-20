@@ -282,7 +282,9 @@ function plan() {
   const tuned = L.tune(state.entries, t);
   const pick = wk.lockedFocus ? { focus: wk.lockedFocus, why: wk.lockedWhy || '' } : L.decideFocus(L.stats(state.entries, t), state.entries, t, tuned.rules);
   if (!L.FOCUS[pick.focus]) pick.focus = 'baseline';
-  return { t, wk, arm, pick, tuned, week: L.buildWeek(pick.focus, state.settings.level, !arm.cleared) };
+  const before = state.entries.filter(e => e.date < wk.monday), targets = L.diagnose(state.entries, t);
+  const week = L.buildWeek(pick.focus, state.settings.level, !arm.cleared, { monday: wk.monday, level: L.game(before).level, recent: L.recentDrills(state.entries, wk.monday), targets, entries: before });
+  return { t, wk, arm, pick, tuned, targets, week };
 }
 const checks = () => state.entries.filter(e => e.kind === 'analysis').sort(L.byDate).reverse();
 function viewToday() {
@@ -296,6 +298,8 @@ function viewToday() {
     h('div', { class: 'stack' },
       h('section', { class: 'sec' }, h('h2', null, 'This week: ' + F.name), h('p', { class: 'say' }, F.kid),
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
+      p.targets.length && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
+        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')])) : null,
       last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
         h('p', null, h('a', { href: '#film' }, 'Open the film room'))) : null),
     h('div', { class: 'stack' },
@@ -309,25 +313,50 @@ function viewToday() {
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text)), h('span', { class: 'mark' })),
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
-            h('span', { class: 'mid' }, 'out of ' + i.count)) : null]; })])),
+            h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
+          !isDone ? extras(i, counts) : null]; })])),
       isDone ? h('p', { class: 'status ok' }, ses.title + ' is done for this week.')
         : h('button', { type: 'button', class: 'btn big', disabled: doneN < items.length, onclick: guard(() => finish(p, ses, tk)) },
           doneN < items.length ? (items.length - doneN) + ' to go' : 'Finish and collect ' + L.XP[state.slot] + ' XP'))));
 }
+function numBox(id, label, max, counts, key, after) {
+  return [h('label', { for: id }, label), h('input', { id, type: 'number', inputmode: 'decimal', min: '0', max: max == null ? null : String(max), value: counts[key] == null ? '' : counts[key], oninput: e => { counts[key] = e.target.value; saveTicks(); } }),
+    after ? h('span', { class: 'mid' }, after) : null];
+}
+// Score, boss result and pitch count boxes under a drill.
+function extras(i, counts) {
+  const out = [];
+  if (i.pts) out.push(h('div', { class: 'count' }, numBox('pts-' + i.id, 'Points', i.max, counts, 'pts:' + i.id, i.pts + (i.max ? ' (max ' + i.max + ')' : ''))));
+  if (i.pitches) out.push(h('div', { class: 'count' }, numBox('pc-' + i.id, 'Pitches thrown', i.pitches, counts, 'pc:' + i.id, 'Blank counts as ' + i.pitches + ' for his arm tracker.')));
+  if (i.boss) {
+    const b = i.boss;
+    out.push(h('div', { class: 'count' }, numBox('boss-me', b.label, b.kind === 'contact' ? 10 : null, counts, 'boss', b.target != null ? 'to beat: ' + (Math.round(b.target * 10) / 10) + ' ' + b.unit : b.dad ? null : 'first one sets the bar'),
+      b.dad ? numBox('boss-dad', "Dad's points", null, counts, 'bossdad') : null));
+  }
+  return out.length ? out : null;
+}
 function saveTicks() { try { localStorage.setItem('dugout-ticks', JSON.stringify({ t: state.ticks, c: state.counts })); } catch (e) {} }
 async function finish(p, ses, tk) {
   const counts = state.counts[tk] || {}, before = L.badges(state.entries).filter(b => b.on).map(b => b.id), lvlBefore = L.game(state.entries).level;
-  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, ts: Date.now() }];
+  const items = ses.blocks.flatMap(b => b.items), val = k => { const v = parseFloat(counts[k]); return isFinite(v) && v >= 0 ? v : null; };
+  let points = null;
+  for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) points = (points || 0) + Math.min(v, i.max || v); }
+  const bi = items.find(i => i.boss), bres = bi ? val('boss') : null, bdad = bi ? val('bossdad') : null;
+  const boss = bi && bres != null ? { kind: bi.boss.kind, target: bi.boss.target, result: bi.boss.kind === 'contact' ? Math.min(10, Math.round(bres)) : bres, dad: bdad, won: !!L.bossWon(bi.boss, bres, bdad) } : null;
+  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, drills: L.drillIds(ses), points, boss, ts: Date.now() }];
   if (!(await addEntry(added[0]))) return;
-  for (const i of ses.blocks.flatMap(b => b.items)) {
+  for (const i of items) {
     const made = parseInt(counts[i.id], 10);
     if (i.count && isFinite(made)) { const m = { kind: 'machine', date: p.t, made: Math.max(0, Math.min(made, i.count)), of: i.count, from: added[0].ts }; added.push(m); await addEntry(m); }
+    if (i.pitches) { const n = val('pc:' + i.id), pc = { kind: 'pitch', date: p.t, pitches: Math.round(Math.min(n == null ? i.pitches : n, i.pitches)), outs: 0, where: 'practice', from: added[0].ts }; if (pc.pitches > 0) { added.push(pc); await addEntry(pc); } }
   }
+  if (boss && boss.kind === 'speed') { const sw = { kind: 'swing', date: p.t, ball: 'real', batSpeed: null, batMax: boss.result, exitVelo: null, from: added[0].ts }; added.push(sw); await addEntry(sw); }
+  if (boss && boss.kind === 'contact') { const m = { kind: 'machine', date: p.t, made: boss.result, of: 10, from: added[0].ts }; added.push(m); await addEntry(m); }
   const credit = L.sessionReps(ses);
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: L.XP[added[0].slot], badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: L.XP[added[0].slot] + (boss && boss.won ? L.XP.boss : 0), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
   delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
 }
@@ -336,7 +365,9 @@ function renderCheer() {
   if (!c) { $cheer.replaceChildren(); return; }
   $cheer.replaceChildren(h('div', { class: 'cheer', role: 'dialog', 'aria-modal': 'true', 'aria-label': c.title },
     h('div', { class: 'box' }, h('h1', null, c.title), h('div', { class: 'gain' }, '+' + c.xp + ' XP'),
-      h('p', { class: 'say' }, c.levelUp ? 'You scored. Level ' + c.levelUp.level + ', ' + c.levelUp.title + '.' : c.base + '.'),
+      h('p', { class: 'say' }, c.levelUp ? 'You scored. Level ' + c.levelUp.level + ', ' + c.levelUp.title + '.' + (c.levelUp.level === 2 ? ' New drills unlock next week.' : '') : c.base + '.'),
+      c.points != null ? h('p', { class: 'say' }, c.points + ' points today.') : null,
+      c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
       h('button', { type: 'button', class: 'btn big', id: 'cheer-ok', onclick: () => { state.cheer = null; renderCheer(); } }, 'Back to the dugout'))));
@@ -470,7 +501,7 @@ function viewTrophies() {
     h('section', { class: 'sec plain' }, h('div', { class: 'patches' }, B.map(b => h('div', { class: 'patch' + (b.on ? ' on' : '') }, h('div', { class: 'ring' }, icon(b.icon)), h('b', null, b.name), h('span', null, b.on ? 'Earned' : b.how))))),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Your records'), h('table', null, h('tbody', null, recs.map(r => h('tr', null, h('td', null, r[0], r[1] ? h('div', { class: 'math' }, fmtDate(r[1].date)) : null), h('td', { class: 'v' }, r[1] ? r[2](r[1]) : '–'))))),
-        h('p', { class: 'small mid' }, 'Beat a record and you earn ' + L.XP.record + ' XP.')),
+        h('p', { class: 'small mid' }, 'Beat a record and you earn ' + L.XP.record + ' XP. Beat the weekly Boss and you earn ' + L.XP.boss + ' XP.')),
       h('section', { class: 'sec' }, h('h2', null, 'All-time totals'), h('table', null, h('tbody', null,
         [['Swings', t.swings], ['Push-ups', t.pushups], ['Sit-ups', t.situps], ['Squats', t.squats], ['Sessions finished', t.sessions]].map(x => h('tr', null, h('td', null, x[0]), h('td', { class: 'v' }, commas(x[1])))))))));
 }
@@ -495,9 +526,9 @@ function viewLog() {
   const part = (v, w) => v ? v + ' ' + w : null;
   const label = e => e.kind === 'swing' ? 'Speeds: bat ' + fix(e.batSpeed) + ', exit ' + fix(e.exitVelo) + ' mph' + (e.ball === 'mini' ? ' (mini balls)' : '') :
     e.kind === 'reps' ? (e.from ? 'Reps from ' + (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'a session') + ': ' : 'Extra reps: ') + ([part(e.swings, 'swings'), part(e.pushups, 'push-ups'), part(e.situps, 'sit-ups'), part(e.squats, 'squats')].filter(Boolean).join(', ') || 'none') :
-    e.kind === 'machine' ? 'Machine' + (e.from ? ' (in session)' : '') + ': ' + e.made + ' of ' + e.of + ' solid' : e.kind === 'game' ? 'Game: ' + e.h + ' for ' + e.ab + ', ' + e.k + ' K, ' + e.bb + ' BB' :
-    e.kind === 'pitch' ? 'Pitched: ' + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
-    e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
+    e.kind === 'machine' ? 'Machine' + (e.from ? ' (in session)' : '') + ': ' + e.made + ' of ' + e.of + ' solid' : e.kind === 'game' ? 'Game: ' + e.h + ' for ' + e.ab + ', ' + e.k + ' K' + (L.isNum(e.kl) ? ' (' + e.kl + ' looking)' : '') + ', ' + e.bb + ' BB' + (L.isNum(e.go) || L.isNum(e.fo) ? ', ' + (e.go || 0) + ' ground outs, ' + (e.fo || 0) + ' fly outs' : '') :
+    e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
+    e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' + (e.points != null ? ', ' + e.points + ' points' : '') + (e.boss ? (e.boss.won ? ', beat the Boss' : ', lost to the Boss') : '') : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
     e.kind === 'body' ? 'Measured: ' + [L.isNum(e.heightIn) ? L.fmtHeight(e.heightIn) : null, L.isNum(e.weightLb) ? (Math.round(e.weightLb * 10) / 10) + ' lb' : null].filter(Boolean).join(', ') : e.kind;
   return page(strip('Log ' + who() + "'s work", 'Finished sessions log their own reps. Use this for extra work, speeds and games.'),
@@ -515,10 +546,16 @@ function viewLog() {
       h('section', { class: 'sec' }, h('h2', null, 'Game line'),
         h('div', { class: 'row' }, inp('g_date', 'Date', { type: 'date', def: t })),
         h('div', { class: 'row' }, inp('g_ab', 'At-bats', { mode: 'numeric' }), inp('g_h', 'Hits', { mode: 'numeric' }), inp('g_k', 'Strikeouts', { mode: 'numeric' }), inp('g_bb', 'Walks', { mode: 'numeric' })),
+        h('p', { class: 'small mid' }, 'Optional, from GameChanger play-by-play. These aim the fix-it drills.'),
+        h('div', { class: 'row' }, inp('g_kl', 'Struck out looking', { mode: 'numeric' }), inp('g_go', 'Ground-ball outs', { mode: 'numeric' }), inp('g_fo', 'Fly or pop outs', { mode: 'numeric' })),
         h('div', null, h('button', { type: 'button', class: 'btn', onclick: guard(async () => {
           if (num('g_ab') == null) return toast('Enter at-bats first.');
           if ((num('g_h') || 0) + (num('g_k') || 0) > num('g_ab')) return toast('Hits plus strikeouts cannot be more than at-bats.');
-          if (await addEntry({ kind: 'game', date: state.form.g_date || t, ab: num('g_ab'), h: num('g_h') || 0, k: num('g_k') || 0, bb: num('g_bb') || 0 })) { clear('g_ab', 'g_h', 'g_k', 'g_bb'); toast('Game line saved.'); } render(); }) }, 'Save game line'))),
+          if (num('g_kl') != null && num('g_kl') > (num('g_k') || 0)) return toast('Struck out looking cannot be more than strikeouts.');
+          if ((num('g_go') || 0) + (num('g_fo') || 0) > num('g_ab') - (num('g_h') || 0) - (num('g_k') || 0)) return toast('Ground and fly outs cannot be more than at-bats minus hits and strikeouts.');
+          const gl = { kind: 'game', date: state.form.g_date || t, ab: num('g_ab'), h: num('g_h') || 0, k: num('g_k') || 0, bb: num('g_bb') || 0 };
+          if (num('g_kl') != null) gl.kl = num('g_kl'); if (num('g_go') != null || num('g_fo') != null) { gl.go = num('g_go') || 0; gl.fo = num('g_fo') || 0; }
+          if (await addEntry(gl)) { clear('g_ab', 'g_h', 'g_k', 'g_bb', 'g_kl', 'g_go', 'g_fo'); toast('Game line saved.'); } render(); }) }, 'Save game line'))),
       h('section', { class: 'sec' }, h('h2', null, 'Strength test'),
         h('div', { class: 'row' }, inp('t_date', 'Date', { type: 'date', def: t })),
         h('div', { class: 'row' }, inp('t_jump', 'Long jump (inches)'), inp('t_push', 'Push-ups', { mode: 'numeric' }), inp('t_plank', 'Plank (seconds)', { mode: 'numeric' })),
@@ -561,7 +598,7 @@ function viewArm() {
         h('div', null, h('b', { class: 'bigv' }, L.fmtInnings(a.outs3)), h('span', null, 'Innings, last 3 days')),
         h('div', null, h('b', { class: 'bigv' }, L.fmtInnings(a.outs12)), h('span', null, 'Innings, last 12 months'))),
       a.over ? h('p', { class: 'note' }, a.over.pitches + ' pitches on ' + fmtDate(a.over.date) + ' was over the ' + state.settings.dailyMax + '-pitch daily limit for his age.') : null,
-      !a.cleared ? h('p', { class: 'note' }, 'On rest days the plan swaps med ball throws for a no-throw drill. Hitting and leg work stay.') : null),
+      !a.cleared ? h('p', { class: 'note' }, 'On rest days the plan swaps pitching and med ball throws for glove work with no throws. Hitting and leg work stay. Practice pitching stops at 20 pitches, so it never forces a rest day.') : null),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Log an outing'),
         h('div', { class: 'row' }, inp('p_date', 'Date', { type: 'date', def: t }), inp('p_pitches', 'Pitches', { mode: 'numeric' })),

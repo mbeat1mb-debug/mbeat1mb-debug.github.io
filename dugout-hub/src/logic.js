@@ -152,16 +152,17 @@ const HubLogic = (() => {
     return t;
   }
 
-  const XP = { A: 100, B: 100, C: 50, record: 25, perLevel: 300 };
+  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300 };
   const TITLES = ['Rookie', 'Starter', 'Slugger', 'All-Star', 'Captain', 'MVP', 'Legend'];
   function game(entries) {
     let xp = 0;
-    for (const e of entries) if (e.kind === 'session' && e.complete) xp += XP[e.slot] || 0;
+    let bosses = 0;
+    for (const e of entries) if (e.kind === 'session' && e.complete) { xp += XP[e.slot] || 0; if (e.boss && e.boss.won) { xp += XP.boss; bosses++; } }
     const breaks = records(entries).breaks;
     xp += breaks * XP.record;
     const level = Math.floor(xp / XP.perLevel) + 1;
     const into = xp % XP.perLevel, base = Math.min(3, Math.floor(into / XP.perLevel * 4));
-    return { xp, level, title: TITLES[Math.min(level, TITLES.length) - 1], into, need: XP.perLevel, breaks, frac: into / XP.perLevel,
+    return { xp, bosses, level, title: TITLES[Math.min(level, TITLES.length) - 1], into, need: XP.perLevel, breaks, frac: into / XP.perLevel,
       baseText: ['Heading to first base', 'Past first, heading to second', 'Past second, heading to third', 'Rounding third, heading home'][base] };
   }
 
@@ -180,6 +181,7 @@ const HubLogic = (() => {
       { id: 'film', name: 'Film study', how: 'Save your first filmstrip.', icon: 'play', on: entries.some(e => e.kind === 'analysis') },
       { id: 'ten', name: '10 sessions', how: 'Finish 10 sessions.', icon: 'star', on: t.sessions >= 10 },
       { id: 'sw500', name: '500 swings', how: 'Log 500 swings.', icon: 'bat', on: t.swings >= 500 },
+      { id: 'boss3', name: 'Boss slayer', how: 'Win 3 Boss Battles.', icon: 'trophy', on: game(entries).bosses >= 3 },
       { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100 }
     ];
   }
@@ -201,66 +203,211 @@ const HubLogic = (() => {
   };
 
   const I = (id, title, text, o) => Object.assign({ id, title, text }, o || {});
-  function hitting(focus) {
-    const tee3 = (id, min) => I(id, 'Tee: inside, middle, outside', 'Practice bat. 5 swings at each spot. Line drives into the net.', { min, sw: 15 });
-    if (focus === 'contact') return [
-      I('c1', 'Machine: 20 pitches', 'Skinny bat and mini balls on a slow setting. Two rounds of 10. Count your solid hits.', { min: 6, count: 20, sw: 20 }),
-      tee3('c2', 4),
-      I('c3', 'Machine: 10 more', 'Practice bat this time. Same swing as the tee.', { min: 2, sw: 10 })];
-    if (focus === 'speed') return [
-      I('s1', 'Tee: 15 fast swings', 'Practice bat with the sensor on. 3 sets of 5. Rest 30 seconds between sets.', { min: 5, sw: 15 }),
-      I('s2', 'Light bat: 10 swings', 'SKLZ unloaded bat. 2 sets of 5, as fast as you can.', { min: 2, sw: 10 }),
-      I('s3', 'Heavy bat: 5 swings', 'SKLZ hand-loaded bat on the tee. Dad films it.', { min: 2, heavy: 5, sw: 5 }),
-      I('s4', 'Beat your best', 'Practice bat. 5 full-speed swings. Go for a new top speed.', { min: 3, sw: 5 })];
-    if (focus === 'path') return [
-      I('p1', 'CamWood: 10 smooth swings', 'On the tee. 2 sets of 5. Hands stay inside the ball. Dad films one set.', { min: 4, heavy: 10, sw: 10 }),
-      tee3('p2', 5),
-      I('p3', 'Machine: 10 pitches', 'Skinny bat. Count your solid hits.', { min: 3, count: 10, sw: 10 })];
-    if (focus === 'timing') return [
-      I('t1', 'Machine: slow, then fast', 'Skinny bat. 10 pitches slow, then 10 faster. Count your solid hits.', { min: 5, count: 20, sw: 20 }),
-      I('t2', 'Machine: mystery pitch', '10 pitches. Dad switches between fastball and curve without telling you.', { min: 4, sw: 10 }),
-      I('t3', 'Tee: go on the call', 'Practice bat. 10 swings. Start your load when Dad says go.', { min: 3, sw: 10 })];
-    return [
+
+  // ---------- drill library ----------
+  // pts: how he scores it. max: most points. lvl: level that unlocks it. heavy: heavy-bat swings (capped per session).
+  const DRILLS = {
+    contact: [
+      I('c1', 'Beat the Machine', 'Skinny bat, mini balls. 20 pitches. Solid hit = you score. Miss or foul = machine scores. Win the game.', { min: 6, count: 20, sw: 20 }),
+      I('c2', 'Around the Clock', 'Tee. Inside, middle, outside, then high and low. 3 swings at each spot. Line drive = 1 point.', { min: 4, sw: 15, pts: 'Line drive = 1 point', max: 15 }),
+      I('c3', 'Small Ball', 'Mini balls on the machine with the skinny bat. Hit the ball right back at the machine (aim low, not at Dad). Up the middle = 2 points, anywhere else solid = 1.', { min: 4, sw: 10, pts: 'Middle 2, solid 1', max: 20 }),
+      I('c4', 'Short Bat Hands', 'Choke up 3 inches on the practice bat. 10 tee swings. Short and quick to the ball. Line drive = 1 point.', { min: 3, sw: 10, pts: 'Line drive = 1 point', max: 10 }),
+      I('c5', 'Two-Ball Tee', 'Set a second ball just behind the tee ball. Hit the front ball without touching the back one. Clean = 1 point.', { min: 3, sw: 10, pts: 'Clean swing = 1 point', max: 10, lvl: 2 }),
+      I('c6', 'Color Call', 'Dad: dot some mini balls red and some blue. Red = pull it. Blue = hit it the other way. No dot = take it. 15 pitches. Right call = 1, solid hit too = +1.', { min: 5, sw: 15, pts: 'Right call 1, solid +1', max: 30, lvl: 2 }),
+      I('c7', 'Oppo Gate', 'Tape a big square on the left half of the net. 10 tee swings set a little outside. Hit the square = 2 points.', { min: 3, sw: 10, pts: 'In the square = 2', max: 20 }),
+      I('c8', 'Pepper With Dad', 'Dad soft-tosses mini balls from 15 feet. Tap them back to him on the ground with a short swing. 15 tosses. Clean tap = 1 point.', { min: 3, sw: 15, pts: 'Clean tap = 1', max: 15 }),
+      I('c9', 'Three Strikes, You\'re Out', 'Skinny bat on the machine. Keep hitting until you miss 3 times. Every solid hit = 1 point. Can you get 10?', { min: 4, sw: 15, pts: 'Solid hit = 1', max: 30, lvl: 2 }),
+      I('c10', 'Bunt, Then Swing', 'Machine. Bunt the first 3 pitches down, then swing away at 7. Good bunt = 1, solid swing = 1.', { min: 4, sw: 10, pts: 'Good bunt 1, solid 1', max: 10 })
+    ],
+    speed: [
+      I('s1', 'Heavy, Light, Game', 'Sensor on. 3 swings with the SKLZ hand-loaded bat, 3 with the SKLZ unloaded bat, then 3 with the game bat. Can the game bat beat the heavy bat speed?', { min: 4, heavy: 3, sw: 9 }),
+      I('s2', 'Walk-Through Swings', 'Tee. Start 2 steps back, walk in and swing like a big leaguer. 8 swings. Sensor on. Top speed = your points.', { min: 3, sw: 8, pts: 'Points = top mph', max: 90 }),
+      I('s3', 'Speed Ladder', 'Unloaded bat. 3 rounds of 4 fast swings, no ball. Each round must be faster than the last. Dad reads the sensor.', { min: 3, sw: 12 }),
+      I('s4', 'Loud Contact', 'Practice bat, real balls off the tee into the net. 10 swings. Dad scores the sound: crack = 2, thud = 1.', { min: 3, sw: 10, pts: 'Crack 2, thud 1', max: 20 }),
+      I('s5', 'Step-Back Launch', 'Tee. Back foot steps toward the catcher, then explode forward and swing. 8 swings.', { min: 3, sw: 8, lvl: 2 }),
+      I('s6', 'Exit Speed Derby', 'Radar up. 10 real balls off the tee. Every ball over your average = 1 point. New top speed = 5.', { min: 4, sw: 10, pts: 'Over average 1, new best 5', max: 15, lvl: 2 }),
+      I('s7', 'Heavy Bat Holds', 'SKLZ end-loaded bat on the tee. 4 swings, freeze at the finish for 3 seconds each.', { min: 2, heavy: 4, sw: 4 }),
+      I('s8', 'Whoosh Swings', 'Flip the practice bat over and hold the skinny end. Swing hard so the whoosh is loud out in front, not behind you. 10 swings.', { min: 2, sw: 10 }),
+      I('s9', 'Hips First', 'No ball. Step, turn your back hip hard, then let the bat come. 8 swings. Then 5 tee swings the same way.', { min: 3, sw: 13 }),
+      I('s10', 'Max Effort Five', 'Sensor on, practice bat, tee. 5 swings, rest 20 seconds between. Any swing within 2 mph of your best = 1 point.', { min: 3, sw: 5, pts: 'Within 2 mph of best = 1', max: 5, lvl: 2 })
+    ],
+    path: [
+      I('p1', 'CamWood Smooth', 'On the tee. 2 sets of 4 slow, smooth swings. Hands stay inside the ball. Dad films one.', { min: 4, heavy: 8, sw: 8 }),
+      I('p2', 'Barrier Tee', 'Put a bucket just in front of the tee, a bat length out. Hit line drives over it without hitting it. 10 swings. Clean line drive = 2.', { min: 4, sw: 10, pts: 'Clean liner = 2', max: 20 }),
+      I('p3', 'High Tee, Low Tee', 'Tee at belt height for 5, then at the knees for 5. Line drives only. 1 point each.', { min: 3, sw: 10, pts: 'Line drive = 1', max: 10 }),
+      I('p4', 'Bottom-Hand Only', 'CamWood or a short grip on the practice bat. Bottom hand only, 5 tee swings. Then 5 with both hands.', { min: 3, heavy: 5, sw: 10 }),
+      I('p5', 'Fence Drill', 'Stand a bat length from the net, facing the tee. Swing without touching the net. 8 swings. Clean = 1 point.', { min: 3, sw: 8, pts: 'No net touch = 1', max: 8, lvl: 2 }),
+      I('p6', 'Machine: Line Drives', 'Skinny bat. 10 pitches. Grounder = 0, line drive = 2, pop-up = 0.', { min: 3, count: 10, sw: 10, pts: 'Line drive = 2', max: 20 }),
+      I('p7', 'Top Hand Only', 'CamWood one-arm trainer, top hand. 5 slow tee swings. Then 5 with both hands on the practice bat.', { min: 3, heavy: 5, sw: 10 }),
+      I('p8', 'Where\'s the Tee?', 'Dad moves the tee: out front = pull it, deep = hit it the other way. 10 swings. Right direction = 1 point.', { min: 3, sw: 10, pts: 'Right direction = 1', max: 10 }),
+      I('p9', 'Up the Middle', 'Skinny bat, machine. 10 pitches. Back up the middle = 2, solid anywhere else = 1.', { min: 3, sw: 10, pts: 'Middle 2, solid 1', max: 20, lvl: 2 }),
+      I('p10', 'Knob to the Ball', 'Tee. Short swings where the knob of the bat leads to the ball, then the barrel whips through. 8 swings.', { min: 3, sw: 8 })
+    ],
+    timing: [
+      I('t1', 'Mix It Up', 'Skinny bat. 15 pitches. Dad changes the machine speed without telling you. Solid hits count.', { min: 5, count: 15, sw: 15 }),
+      I('t2', 'Go on the Call', 'Tee. Start your load when Dad says go. He waits a different time every swing. 10 swings.', { min: 3, sw: 10 }),
+      I('t3', 'Color Call', 'Red dot = pull it. Blue dot = other way. No dot = take it. 15 machine pitches. Right call = 1, solid hit too = +1.', { min: 5, sw: 15, pts: 'Right call 1, solid +1', max: 30 }),
+      I('t4', 'Two-Strike Battle', 'Every machine pitch is strike two. Shorten up. 10 pitches. Any fair ball or foul tip keeps you alive = 1 point. Miss = out.', { min: 4, sw: 10, pts: 'Stay alive = 1', max: 10 }),
+      I('t5', 'Front Toss Mystery', 'Dad tosses mini balls from a knee behind a screen. He fakes some tosses. Only swing at real ones. 12 tosses.', { min: 4, sw: 12, lvl: 2 }),
+      I('t6', 'Stride and Freeze', 'Machine on. Stride and freeze when the ball leaves. Dad checks your front foot is down on time. 8 pitches, no swings. Then 8 with swings.', { min: 4, sw: 8, lvl: 2 }),
+      I('t7', 'Call the Count', 'Before each machine pitch Dad calls a count. 3-0: only swing at a perfect strike. 0-2: protect the plate. 10 pitches. Right choice = 1 point.', { min: 4, sw: 10, pts: 'Right choice = 1', max: 10 }),
+      I('t8', 'Slow, Fast, Slow', 'Machine. 5 slow, 5 fast, 5 slow. Stay on time when it changes. Solid hits count.', { min: 5, count: 15, sw: 15 }),
+      I('t9', 'Early Load', 'Machine. Be loaded and ready before the ball comes out. Dad scores each on-time load = 1 point. 10 pitches.', { min: 3, sw: 10, pts: 'On-time load = 1', max: 10, lvl: 2 }),
+      I('t10', 'Hit It Where It\'s Pitched', 'Machine, skinny bat. Inside pitch = pull it, outside = other way. 10 pitches. Right direction = 1 point.', { min: 4, sw: 10, pts: 'Right direction = 1', max: 10 })
+    ]
+  };
+  // Fix-it drills aimed at what shows up in games.
+  const FIXES = {
+    looking: { title: 'Strikeouts looking', drill: I('f1', 'Two-Strike Battle', 'Every machine pitch is strike two. Swing at strikes, foul off the tough ones. 10 pitches. Stay alive = 1 point.', { min: 4, sw: 10, pts: 'Stay alive = 1', max: 10 }) },
+    grounders: { title: 'Lots of ground-ball outs', drill: I('f2', 'Barrier Tee', 'Bucket just in front of the tee. Hit line drives over it. 10 swings. Clean line drive = 2 points.', { min: 4, sw: 10, pts: 'Clean liner = 2', max: 20 }) },
+    flies: { title: 'Lots of fly and pop outs', drill: I('f3', 'Low Tee Liners', 'Tee at the knees. Hit the top half of the ball. 10 swings. Line drive or hard grounder = 1 point.', { min: 3, sw: 10, pts: 'Liner or hard grounder = 1', max: 10 }) },
+    whiffs: { title: 'Lots of strikeouts swinging', drill: I('f4', 'Short Bat Hands', 'Choke up 3 inches. 10 machine pitches. Short swing, just hit it. Contact = 1 point.', { min: 3, count: 10, sw: 10, pts: 'Contact = 1', max: 10 }) }
+  };
+  const WARMUPS = [
+    I('w1', 'Warm up', '10 arm circles each way, 10 leg swings each leg, 10 easy swings with no ball.'),
+    I('w2', 'Mirror Me', 'Dad does a move, you copy it fast: skips, side shuffles, high knees, arm circles. 2 minutes.'),
+    I('w3', 'Base Path Warm-up', 'Jog to a cone and back 4 times: forward, side shuffle, backpedal, sprint.')
+  ];
+  const BODY_C = [
+    I('z1', 'Squats', '2 sets of {8}.', { r: { sq: 8 } }),
+    I('z2', 'Push-ups', '2 sets of {5}.', { r: { pu: 5 } }),
+    I('z3', 'Sit-ups', '2 sets of {8}.', { r: { su: 8 } }),
+    I('z4', 'Bear Crawl', 'Crawl 10 steps forward, 10 back. Knees off the ground. 2 times.'),
+    I('z5', 'Crab Walk Race', 'Crab walk to a line and back. Race Dad or the clock. 2 times.'),
+    I('z6', 'Lunges', 'Step back. 2 sets of {5} each leg.'),
+    I('z7', 'Plank', '2 holds of {hold} seconds.'),
+    I('z8', 'Stick the Landing', '5 big jumps. Freeze on every landing for 2 seconds.'),
+    I('z9', 'Superman Holds', 'Lie on your belly, arms and legs up. 3 holds of 10 seconds.')
+  ];
+
+  // Small, repeatable shuffle so a week's plan stays the same every time the page opens.
+  function seeded(seed) { let x = 2166136261; for (let i = 0; i < seed.length; i++) { x ^= seed.charCodeAt(i); x = Math.imul(x, 16777619) >>> 0; } return () => { x = (Math.imul(x ^ (x >>> 15), 2246822507) + 0x9e3779b9) >>> 0; return x / 4294967296; }; }
+  function shuffle(list, seed) { const a = list.slice(), r = seeded(seed); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  // Pick n drills: unlocked, not used in the last 2 weeks if possible, no repeats, heavy swings under the cap.
+  function pickDrills(pool, n, o) {
+    const level = o.level || 1, recent = o.recent || [], avoid = o.avoid || [], heavyLeft = o.heavyLeft == null ? HEAVY_CAP : o.heavyLeft;
+    const open = pool.filter(d => (d.lvl || 1) <= level && avoid.indexOf(d.id) < 0 && avoid.indexOf(d.title) < 0);
+    const order = shuffle(open, o.seed || 'x');
+    // recent runs oldest to newest, so a drill last done 2 weeks ago comes back before one done last week.
+    const fresh = order.filter(d => recent.indexOf(d.id) < 0), used = order.filter(d => recent.indexOf(d.id) >= 0).sort((a, b) => recent.lastIndexOf(a.id) - recent.lastIndexOf(b.id));
+    const out = []; let heavy = 0;
+    for (const d of fresh.concat(used)) {
+      if (out.length >= n) break;
+      if ((d.heavy || 0) + heavy > heavyLeft) continue;
+      heavy += d.heavy || 0; out.push(d);
+    }
+    return out;
+  }
+  // What game results point to. Needs the optional game boxes (looking, ground outs, fly outs).
+  function diagnose(entries, today) {
+    const start = addDays(today, -28), g = entries.filter(e => e.kind === 'game' && e.date > start && e.date <= today);
+    const out = [];
+    const withKL = g.filter(e => isNum(e.kl)), k = withKL.reduce((s, e) => s + (e.k || 0), 0), kl = withKL.reduce((s, e) => s + e.kl, 0);
+    if (kl >= 2 && k > 0 && kl / k >= 0.4) out.push({ id: 'looking', why: kl + ' of his ' + k + ' strikeouts were looking (' + Math.round(kl / k * 100) + '%) in the last 4 weeks.', weight: kl / k });
+    const withB = g.filter(e => isNum(e.go) || isNum(e.fo)), go = withB.reduce((s, e) => s + (e.go || 0), 0), fo = withB.reduce((s, e) => s + (e.fo || 0), 0), outs = go + fo;
+    if (outs >= 5 && go / outs >= 0.6) out.push({ id: 'grounders', why: go + ' of his ' + outs + ' outs in play were on the ground (' + Math.round(go / outs * 100) + '%).', weight: go / outs });
+    else if (outs >= 5 && fo / outs >= 0.6) out.push({ id: 'flies', why: fo + ' of his ' + outs + ' outs in play were in the air (' + Math.round(fo / outs * 100) + '%).', weight: fo / outs });
+    const ab = g.reduce((s, e) => s + (e.ab || 0), 0), allK = g.reduce((s, e) => s + (e.k || 0), 0);
+    const swingK = withKL.length ? k - kl : null;
+    if (ab >= 8 && swingK != null && swingK / ab >= 0.25) out.push({ id: 'whiffs', why: swingK + ' swinging strikeouts in ' + ab + ' at-bats (' + Math.round(swingK / ab * 100) + '%).', weight: swingK / ab });
+    else if (ab >= 8 && !withKL.length && allK / ab >= 0.3) out.push({ id: 'whiffs', why: allK + ' strikeouts in ' + ab + ' at-bats (' + Math.round(allK / ab * 100) + '%).', weight: allK / ab });
+    return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: FIXES[x.id].title }, x));
+  }
+  // Weekly boss: rotates speed, machine round, Dad duel. The target comes from his own records.
+  function bossFor(entries, monday) {
+    const kinds = ['speed', 'contact', 'duel'], idx = Math.floor(parse(monday).getTime() / (7 * DAY)) % 3;
+    const rec = records(entries), kind = kinds[(idx + 3) % 3];
+    if (kind === 'speed') {
+      const t = rec.bat ? rec.bat.v : null;
+      return I('boss', 'Boss Battle: Speed Boss', t != null ? 'Sensor on, game bat, tee. 5 swings. Beat your best bat speed: ' + (Math.round(t * 10) / 10) + ' mph.' : 'Sensor on, game bat, tee. 5 swings. Set the speed to beat.', { min: 2, sw: 5, boss: { kind, target: t, unit: 'mph', label: 'Top bat speed' } });
+    }
+    if (kind === 'contact') {
+      const t = rec.contact ? Math.min(10, Math.round(rec.contact.v * 10)) : null;
+      return I('boss', 'Boss Battle: Machine Boss', t != null ? 'Skinny bat, 10 pitches. Beat ' + t + ' solid hits' + (t >= 10 ? ' (match 10 to win).' : '.') : 'Skinny bat, 10 pitches. Set the number to beat.', { min: 3, sw: 10, boss: { kind, target: t, unit: 'solid hits', label: 'Solid hits out of 10' } });
+    }
+    return I('boss', 'Boss Battle: Beat Dad', 'Tee. You and Dad each take 10 swings. Line drive = 2, grounder = 1. Most points wins.', { min: 3, sw: 10, boss: { kind, target: null, unit: 'points', label: 'Your points', dad: true } });
+  }
+  function bossWon(b, result, dad) {
+    if (!b || !isNum(result)) return null;
+    if (b.kind === 'duel') return isNum(dad) ? result > dad : null;
+    if (b.target == null) return true;   // first one sets the bar
+    return b.kind === 'contact' && b.target >= 10 ? result >= 10 : result > b.target;
+  }
+  // Drill ids from finished sessions in the 2 weeks before this Monday.
+  function recentDrills(entries, monday) {
+    const lo = addDays(monday, -14), ids = [];
+    const ses = entries.filter(e => e.kind === 'session' && e.complete && e.date >= lo && e.date < monday && Array.isArray(e.drills)).sort(byDate);
+    for (const e of ses) ids.push.apply(ids, e.drills);
+    return ids;
+  }
+  function hitting(focus) { return (DRILLS[focus] || DRILLS.contact).slice(0, 3); }
+
+  const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
+  function buildWeek(focus, step, armRest, o) {
+    o = o || {};
+    const S = Math.max(1, Math.min(5, step || 1)), r = n => n + 2 * (S - 1), hold = 20 + 5 * (S - 1);
+    const mon = o.monday || '2000-01-03', level = o.level || 1, recent = o.recent || [], targets = o.targets || [];
+    const seed = mon + focus;
+    const warmPick = shuffle(WARMUPS, seed + 'w');
+    const warm = k => ({ name: 'Warm-up', min: 3, items: [Object.assign({}, warmPick[k % warmPick.length], { id: 'w' + k })] });
+    const log = { name: 'Wrap up', min: 2, items: [I('l1', 'Tell Dad your numbers', 'Points, hits and speeds. He logs them so you get credit.')] };
+    const sum = items => items.reduce((s, i) => s + (i.min || 0), 0);
+    const pool = DRILLS[focus === 'baseline' ? 'contact' : focus] || DRILLS.contact;
+    const fixA = targets[0] && FIXES[targets[0].id], fixB = targets[1] && FIXES[targets[1].id] || fixA;
+    const tag = (d, why) => Object.assign({}, d, { fix: why });
+
+    // Day 1: fix-it drill, 2 from the pool, boss battle.
+    let a1 = [];
+    if (focus === 'baseline') a1 = [
       I('b1', 'Bat speed test', 'Sensor on the practice bat. 10 full swings off the tee.', { min: 4, sw: 10 }),
       I('b2', 'Exit speed test', 'Radar set up. 10 real baseballs off the tee into the net.', { min: 4, sw: 10 }),
       I('b3', 'Contact test', 'Machine, skinny bat, 20 pitches. Count your solid hits.', { min: 4, count: 20, sw: 20 })];
-  }
-
-  function buildWeek(focus, step, armRest) {
-    const S = Math.max(1, Math.min(5, step || 1)), r = n => n + 2 * (S - 1), hold = 20 + 5 * (S - 1);
-    const warm = { name: 'Warm-up', min: 3, items: [I('w1', 'Warm up', '10 arm circles each way, 10 leg swings each leg, 10 easy swings with no ball.')] };
-    const log = { name: 'Wrap up', min: 2, items: [I('l1', 'Tell Dad your numbers', 'He logs them so you get credit.')] };
-    const hit = { name: 'Hitting', min: 12, items: hitting(focus) };
+    else {
+      const lead = fixA ? [tag(fixA.drill, targets[0])] : [];
+      const rest = pickDrills(pool, 3 - lead.length, { level, recent, seed: seed + 'a', avoid: lead.map(d => d.title) });
+      a1 = lead.concat(rest);
+      a1.push(bossFor(o.entries || [], mon));
+    }
+    // Day 2: fix-it (second target if there is one), 1 more from the pool, mound or glove work.
+    const usedA = a1.map(d => d.title);
+    const lead2 = focus !== 'baseline' && fixB && usedA.indexOf(fixB.drill.title) < 0 ? [tag(fixB.drill, targets[1] || targets[0])] : [];
+    const b1 = lead2.concat(pickDrills(pool, 2 - lead2.length, { level, recent: recent.concat(a1.map(d => d.id)), seed: seed + 'b', avoid: usedA.concat(lead2.map(d => d.title)) }));
+    const mound = armRest
+      ? { name: 'Glove work (arm rest, no throws)', items: [
+          I('g1', 'Shadow Grounders', 'No ball. Dad points left, right or in. Shuffle, get low, field it with your glove, freeze. 12 reps.', { min: 3 }),
+          I('g2', 'Balance Beam', 'Pitching leg lift. Hold the top for 3 seconds without wobbling. 5 each side.', { min: 2 })] }
+      : { name: 'Mound', items: [
+          I('m1', 'Easy Catch', 'Play catch with Dad. 10 easy throws, short to a little longer. Not counted as pitches.', { min: 2 }),
+          I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };
+    mound.min = sum(mound.items);
     const bodyA = focus === 'baseline'
       ? { name: 'Strength test', min: 8, items: [
           I('x1', 'Long jump test', '3 tries from standing. Dad measures your best one.'),
           I('x2', 'Push-up test', 'As many as you can with a flat back. Stop when your form slips.'),
           I('x3', 'Plank test', 'Hold as long as you can with a flat back. Dad times it.')] }
-      : { name: 'Strength', min: 8, items: [
+      : { name: 'Strength', min: 7, items: [
           I('a1', 'Squats', '2 sets of ' + r(8) + '.', { sq: 2 * r(8) }),
           I('a2', 'Push-ups', '2 sets of ' + r(5) + ' with a flat back.', { pu: 2 * r(5) }),
-          I('a3', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8) }),
-          I('a4', 'Plank', '2 holds of ' + hold + ' seconds.')] };
-    const bodyB = { name: 'Strength', min: 8, items: [
+          I('a3', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8) })] };
+    const bodyB = { name: 'Tidal Tank', min: 4, items: [
       I('k1', 'Tank twists', 'Tidal Tank. 2 sets of ' + r(6) + ' each side. Keep the water quiet.'),
-      I('k2', 'Tank carry', 'Hold the Tidal Tank in front. 2 walks of 20 steps.'),
-      I('k3', 'Lunges', 'Step back. 2 sets of ' + r(5) + ' each leg.'),
-      armRest ? I('k4r', 'Tank shifts', 'Arm rest day, so no throws. Side to side, 2 sets of ' + r(6) + '.')
+      armRest ? I('k4r', 'Tank carry', 'Hold the Tidal Tank in front. 2 walks of 20 steps.')
               : I('k4', 'Med ball throws', 'Side throws into the net. 2 sets of ' + r(5) + ' each side.')] };
-    const bodyC = { name: 'Bodyweight', min: 10, items: [
-      I('z1', 'Squats', '2 sets of ' + r(8) + '.', { sq: 2 * r(8) }),
-      I('z2', 'Lunges', 'Step back. 2 sets of ' + r(5) + ' each leg.'),
-      I('z3', 'Push-ups', '2 sets of ' + r(5) + '.', { pu: 2 * r(5) }),
-      I('z4', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8) }),
-      I('z5', 'Plank', '2 holds of ' + hold + ' seconds.'),
-      I('z6', 'Big jumps', '5 big jumps. Stick every landing.')] };
+    const fill = t => t.replace('{8}', r(8)).replace('{5}', r(5)).replace('{hold}', hold);
+    const cPick = shuffle(BODY_C.slice(3), seed + 'c').slice(0, 3);
+    const bodyC = { name: 'Bodyweight', min: 10, items: BODY_C.slice(0, 3).concat(cPick).map(d => {
+      const x = Object.assign({}, d, { text: fill(d.text) });
+      if (d.r) { if (d.r.sq) x.sq = 2 * r(d.r.sq); if (d.r.pu) x.pu = 2 * r(d.r.pu); if (d.r.su) x.su = 2 * r(d.r.su); delete x.r; }
+      return x; }) };
+    const hitA = { name: 'Hitting', min: sum(a1), items: a1 }, hitB = { name: 'Hitting', min: sum(b1), items: b1 };
     return {
-      A: { title: 'Day 1', sub: 'Hitting + push-ups', min: 25, blocks: [warm, hit, bodyA, log] },
-      // In test week only Day 1 runs the tests; Day 2 is a normal contact practice so he is not maxing out twice.
-      B: { title: 'Day 2', sub: 'Hitting + Tidal Tank', min: 25, blocks: [warm, focus === 'baseline' ? { name: 'Hitting', min: 12, items: hitting('contact') } : hit, bodyB, log] },
+      A: { title: 'Day 1', sub: focus === 'baseline' ? 'Test day' : 'Hitting + Boss Battle', min: 3 + hitA.min + bodyA.min + 2, blocks: [warm(0), hitA, bodyA, log] },
+      // In test week only Day 1 runs the tests; Day 2 is a normal practice so he is not maxing out twice.
+      B: { title: 'Day 2', sub: armRest ? 'Hitting + glove work' : 'Hitting + pitching', min: 3 + mound.min + hitB.min + bodyB.min + 2, blocks: [warm(1), mound, hitB, bodyB, log] },
       C: { title: 'Day 3', sub: 'Bodyweight only', min: 10, blocks: [bodyC] }
     };
   }
+  const drillIds = session => session.blocks.flatMap(b => b.items).map(i => i.id);
 
   // What a finished session credits automatically.
   function sessionReps(session) {
@@ -338,6 +485,6 @@ const HubLogic = (() => {
   }
 
   return { parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
-    decideFocus, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
+    decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
