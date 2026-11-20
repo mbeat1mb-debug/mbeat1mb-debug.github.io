@@ -156,6 +156,9 @@ td input{width:84px}
 .facts span{font-size:15px;color:var(--mid)}
 .spark{width:100%;height:auto;display:block}
 .bar{height:14px;background:var(--grey)} .bar i{display:block;height:100%;background:var(--navy)}
+.ck{border-bottom:1px solid var(--rule);padding:10px 0;display:flex;flex-direction:column;gap:4px}
+.ckhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:19px}
+.ck p{margin:0}
 .entry{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--rule);padding:8px 0;font-size:17px}
 ol{margin:0;padding-left:22px}
 
@@ -451,7 +454,15 @@ const HubLogic = (() => {
     looking: { title: 'Strikeouts looking', drill: I('f1', 'Two-Strike Battle', 'Every machine pitch is strike two. Swing at strikes, foul off the tough ones. 10 pitches. Stay alive = 1 point.', { min: 4, sw: 10, pts: 'Stay alive = 1', max: 10 }) },
     grounders: { title: 'Lots of ground-ball outs', drill: I('f2', 'Barrier Tee', 'Bucket just in front of the tee. Hit line drives over it. 10 swings. Clean line drive = 2 points.', { min: 4, sw: 10, pts: 'Clean liner = 2', max: 20 }) },
     flies: { title: 'Lots of fly and pop outs', drill: I('f3', 'Low Tee Liners', 'Tee at the knees. Hit the top half of the ball. 10 swings. Line drive or hard grounder = 1 point.', { min: 3, sw: 10, pts: 'Liner or hard grounder = 1', max: 10 }) },
-    whiffs: { title: 'Lots of strikeouts swinging', drill: I('f4', 'Short Bat Hands', 'Choke up 3 inches. 10 machine pitches. Short swing, just hit it. Contact = 1 point.', { min: 3, count: 10, sw: 10, pts: 'Contact = 1', max: 10 }) }
+    whiffs: { title: 'Lots of strikeouts swinging', drill: I('f4', 'Short Bat Hands', 'Choke up 3 inches. 10 machine pitches. Short swing, just hit it. Contact = 1 point.', { min: 3, count: 10, sw: 10, pts: 'Contact = 1', max: 10 }) },
+    // From the swing reader in the Film room.
+    head: { title: 'Head drifting toward the pitcher', drill: I('f5', 'Quiet Head', 'Tee. Dad holds a glove just in front of your face, toward the pitcher. Swing without your head touching it. 10 swings. No touch = 1 point.', { min: 3, sw: 10, pts: 'No touch = 1', max: 10 }) },
+    drop: { title: 'Head dropping during the swing', drill: I('f5', 'Quiet Head', 'Tee. Dad holds a glove just above your head. Swing without your head moving away from it. 10 swings. Eyes level = 1 point.', { min: 3, sw: 10, pts: 'Eyes level = 1', max: 10 }) },
+    stride: { title: 'Stride too long', drill: I('f6', 'Tape Stride', 'Dad puts a strip of tape where a good stride lands. Step to the tape, not past it. 10 tee swings. On the tape = 1 point.', { min: 3, sw: 10, pts: 'On the tape = 1', max: 10 }) },
+    foot: { title: 'Front foot down late', drill: I('f7', 'Foot Down First', 'Machine. Get your front foot down by the time the ball comes out. Dad says "late" if it is not. 10 pitches. On time = 1 point.', { min: 4, sw: 10, pts: 'Foot on time = 1', max: 10 }) },
+    seq: { title: 'Shoulders turning before the hips', drill: I('f8', 'Hips First', 'No ball. Step, turn your back hip hard while your chest stays closed, then let the bat come. 8 swings. Then 5 tee swings the same way.', { min: 3, sw: 13 }) },
+    leg: { title: 'Front leg soft at contact', drill: I('f9', 'Firm Front Leg', 'Tee. Land, then push your front leg straight as you turn, like stepping on the brakes. Freeze at contact for 2 seconds. 8 swings.', { min: 3, sw: 8 }) },
+    balance: { title: 'Falling forward at the finish', drill: I('f10', 'Hold Your Finish', 'Tee. Hold your finish for 3 seconds after every swing without stepping. 10 swings. Wobble-free = 1 point.', { min: 3, sw: 10, pts: 'Wobble-free = 1', max: 10 }) }
   };
   const WARMUPS = [
     I('w1', 'Warm up', '10 arm circles each way, 10 leg swings each leg, 10 easy swings with no ball.'),
@@ -501,6 +512,11 @@ const HubLogic = (() => {
     const swingK = withKL.length ? k - kl : null;
     if (ab >= 8 && swingK != null && swingK / ab >= 0.25) out.push({ id: 'whiffs', why: swingK + ' swinging strikeouts in ' + ab + ' at-bats (' + Math.round(swingK / ab * 100) + '%).', weight: swingK / ab });
     else if (ab >= 8 && !withKL.length && allK / ab >= 0.3) out.push({ id: 'whiffs', why: allK + ' strikeouts in ' + ab + ' at-bats (' + Math.round(allK / ab * 100) + '%).', weight: allK / ab });
+    // Latest side-view swing video from the last 2 weeks: its first problem becomes a target too.
+    const vid = entries.filter(e => e.kind === 'analysis' && e.swing && e.swing.ok && Array.isArray(e.swing.faults) && e.date > addDays(today, -14) && e.date <= today).sort(byDate).pop();
+    const vf = vid && vid.swing.faults.find(id => FIXES[id]);
+    if (vf) { const ck = (vid.swing.checks || []).find(c => c.id === vf) || {};
+      out.push({ id: vf, why: 'Swing video on ' + vid.date.slice(5).replace('-', '/') + ': ' + String(ck.label || FIXES[vf].title).toLowerCase() + ' was ' + String(ck.value || 'off').replace(/^./, c => c.toLowerCase()) + ' (target: ' + String(ck.target || 'see Film room').toLowerCase() + ').', weight: 0.7, video: true }); }
     return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: FIXES[x.id].title }, x));
   }
   // Weekly boss: rotates speed, machine round, Dad duel. The target comes from his own records.
@@ -678,6 +694,161 @@ const HubLogic = (() => {
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
+
+</script>
+<script>
+/* Swing reader: turns body positions from a side-view swing video into checks, grades and fixes.
+   Pure math, no page code, so it can be tested on its own. Landmark numbers follow the body-tracking model:
+   0 nose, 11/12 shoulders, 23/24 hips, 25/26 knees, 27/28 ankles. Positions are in pixels, y grows downward. */
+const HubSwing = (function () {
+  const NOSE = 0, SH = [11, 12], HIP = [23, 24], KNEE = [25, 26], ANK = [27, 28];
+  const SAMPLES_PER_SEC = 30, BEFORE = 1.2, AFTER = 0.3;   // real-time seconds around contact
+  const NOSE_TO_ANKLE = 0.87;   // share of standing height between nose and ankle (adult body proportions; an estimate for a child)
+  const ok = p => p && isFinite(p.x) && isFinite(p.y) && (p.v == null || p.v >= 0.5);
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, v: Math.min(a.v == null ? 1 : a.v, b.v == null ? 1 : b.v) });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  function angle(a, b, c) {   // angle at b, degrees
+    const v1 = { x: a.x - b.x, y: a.y - b.y }, v2 = { x: c.x - b.x, y: c.y - b.y };
+    const d = Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y); if (!d) return null;
+    return Math.acos(Math.max(-1, Math.min(1, (v1.x * v2.x + v1.y * v2.y) / d))) * 180 / Math.PI;
+  }
+  const median = a => { const s = a.filter(isFinite).sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
+
+  // Video times to sample: 1.2 s before contact to 0.3 s after, 30 per real second, stretched by the slow-motion factor.
+  function sampleTimes(contact, speed, duration) {
+    const sp = speed > 0 ? speed : 1, step = sp / SAMPLES_PER_SEC, out = [];
+    for (let k = -Math.round(BEFORE * SAMPLES_PER_SEC); k <= Math.round(AFTER * SAMPLES_PER_SEC); k++) {
+      const t = contact + k * step; if (t >= 0 && (duration == null || t <= duration)) out.push({ k, t });
+    }
+    return out;
+  }
+  // Fill single-frame gaps and smooth jitter with a 3-frame median per coordinate.
+  function clean(frames) {
+    const n = frames.length, out = [];
+    for (let i = 0; i < n; i++) {
+      const f = frames[i]; if (!f) { out.push(null); continue; }
+      const pts = f.map((p, j) => {
+        const near = [frames[i - 1], f, frames[i + 1]].filter(Boolean).map(g => g[j]).filter(ok);
+        if (!near.length) return p;
+        return { x: median(near.map(q => q.x)), y: median(near.map(q => q.y)), v: p ? p.v : 0 };
+      });
+      out.push(pts);
+    }
+    return out;
+  }
+  const RESEARCH = {
+    stride: 'Teen hitters in a lab study strode about 47% of their height (Escamilla and others, 2009). Strides vary a lot by style, so only very long strides are flagged.',
+    head: 'College hitters off a tee moved the head about 4.5 cm back and 4.4 cm down on average (Haag, 2017). Drifting toward the pitcher is the lunge to avoid.',
+    foot: 'Teen hitters took about 0.51 s from front foot up to contact, 0.29 s of it striding (Escamilla and others, 2009), leaving roughly 0.2 s with the foot down before contact.',
+    seq: 'Swings build speed from the ground up: hips turn, then shoulders, then arms. In teen hitters the hips and chest peaked almost together (Escamilla and others, 2009), so only shoulders clearly leading is flagged.',
+    leg: 'At contact, teen hitters had the front knee bent about 15 degrees, so the leg was close to straight (Escamilla and others, 2009). A firm front leg helps turn force into bat speed (Orishimo and others, 2023).',
+    balance: 'Coaching check, not a research number: at the finish his head should sit over his feet, not past the front foot.'
+  };
+  const FIX = {
+    head: { area: 'contact', title: 'Head drifting toward the pitcher', drill: 'f5' },
+    drop: { area: 'contact', title: 'Head dropping during the swing', drill: 'f5' },
+    stride: { area: 'timing', title: 'Stride too long', drill: 'f6' },
+    foot: { area: 'timing', title: 'Front foot down late', drill: 'f7' },
+    seq: { area: 'speed', title: 'Shoulders turning before the hips', drill: 'f8' },
+    leg: { area: 'speed', title: 'Front leg soft at contact', drill: 'f9' },
+    balance: { area: 'path', title: 'Falling forward at the finish', drill: 'f10' }
+  };
+
+  /* frames: array of 33-point pose arrays (or null), one per sample; times: matching sample list from sampleTimes;
+     contactIdx: index of the contact sample; speed: slow-motion factor. */
+  function analyze(frames, times, contactIdx, speed) {
+    const sp = speed > 0 ? speed : 1, f = clean(frames), n = f.length;
+    const seen = f.filter(Boolean).length, quality = { frames: n, found: seen };
+    const fail = why => ({ ok: false, why, quality, checks: [], faults: [] });
+    if (n < 15 || seen < n * 0.7) return fail('He was not found clearly enough in the video. Film from the side with his whole body in the picture.');
+    const c = Math.max(0, Math.min(n - 1, contactIdx));
+    if (!f[c]) return fail('He was not found at the contact frame.');
+    const realT = i => (times[i].t - times[c].t) / sp;   // seconds relative to contact, real time
+    const first = f.findIndex(Boolean), stanceIdx = [];
+    for (let i = first; i < n && stanceIdx.length < 5; i++) if (f[i]) stanceIdx.push(i);
+    const S = j => ({ x: median(stanceIdx.map(i => f[i][j].x)), y: median(stanceIdx.map(i => f[i][j].y)) });
+    const ankY = (S(ANK[0]).y + S(ANK[1]).y) / 2, H = Math.abs(ankY - S(NOSE).y) / NOSE_TO_ANKLE;
+    if (!(H > 40)) return fail('He is too small in the picture. Move the camera closer so he fills most of the height.');
+    // Front foot = the ankle that travels farthest by contact. Its direction points to the pitcher.
+    const dx = ANK.map(j => f[c][j].x - S(j).x), front = Math.abs(dx[0]) >= Math.abs(dx[1]) ? 0 : 1;
+    // Direction to the pitcher is only trusted when there is a real stride (5% of height or more) and the foot is clearly seen.
+    const FA = ANK[front], strideRaw = dx[front], dir = Math.abs(strideRaw) >= 0.05 * H && ok(f[c][FA]) ? Math.sign(strideRaw) : null;
+    const checks = [], faults = [];
+    const add = (id, label, status, value, target, note) => { checks.push({ id, label, status, value, target, note, research: RESEARCH[id === 'drop' ? 'head' : id] }); if (status === 'work') faults.push(id); };
+    const pct = x => Math.round(x * 100);
+
+    // Foot plant: first sample where the front ankle sits within 2% of height of where it is at contact, and stays there.
+    let plant = null;
+    if (dir) { for (let i = c; i >= first; i--) { if (!f[i]) continue; if (Math.abs(f[i][FA].x - f[c][FA].x) < 0.02 * H && Math.abs(f[i][FA].y - f[c][FA].y) < 0.03 * H) plant = i; else break; } }
+
+    // 1. Stride length
+    if (dir && ok(f[c][FA])) {
+      const s = Math.abs(strideRaw) / H;
+      add('stride', 'Stride length', s > 0.6 ? 'work' : 'good', pct(s) + '% of height', 'Up to 60% of height', s > 0.6 ? 'Long stride. Overstriding drops the head and makes him late.' : s < 0.15 ? 'Short or no stride. Fine if he is on time.' : 'Good stride.');
+    } else add('stride', 'Stride length', 'info', 'No stride seen', 'Up to 60% of height', 'No stride, or a toe tap. Fine if he is on time. Without a stride the reader cannot tell which way the pitcher is, so head, foot, leg and finish checks are skipped.');
+
+    // 2. Head movement from stance to contact
+    const hx = (f[c][NOSE].x - S(NOSE).x) * (dir || 0) / H, hy = (f[c][NOSE].y - S(NOSE).y) / H;
+    if (ok(f[c][NOSE]) && dir) {
+      const st = hx > 0.10 ? 'work' : hx > 0.05 ? 'watch' : 'good';
+      add('head', 'Head toward the pitcher', st, pct(Math.max(0, hx)) + '% of height', 'Under 5% of height', st === 'good' ? 'Head stayed back. Good.' : 'His head slid toward the pitcher. That is a lunge, and it makes it hard to see the ball.');
+    }
+    if (ok(f[c][NOSE])) {
+      const st = hy > 0.08 ? 'work' : hy > 0.05 ? 'watch' : 'good';
+      add('drop', 'Head drop', st, pct(Math.max(0, hy)) + '% of height', 'Under 5% of height', st === 'good' ? 'Eyes stayed level.' : 'His head dropped a lot, so his eyes changed level during the pitch.');
+    }
+
+    // 3. Front foot down before contact
+    if (plant != null) {
+      const ms = Math.round(-realT(plant) * 1000), st = ms >= 120 ? 'good' : ms >= 60 ? 'watch' : 'work';
+      add('foot', 'Front foot down before contact', st, ms + ' ms', 'About 120 ms or more', st === 'good' ? 'Foot was down early. On time.' : 'His foot landed just before contact, so he was rushing. Get it down earlier.');
+    } else if (dir) add('foot', 'Front foot down before contact', 'unsure', 'Not clear', 'About 120 ms or more', 'The front foot was still moving at contact or could not be tracked.');
+
+    // 4. Hips before shoulders: when each starts to turn (side view looks narrower as he turns to the pitcher).
+    const wid = (i, J) => f[i] && ok(f[i][J[0]]) && ok(f[i][J[1]]) ? Math.abs(f[i][J[0]].x - f[i][J[1]].x) : null;
+    const base = J => median(stanceIdx.map(i => wid(i, J)));
+    const onset = J => { const b = base(J); if (!b) return null; const from = plant != null ? Math.max(first, plant - Math.round(0.3 * SAMPLES_PER_SEC)) : first;
+      for (let i = from; i <= c; i++) { const w = wid(i, J); if (w != null && w < 0.85 * b) return i; } return null; };
+    const oh = onset(HIP), os = onset(SH);
+    if (oh != null && os != null) {
+      const gap = Math.round((realT(os) - realT(oh)) * 1000), st = gap >= -1000 / SAMPLES_PER_SEC ? 'good' : gap >= -40 ? 'watch' : 'work';
+      add('seq', 'Hips turn before shoulders', st, gap >= 0 ? 'Hips first by ' + gap + ' ms' : 'Shoulders first by ' + (-gap) + ' ms', 'Hips first or together', st === 'good' ? 'Hips led the swing. Good.' : 'His shoulders started turning before his hips, so he swings with his upper body.');
+    } else add('seq', 'Hips turn before shoulders', 'unsure', 'Not clear', 'Hips first or together', 'The turn was not clear from this angle. Film straight from the side.');
+
+    // 5. Front leg at contact
+    const fk = angle(f[c][HIP[front]], f[c][KNEE[front]], f[c][FA]);
+    if (fk != null && ok(f[c][KNEE[front]]) && ok(f[c][HIP[front]]) && dir) {
+      const st = fk >= 150 ? 'good' : fk >= 135 ? 'watch' : 'work';
+      add('leg', 'Front leg firm at contact', st, Math.round(fk) + ' degrees', '150 degrees or straighter', st === 'good' ? 'Front leg firm. Good.' : 'His front knee was still bent at contact, which leaks power.');
+    }
+
+    // 6. Balance at the finish (last sample)
+    const L = f[n - 1] ? n - 1 : f.map(Boolean).lastIndexOf(true);
+    if (L > c && dir && ok(f[L][NOSE]) && ok(f[L][ANK[0]]) && ok(f[L][ANK[1]])) {
+      const lead = Math.max(f[L][ANK[0]].x * dir, f[L][ANK[1]].x * dir), past = (f[L][NOSE].x * dir - lead) / H;
+      const st = past > 0.05 ? 'work' : 'good';
+      add('balance', 'Balanced finish', st, st === 'good' ? 'Over his feet' : pct(past) + '% of height past his front foot', 'Head over his feet', st === 'good' ? 'Balanced finish.' : 'He fell toward the pitcher after the swing.');
+    }
+
+    const order = ['head', 'foot', 'seq', 'leg', 'drop', 'stride', 'balance'];
+    faults.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const top = faults[0] ? FIX[faults[0]] : null;
+    return { ok: true, v: 1, quality, H: Math.round(H), front: front === 0 ? 'left' : 'right', checks, faults,
+      top: top ? { id: faults[0], title: top.title, area: top.area, drill: top.drill } : null,
+      events: { plant: plant != null ? Math.round(realT(plant) * 1000) : null, hips: oh != null ? Math.round(realT(oh) * 1000) : null, shoulders: os != null ? Math.round(realT(os) * 1000) : null } };
+  }
+
+  // Compare one check with his earlier side-view swings (newest first). Returns the earlier average and how many.
+  const num = s => { const m = /(-?[\d.]+)/.exec(String(s)); return m ? parseFloat(m[1]) : null; };
+  function trend(id, earlier) {
+    const vals = []; for (const r of earlier) { const ck = r && r.checks && r.checks.find(x => x.id === id); if (ck && ck.status !== 'unsure' && ck.status !== 'info') { const v = num(ck.value); if (v != null) vals.push(ck.value.indexOf('Shoulders first') === 0 ? -v : v); } if (vals.length >= 5) break; }
+    return vals.length ? { avg: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length), n: vals.length } : null;
+  }
+  // Skeleton lines for drawing over a frame.
+  const BONES = [[11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [11, 13], [13, 15], [12, 14], [14, 16], [0, 11], [0, 12]];
+  return { sampleTimes, clean, analyze, trend, angle, FIX, RESEARCH, BONES, SAMPLES_PER_SEC, BEFORE, AFTER, num };
+})();
+if (typeof module !== 'undefined') module.exports = HubSwing;
 
 </script>
 <script>
@@ -1087,24 +1258,76 @@ function grab(v, maxSide) {
   c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); return c;
 }
 const toBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
+/* ---------- Swing reader: body tracking runs on this device; the video never leaves it ---------- */
+let poseEngine = null;
+function loadPose() {
+  if (poseEngine) return poseEngine;
+  poseEngine = new Promise((res, rej) => {
+    const go = async () => {
+      try {
+        const p = new window.Pose({ locateFile: f => 'pose/' + f });
+        p.setOptions({ modelComplexity: 1, smoothLandmarks: false, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        let want = null; p.onResults(r => { if (want) { const w = want; want = null; w(r.poseLandmarks || null); } });
+        await p.initialize();
+        res({ reset: () => p.reset(), read: c => new Promise((ok, bad) => { want = ok; p.send({ image: c }).catch(bad); setTimeout(() => { if (want === ok) { want = null; ok(null); } }, 15000); }) });
+      } catch (e) { poseEngine = null; rej(e); }
+    };
+    if (window.Pose) return go();
+    const sc = document.createElement('script'); sc.src = 'pose/pose.js'; sc.onload = go; sc.onerror = () => { poseEngine = null; rej(new Error('engine')); };
+    document.head.appendChild(sc);
+  });
+  return poseEngine;
+}
+async function readSwing(v, contact, speed) {
+  const eng = await loadPose(); eng.reset();
+  const times = HubSwing.sampleTimes(contact, speed, v.duration), frames = [], c = times.findIndex(x => x.k === 0);
+  let cw = 0, ch = 0;
+  for (let i = 0; i < times.length; i++) {
+    film.step = 'Reading his swing: frame ' + (i + 1) + ' of ' + times.length + '...'; renderFilmStatus();
+    await seekTo(v, times[i].t); const cv = grab(v, 480); cw = cv.width; ch = cv.height;
+    const lm = await eng.read(cv);
+    frames.push(lm ? lm.map(q => ({ x: q.x * cv.width, y: q.y * cv.height, v: q.visibility == null ? 1 : q.visibility })) : null);
+  }
+  const res = HubSwing.analyze(frames, times, c, speed);
+  return { res, frames, times, w: cw, h: ch };
+}
+// Draw his skeleton on a filmstrip frame using the nearest tracked frame.
+function drawBones(cv, read, offReal) {
+  const i = read.times.reduce((b, x, j) => Math.abs(x.k / HubSwing.SAMPLES_PER_SEC - offReal) < Math.abs(read.times[b].k / HubSwing.SAMPLES_PER_SEC - offReal) ? j : b, 0);
+  const pts = read.frames[i]; if (!pts) return;
+  const g = cv.getContext('2d'), sx = cv.width / read.w, sy = cv.height / read.h;
+  g.lineWidth = Math.max(2, cv.width / 90); g.strokeStyle = 'rgba(255,214,0,0.95)'; g.lineCap = 'round';
+  for (const [a, b] of HubSwing.BONES) { const A = pts[a], B = pts[b]; if (!A || !B || A.v < 0.5 || B.v < 0.5) continue;
+    g.beginPath(); g.moveTo(A.x * sx, A.y * sy); g.lineTo(B.x * sx, B.y * sy); g.stroke(); }
+}
 async function saveStrip() {
   const v = film.video;
   if (!v || !film.ready || film.busy) return;
   const contact = v.currentTime, speed = parseFloat(state.form.k_speed || '1') || 1, tag = state.form.k_tag || 'practice', view = state.form.k_view || 'side';
   film.busy = true; film.msg = ''; film.step = 'Pulling 8 frames from the video...'; render();
-  let thumbs;
+  let cvs, read = null, readErr = '';
   try {
-    thumbs = [];
-    for (const off of FRAME_OFFSETS) { await seekTo(v, contact + off * speed); thumbs.push(grab(v, 300).toDataURL('image/jpeg', 0.6)); }
-    await seekTo(v, contact);
-  } catch (e) { thumbs = null; }
+    cvs = [];
+    for (const off of FRAME_OFFSETS) { await seekTo(v, contact + off * speed); cvs.push(grab(v, 300)); }
+  } catch (e) { cvs = null; }
+  if (cvs && view === 'side') {
+    film.step = 'Loading the swing reader (the first time takes a little while)...'; renderFilmStatus();
+    try { read = await readSwing(v, contact, speed); if (read.res.ok) cvs.forEach((cv, k) => drawBones(cv, read, FRAME_OFFSETS[k])); }
+    catch (e) { read = null; readErr = 'The swing reader could not start on this device, so only the frames were saved.'; }
+  }
+  try { await seekTo(v, contact); } catch (e) {}
+  const thumbs = cvs ? cvs.map(cv => cv.toDataURL('image/jpeg', 0.6)) : null;
   film.busy = false; film.step = '';
   if (!thumbs) { film.msg = 'The frames could not be pulled from this video. Try a shorter clip in the standard camera format.'; state.dirty = false; return render(); }
-  const area = ['contact', 'path', 'timing', 'speed'].indexOf(state.form.k_area) >= 0 ? state.form.k_area : 'none';
+  const sw = read ? read.res : null;
+  let area = ['contact', 'path', 'timing', 'speed'].indexOf(state.form.k_area) >= 0 ? state.form.k_area : 'none';
+  let note = String(state.form.k_note || '').trim().slice(0, 120);
+  if (sw && sw.ok && sw.top) { if (area === 'none') area = sw.top.area; if (!note) note = sw.top.title + ' (swing reader)'; }
   const entry = { kind: 'analysis', date: state.form.k_date || today(), tag, view, speed, contactAt: Math.round(contact * 100) / 100,
-    fix: { title: String(state.form.k_note || '').trim().slice(0, 120) }, fixArea: area, thumbs };
+    fix: { title: note }, fixArea: area, thumbs };
+  if (sw) entry.swing = sw.ok ? { ok: true, v: sw.v, checks: sw.checks, faults: sw.faults, top: sw.top, quality: sw.quality, front: sw.front } : { ok: false, why: sw.why, quality: sw.quality };
   if (await addEntry(entry)) {
-    state.openCheck = null; film.msg = 'Filmstrip saved.'; clear('k_note', 'k_area');
+    state.openCheck = null; film.msg = readErr || (sw && !sw.ok ? 'Filmstrip saved. Swing reader: ' + sw.why : 'Filmstrip saved.'); clear('k_note', 'k_area');
     if (film.url) URL.revokeObjectURL(film.url); film.video = null; film.file = null; film.url = null; film.ready = false;
   }
   state.dirty = false; render();
@@ -1118,7 +1341,29 @@ function showCheck(e) {
     th.length ? h('div', { class: 'strip8' }, th.map((u, k) => { const i = idx[k]; return h('div', { class: 'fr' + (i === 5 ? ' hit' : '') },
       h('img', { src: u, alt: FRAME_NAMES[i] + ' frame', loading: 'lazy' }), h('b', null, FRAME_NAMES[i])); }))
       : h('p', { class: 'small mid' }, m ? 'No frames were saved for this swing.' : 'Loading the frames...'),
+    swingReport(e),
     h('div', { class: 'stack' }, h('h3', null, "Coach's note"), h('p', { class: 'say' }, note || 'No note yet.'), area ? h('p', { class: 'mid' }, 'Points to: ' + area.name) : null)];
+}
+const MARK = { good: ['ok', 'Good'], watch: ['wait', 'Watch'], work: ['stop', 'Work on it'], unsure: ['', 'Not clear'], info: ['', 'Info'] };
+function swingReport(e) {
+  const sw = e.swing;
+  if (!sw) return e.view === 'side' || !e.view ? null : h('p', { class: 'small mid' }, 'Not graded: the swing reader needs a side-view video.');
+  if (!sw.ok) return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'), h('p', { class: 'note' }, str(sw.why, 200)));
+  const earlier = checks().filter(x => x.id !== e.id && x.swing && x.swing.ok && x.date <= e.date).map(x => x.swing);
+  const rows = (sw.checks || []).map(ck => {
+    const m = MARK[ck.status] || MARK.info, tr = HubSwing.trend(ck.id, earlier), fx = sw.faults.indexOf(ck.id) >= 0 && L.FIXES[ck.id] ? L.FIXES[ck.id].drill : null;
+    return h('div', { class: 'ck' },
+      h('div', { class: 'ckhead' }, h('b', null, str(ck.label, 60)), h('span', { class: 'status ' + m[0] }, m[1])),
+      h('p', { class: 'num' }, str(ck.value, 60) + '  (target: ' + str(ck.target, 60).toLowerCase() + ')' + (tr ? '. His last ' + tr.n + (tr.n === 1 ? ' swing: ' : ' swings average: ') + (ck.id === 'seq' ? (tr.avg >= 0 ? 'hips first by ' + tr.avg + ' ms' : 'shoulders first by ' + (-tr.avg) + ' ms') : tr.avg + (/degrees/.test(ck.value) ? ' degrees' : / ms/.test(ck.value) ? ' ms' : '%')) : '')),
+      h('p', { class: 'small' }, str(ck.note, 200)),
+      fx ? h('p', { class: 'small' }, h('b', null, 'Fix-it drill: ' + fx.title + '. '), fx.text) : null,
+      h('details', null, h('summary', { class: 'small mid' }, 'Why this matters'), h('p', { class: 'small mid' }, str(ck.research, 400))));
+  });
+  const nWork = sw.faults.length;
+  return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'),
+    h('p', { class: 'say' }, nWork ? 'Top thing to fix: ' + str(sw.top && sw.top.title, 80) + '.' : 'No problems flagged on this swing.'),
+    rows,
+    h('p', { class: 'small mid' }, 'Read from ' + sw.quality.found + ' of ' + sw.quality.frames + ' frames of one camera, so numbers are estimates (a few percent or degrees either way). Height is estimated from the video. Film straight from the side, whole body in view, steady camera.'));
 }
 function compare(all) {
   if (all.length < 2) return null;
@@ -1163,7 +1408,8 @@ function viewFilm() {
         h('p', { id: 'film-step', class: 'status wait', role: 'status' }, film.step)]
         : film.needTap ? h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { const pr = v.play(); if (pr && pr.catch) pr.catch(() => { film.msg = 'This video could not be opened here. Try a shorter clip.'; render(); }); } }, 'Tap to load the video'))
         : h('p', { class: 'mid' }, 'Loading the video...')] : null,
-    film.msg ? h('p', { class: film.msg === 'Filmstrip saved.' ? 'status ok' : 'note' }, film.msg) : null);
+    film.msg ? h('p', { class: film.msg === 'Filmstrip saved.' ? 'status ok' : 'note' }, film.msg) : null,
+    v && film.ready && (state.form.k_view || 'side') !== 'side' ? h('p', { class: 'small mid' }, 'The swing reader only grades side-view videos. Other angles save frames only.') : null);
   return page(strip('Film room', 'Freeze a swing into 8 frames, add a note, and compare it with other swings.'),
     open ? h('section', { class: 'sec plain' }, h('div', { class: 'row between' }, h('h2', null, (open === all[0] ? 'Latest swing' : 'Swing') + ', ' + fmtDate(open.date)),
         h('span', { class: 'status ' + (open.tag === 'game' ? 'wait' : 'ok') }, open.tag === 'game' ? 'Game swing' : 'Practice swing')), showCheck(open)) : null,

@@ -404,24 +404,76 @@ function grab(v, maxSide) {
   c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); return c;
 }
 const toBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
+/* ---------- Swing reader: body tracking runs on this device; the video never leaves it ---------- */
+let poseEngine = null;
+function loadPose() {
+  if (poseEngine) return poseEngine;
+  poseEngine = new Promise((res, rej) => {
+    const go = async () => {
+      try {
+        const p = new window.Pose({ locateFile: f => 'pose/' + f });
+        p.setOptions({ modelComplexity: 1, smoothLandmarks: false, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        let want = null; p.onResults(r => { if (want) { const w = want; want = null; w(r.poseLandmarks || null); } });
+        await p.initialize();
+        res({ reset: () => p.reset(), read: c => new Promise((ok, bad) => { want = ok; p.send({ image: c }).catch(bad); setTimeout(() => { if (want === ok) { want = null; ok(null); } }, 15000); }) });
+      } catch (e) { poseEngine = null; rej(e); }
+    };
+    if (window.Pose) return go();
+    const sc = document.createElement('script'); sc.src = 'pose/pose.js'; sc.onload = go; sc.onerror = () => { poseEngine = null; rej(new Error('engine')); };
+    document.head.appendChild(sc);
+  });
+  return poseEngine;
+}
+async function readSwing(v, contact, speed) {
+  const eng = await loadPose(); eng.reset();
+  const times = HubSwing.sampleTimes(contact, speed, v.duration), frames = [], c = times.findIndex(x => x.k === 0);
+  let cw = 0, ch = 0;
+  for (let i = 0; i < times.length; i++) {
+    film.step = 'Reading his swing: frame ' + (i + 1) + ' of ' + times.length + '...'; renderFilmStatus();
+    await seekTo(v, times[i].t); const cv = grab(v, 480); cw = cv.width; ch = cv.height;
+    const lm = await eng.read(cv);
+    frames.push(lm ? lm.map(q => ({ x: q.x * cv.width, y: q.y * cv.height, v: q.visibility == null ? 1 : q.visibility })) : null);
+  }
+  const res = HubSwing.analyze(frames, times, c, speed);
+  return { res, frames, times, w: cw, h: ch };
+}
+// Draw his skeleton on a filmstrip frame using the nearest tracked frame.
+function drawBones(cv, read, offReal) {
+  const i = read.times.reduce((b, x, j) => Math.abs(x.k / HubSwing.SAMPLES_PER_SEC - offReal) < Math.abs(read.times[b].k / HubSwing.SAMPLES_PER_SEC - offReal) ? j : b, 0);
+  const pts = read.frames[i]; if (!pts) return;
+  const g = cv.getContext('2d'), sx = cv.width / read.w, sy = cv.height / read.h;
+  g.lineWidth = Math.max(2, cv.width / 90); g.strokeStyle = 'rgba(255,214,0,0.95)'; g.lineCap = 'round';
+  for (const [a, b] of HubSwing.BONES) { const A = pts[a], B = pts[b]; if (!A || !B || A.v < 0.5 || B.v < 0.5) continue;
+    g.beginPath(); g.moveTo(A.x * sx, A.y * sy); g.lineTo(B.x * sx, B.y * sy); g.stroke(); }
+}
 async function saveStrip() {
   const v = film.video;
   if (!v || !film.ready || film.busy) return;
   const contact = v.currentTime, speed = parseFloat(state.form.k_speed || '1') || 1, tag = state.form.k_tag || 'practice', view = state.form.k_view || 'side';
   film.busy = true; film.msg = ''; film.step = 'Pulling 8 frames from the video...'; render();
-  let thumbs;
+  let cvs, read = null, readErr = '';
   try {
-    thumbs = [];
-    for (const off of FRAME_OFFSETS) { await seekTo(v, contact + off * speed); thumbs.push(grab(v, 300).toDataURL('image/jpeg', 0.6)); }
-    await seekTo(v, contact);
-  } catch (e) { thumbs = null; }
+    cvs = [];
+    for (const off of FRAME_OFFSETS) { await seekTo(v, contact + off * speed); cvs.push(grab(v, 300)); }
+  } catch (e) { cvs = null; }
+  if (cvs && view === 'side') {
+    film.step = 'Loading the swing reader (the first time takes a little while)...'; renderFilmStatus();
+    try { read = await readSwing(v, contact, speed); if (read.res.ok) cvs.forEach((cv, k) => drawBones(cv, read, FRAME_OFFSETS[k])); }
+    catch (e) { read = null; readErr = 'The swing reader could not start on this device, so only the frames were saved.'; }
+  }
+  try { await seekTo(v, contact); } catch (e) {}
+  const thumbs = cvs ? cvs.map(cv => cv.toDataURL('image/jpeg', 0.6)) : null;
   film.busy = false; film.step = '';
   if (!thumbs) { film.msg = 'The frames could not be pulled from this video. Try a shorter clip in the standard camera format.'; state.dirty = false; return render(); }
-  const area = ['contact', 'path', 'timing', 'speed'].indexOf(state.form.k_area) >= 0 ? state.form.k_area : 'none';
+  const sw = read ? read.res : null;
+  let area = ['contact', 'path', 'timing', 'speed'].indexOf(state.form.k_area) >= 0 ? state.form.k_area : 'none';
+  let note = String(state.form.k_note || '').trim().slice(0, 120);
+  if (sw && sw.ok && sw.top) { if (area === 'none') area = sw.top.area; if (!note) note = sw.top.title + ' (swing reader)'; }
   const entry = { kind: 'analysis', date: state.form.k_date || today(), tag, view, speed, contactAt: Math.round(contact * 100) / 100,
-    fix: { title: String(state.form.k_note || '').trim().slice(0, 120) }, fixArea: area, thumbs };
+    fix: { title: note }, fixArea: area, thumbs };
+  if (sw) entry.swing = sw.ok ? { ok: true, v: sw.v, checks: sw.checks, faults: sw.faults, top: sw.top, quality: sw.quality, front: sw.front } : { ok: false, why: sw.why, quality: sw.quality };
   if (await addEntry(entry)) {
-    state.openCheck = null; film.msg = 'Filmstrip saved.'; clear('k_note', 'k_area');
+    state.openCheck = null; film.msg = readErr || (sw && !sw.ok ? 'Filmstrip saved. Swing reader: ' + sw.why : 'Filmstrip saved.'); clear('k_note', 'k_area');
     if (film.url) URL.revokeObjectURL(film.url); film.video = null; film.file = null; film.url = null; film.ready = false;
   }
   state.dirty = false; render();
@@ -435,7 +487,29 @@ function showCheck(e) {
     th.length ? h('div', { class: 'strip8' }, th.map((u, k) => { const i = idx[k]; return h('div', { class: 'fr' + (i === 5 ? ' hit' : '') },
       h('img', { src: u, alt: FRAME_NAMES[i] + ' frame', loading: 'lazy' }), h('b', null, FRAME_NAMES[i])); }))
       : h('p', { class: 'small mid' }, m ? 'No frames were saved for this swing.' : 'Loading the frames...'),
+    swingReport(e),
     h('div', { class: 'stack' }, h('h3', null, "Coach's note"), h('p', { class: 'say' }, note || 'No note yet.'), area ? h('p', { class: 'mid' }, 'Points to: ' + area.name) : null)];
+}
+const MARK = { good: ['ok', 'Good'], watch: ['wait', 'Watch'], work: ['stop', 'Work on it'], unsure: ['', 'Not clear'], info: ['', 'Info'] };
+function swingReport(e) {
+  const sw = e.swing;
+  if (!sw) return e.view === 'side' || !e.view ? null : h('p', { class: 'small mid' }, 'Not graded: the swing reader needs a side-view video.');
+  if (!sw.ok) return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'), h('p', { class: 'note' }, str(sw.why, 200)));
+  const earlier = checks().filter(x => x.id !== e.id && x.swing && x.swing.ok && x.date <= e.date).map(x => x.swing);
+  const rows = (sw.checks || []).map(ck => {
+    const m = MARK[ck.status] || MARK.info, tr = HubSwing.trend(ck.id, earlier), fx = sw.faults.indexOf(ck.id) >= 0 && L.FIXES[ck.id] ? L.FIXES[ck.id].drill : null;
+    return h('div', { class: 'ck' },
+      h('div', { class: 'ckhead' }, h('b', null, str(ck.label, 60)), h('span', { class: 'status ' + m[0] }, m[1])),
+      h('p', { class: 'num' }, str(ck.value, 60) + '  (target: ' + str(ck.target, 60).toLowerCase() + ')' + (tr ? '. His last ' + tr.n + (tr.n === 1 ? ' swing: ' : ' swings average: ') + (ck.id === 'seq' ? (tr.avg >= 0 ? 'hips first by ' + tr.avg + ' ms' : 'shoulders first by ' + (-tr.avg) + ' ms') : tr.avg + (/degrees/.test(ck.value) ? ' degrees' : / ms/.test(ck.value) ? ' ms' : '%')) : '')),
+      h('p', { class: 'small' }, str(ck.note, 200)),
+      fx ? h('p', { class: 'small' }, h('b', null, 'Fix-it drill: ' + fx.title + '. '), fx.text) : null,
+      h('details', null, h('summary', { class: 'small mid' }, 'Why this matters'), h('p', { class: 'small mid' }, str(ck.research, 400))));
+  });
+  const nWork = sw.faults.length;
+  return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'),
+    h('p', { class: 'say' }, nWork ? 'Top thing to fix: ' + str(sw.top && sw.top.title, 80) + '.' : 'No problems flagged on this swing.'),
+    rows,
+    h('p', { class: 'small mid' }, 'Read from ' + sw.quality.found + ' of ' + sw.quality.frames + ' frames of one camera, so numbers are estimates (a few percent or degrees either way). Height is estimated from the video. Film straight from the side, whole body in view, steady camera.'));
 }
 function compare(all) {
   if (all.length < 2) return null;
@@ -480,7 +554,8 @@ function viewFilm() {
         h('p', { id: 'film-step', class: 'status wait', role: 'status' }, film.step)]
         : film.needTap ? h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { const pr = v.play(); if (pr && pr.catch) pr.catch(() => { film.msg = 'This video could not be opened here. Try a shorter clip.'; render(); }); } }, 'Tap to load the video'))
         : h('p', { class: 'mid' }, 'Loading the video...')] : null,
-    film.msg ? h('p', { class: film.msg === 'Filmstrip saved.' ? 'status ok' : 'note' }, film.msg) : null);
+    film.msg ? h('p', { class: film.msg === 'Filmstrip saved.' ? 'status ok' : 'note' }, film.msg) : null,
+    v && film.ready && (state.form.k_view || 'side') !== 'side' ? h('p', { class: 'small mid' }, 'The swing reader only grades side-view videos. Other angles save frames only.') : null);
   return page(strip('Film room', 'Freeze a swing into 8 frames, add a note, and compare it with other swings.'),
     open ? h('section', { class: 'sec plain' }, h('div', { class: 'row between' }, h('h2', null, (open === all[0] ? 'Latest swing' : 'Swing') + ', ' + fmtDate(open.date)),
         h('span', { class: 'status ' + (open.tag === 'game' ? 'wait' : 'ok') }, open.tag === 'game' ? 'Game swing' : 'Practice swing')), showCheck(open)) : null,

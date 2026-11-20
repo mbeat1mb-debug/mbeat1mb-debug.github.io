@@ -261,7 +261,15 @@ const HubLogic = (() => {
     looking: { title: 'Strikeouts looking', drill: I('f1', 'Two-Strike Battle', 'Every machine pitch is strike two. Swing at strikes, foul off the tough ones. 10 pitches. Stay alive = 1 point.', { min: 4, sw: 10, pts: 'Stay alive = 1', max: 10 }) },
     grounders: { title: 'Lots of ground-ball outs', drill: I('f2', 'Barrier Tee', 'Bucket just in front of the tee. Hit line drives over it. 10 swings. Clean line drive = 2 points.', { min: 4, sw: 10, pts: 'Clean liner = 2', max: 20 }) },
     flies: { title: 'Lots of fly and pop outs', drill: I('f3', 'Low Tee Liners', 'Tee at the knees. Hit the top half of the ball. 10 swings. Line drive or hard grounder = 1 point.', { min: 3, sw: 10, pts: 'Liner or hard grounder = 1', max: 10 }) },
-    whiffs: { title: 'Lots of strikeouts swinging', drill: I('f4', 'Short Bat Hands', 'Choke up 3 inches. 10 machine pitches. Short swing, just hit it. Contact = 1 point.', { min: 3, count: 10, sw: 10, pts: 'Contact = 1', max: 10 }) }
+    whiffs: { title: 'Lots of strikeouts swinging', drill: I('f4', 'Short Bat Hands', 'Choke up 3 inches. 10 machine pitches. Short swing, just hit it. Contact = 1 point.', { min: 3, count: 10, sw: 10, pts: 'Contact = 1', max: 10 }) },
+    // From the swing reader in the Film room.
+    head: { title: 'Head drifting toward the pitcher', drill: I('f5', 'Quiet Head', 'Tee. Dad holds a glove just in front of your face, toward the pitcher. Swing without your head touching it. 10 swings. No touch = 1 point.', { min: 3, sw: 10, pts: 'No touch = 1', max: 10 }) },
+    drop: { title: 'Head dropping during the swing', drill: I('f5', 'Quiet Head', 'Tee. Dad holds a glove just above your head. Swing without your head moving away from it. 10 swings. Eyes level = 1 point.', { min: 3, sw: 10, pts: 'Eyes level = 1', max: 10 }) },
+    stride: { title: 'Stride too long', drill: I('f6', 'Tape Stride', 'Dad puts a strip of tape where a good stride lands. Step to the tape, not past it. 10 tee swings. On the tape = 1 point.', { min: 3, sw: 10, pts: 'On the tape = 1', max: 10 }) },
+    foot: { title: 'Front foot down late', drill: I('f7', 'Foot Down First', 'Machine. Get your front foot down by the time the ball comes out. Dad says "late" if it is not. 10 pitches. On time = 1 point.', { min: 4, sw: 10, pts: 'Foot on time = 1', max: 10 }) },
+    seq: { title: 'Shoulders turning before the hips', drill: I('f8', 'Hips First', 'No ball. Step, turn your back hip hard while your chest stays closed, then let the bat come. 8 swings. Then 5 tee swings the same way.', { min: 3, sw: 13 }) },
+    leg: { title: 'Front leg soft at contact', drill: I('f9', 'Firm Front Leg', 'Tee. Land, then push your front leg straight as you turn, like stepping on the brakes. Freeze at contact for 2 seconds. 8 swings.', { min: 3, sw: 8 }) },
+    balance: { title: 'Falling forward at the finish', drill: I('f10', 'Hold Your Finish', 'Tee. Hold your finish for 3 seconds after every swing without stepping. 10 swings. Wobble-free = 1 point.', { min: 3, sw: 10, pts: 'Wobble-free = 1', max: 10 }) }
   };
   const WARMUPS = [
     I('w1', 'Warm up', '10 arm circles each way, 10 leg swings each leg, 10 easy swings with no ball.'),
@@ -311,6 +319,11 @@ const HubLogic = (() => {
     const swingK = withKL.length ? k - kl : null;
     if (ab >= 8 && swingK != null && swingK / ab >= 0.25) out.push({ id: 'whiffs', why: swingK + ' swinging strikeouts in ' + ab + ' at-bats (' + Math.round(swingK / ab * 100) + '%).', weight: swingK / ab });
     else if (ab >= 8 && !withKL.length && allK / ab >= 0.3) out.push({ id: 'whiffs', why: allK + ' strikeouts in ' + ab + ' at-bats (' + Math.round(allK / ab * 100) + '%).', weight: allK / ab });
+    // Latest side-view swing video from the last 2 weeks: its first problem becomes a target too.
+    const vid = entries.filter(e => e.kind === 'analysis' && e.swing && e.swing.ok && Array.isArray(e.swing.faults) && e.date > addDays(today, -14) && e.date <= today).sort(byDate).pop();
+    const vf = vid && vid.swing.faults.find(id => FIXES[id]);
+    if (vf) { const ck = (vid.swing.checks || []).find(c => c.id === vf) || {};
+      out.push({ id: vf, why: 'Swing video on ' + vid.date.slice(5).replace('-', '/') + ': ' + String(ck.label || FIXES[vf].title).toLowerCase() + ' was ' + String(ck.value || 'off').replace(/^./, c => c.toLowerCase()) + ' (target: ' + String(ck.target || 'see Film room').toLowerCase() + ').', weight: 0.7, video: true }); }
     return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: FIXES[x.id].title }, x));
   }
   // Weekly boss: rotates speed, machine round, Dad duel. The target comes from his own records.
