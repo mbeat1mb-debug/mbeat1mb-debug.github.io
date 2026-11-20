@@ -413,9 +413,12 @@ function loadPose() {
       try {
         const p = new window.Pose({ locateFile: f => 'pose/' + f });
         p.setOptions({ modelComplexity: 1, smoothLandmarks: false, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-        let want = null; p.onResults(r => { if (want) { const w = want; want = null; w(r.poseLandmarks || null); } });
+        // One frame at a time; a late answer for an earlier frame that timed out is thrown away, not given to the next frame.
+        let want = null, ticket = 0, live = 0; p.onResults(r => { if (want && live === ticket) { const w = want; want = null; w(r.poseLandmarks || null); } });
         await p.initialize();
-        res({ reset: () => p.reset(), read: c => new Promise((ok, bad) => { want = ok; p.send({ image: c }).catch(bad); setTimeout(() => { if (want === ok) { want = null; ok(null); } }, 15000); }) });
+        res({ reset: () => p.reset(), read: c => new Promise((ok, bad) => { const me = ++ticket; live = me; want = ok;
+          p.send({ image: c }).then(() => { if (live === me && want === ok) { want = null; ok(null); } }).catch(bad);
+          setTimeout(() => { if (want === ok) { want = null; live = -1; ok(null); } }, 15000); }) });
       } catch (e) { poseEngine = null; rej(e); }
     };
     if (window.Pose) return go();

@@ -18,6 +18,7 @@ const HubSwing = (function () {
   // Video times to sample: 1.2 s before contact to 0.3 s after, 30 per real second, stretched by the slow-motion factor.
   function sampleTimes(contact, speed, duration) {
     const sp = speed > 0 ? speed : 1, step = sp / SAMPLES_PER_SEC, out = [];
+    if (!(duration > 0) || !isFinite(duration)) duration = null;
     for (let k = -Math.round(BEFORE * SAMPLES_PER_SEC); k <= Math.round(AFTER * SAMPLES_PER_SEC); k++) {
       const t = contact + k * step; if (t >= 0 && (duration == null || t <= duration)) out.push({ k, t });
     }
@@ -61,13 +62,17 @@ const HubSwing = (function () {
     const sp = speed > 0 ? speed : 1, f = clean(frames), n = f.length;
     const seen = f.filter(Boolean).length, quality = { frames: n, found: seen };
     const fail = why => ({ ok: false, why, quality, checks: [], faults: [] });
+    if (!(contactIdx >= 0 && contactIdx < n)) return fail('The contact moment could not be found in the video.');
+    const c = contactIdx;
+    if (-times[0].k / SAMPLES_PER_SEC < 0.7) return fail('The video starts too close to contact. Start filming at least 1 second before he swings.');
     if (n < 15 || seen < n * 0.7) return fail('He was not found clearly enough in the video. Film from the side with his whole body in the picture.');
-    const c = Math.max(0, Math.min(n - 1, contactIdx));
     if (!f[c]) return fail('He was not found at the contact frame.');
     const realT = i => (times[i].t - times[c].t) / sp;   // seconds relative to contact, real time
     const first = f.findIndex(Boolean), stanceIdx = [];
     for (let i = first; i < n && stanceIdx.length < 5; i++) if (f[i]) stanceIdx.push(i);
     const S = j => ({ x: median(stanceIdx.map(i => f[i][j].x)), y: median(stanceIdx.map(i => f[i][j].y)) });
+    const seenFeet = stanceIdx.filter(i => ok(f[i][ANK[0]]) && ok(f[i][ANK[1]]) && ok(f[i][NOSE])).length;
+    if (seenFeet < Math.ceil(stanceIdx.length / 2)) return fail('His head or feet were cut off or hidden at the start. Keep his whole body, head to feet, in the picture.');
     const ankY = (S(ANK[0]).y + S(ANK[1]).y) / 2, H = Math.abs(ankY - S(NOSE).y) / NOSE_TO_ANKLE;
     if (!(H > 40)) return fail('He is too small in the picture. Move the camera closer so he fills most of the height.');
     // Front foot = the ankle that travels farthest by contact. Its direction points to the pitcher.
