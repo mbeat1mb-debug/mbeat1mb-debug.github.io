@@ -440,6 +440,58 @@ async function readSwing(v, contact, speed) {
   const res = HubSwing.analyze(frames, times, c, speed);
   return { res, frames, times, w: cw, h: ch };
 }
+/* Find the contact moment for him: scan the whole clip and pick the frame where his hands move fastest
+   (the bat whips through the ball there). Returns the raw video time of contact — the same value the
+   scrub slider and Save filmstrip already use — plus how much of him was visible, so framing can be called out. */
+async function findContact(v) {
+  const eng = await loadPose(); eng.reset();
+  const dur = v.duration;
+  if (!(dur > 0) || !isFinite(dur)) throw new Error('duration');
+  const COUNT = Math.max(24, Math.min(48, Math.round(dur * 12)));
+  const pts = [];
+  for (let i = 0; i < COUNT; i++) {
+    film.step = 'Finding the swing: ' + (i + 1) + ' of ' + COUNT + '...'; renderFilmStatus();
+    await seekTo(v, dur * i / (COUNT - 1));
+    const cv = grab(v, 480), lm = await eng.read(cv);
+    let hand = null;
+    if (lm) {
+      const okp = p => p && (p.visibility == null || p.visibility >= 0.5);
+      const hands = [lm[15], lm[16]].filter(okp).map(p => ({ x: p.x * cv.width, y: p.y * cv.height }));
+      if (hands.length) hand = hands.length === 2 ? { x: (hands[0].x + hands[1].x) / 2, y: (hands[0].y + hands[1].y) / 2 } : hands[0];
+    }
+    pts.push({ t: dur * i / (COUNT - 1), hand });
+  }
+  let best = null, seen = 0;
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].hand) seen++;
+    const a = pts[i - 1].hand, b = pts[i].hand, dt = pts[i].t - pts[i - 1].t;
+    if (!a || !b || !(dt > 0)) continue;
+    const spd = Math.hypot(b.x - a.x, b.y - a.y) / dt;
+    if (!best || spd > best.spd) best = { spd, t: pts[i].t };
+  }
+  return { contact: best ? best.t : null, seen: seen / pts.length };
+}
+// "Find the swing" button: auto-detect contact so he does not have to scrub to the exact frame. The slider stays for nudging.
+async function findSwing() {
+  const v = film.video;
+  if (!v || !film.ready || film.busy) return;
+  film.busy = true; film.msg = ''; film.step = 'Loading the swing reader (the first time takes a little while)...'; render();
+  try {
+    const r = await findContact(v);
+    if (r.contact == null) {
+      film.msg = r.seen < 0.35
+        ? 'Could barely see him in this clip. Film from the side with his whole body, head to feet, in the picture, then try again.'
+        : 'Could not spot the swing. Make sure the clip shows the full swing, or slide to contact yourself below.';
+    } else {
+      await seekTo(v, r.contact);
+      film.msg = 'Found the swing — the slider is set to contact. Nudge it a frame either way if it looks off, then save the filmstrip.';
+    }
+  } catch (e) {
+    film.msg = 'The swing reader could not start on this device. Slide to contact yourself below.';
+  } finally {
+    film.busy = false; film.step = ''; render();
+  }
+}
 // Draw his skeleton on a filmstrip frame using the nearest tracked frame.
 function drawBones(cv, read, offReal) {
   const i = read.times.reduce((b, x, j) => Math.abs(x.k / HubSwing.SAMPLES_PER_SEC - offReal) < Math.abs(read.times[b].k / HubSwing.SAMPLES_PER_SEC - offReal) ? j : b, 0);
@@ -543,7 +595,8 @@ function viewFilm() {
       h('input', { id: 'film-file', type: 'file', accept: 'video/*', disabled: film.busy, onchange: e => loadFilm(e.target.files[0]) })),
     v ? [h('div', { class: 'stage' }, v),
       film.ready ? [
-        h('label', { class: 'fld', for: 'scrub' }, h('span', null, 'Slide to the moment the bat meets the ball. It works best with a second of video before that.'),
+        h('button', { type: 'button', class: 'btn big', disabled: film.busy, onclick: guard(findSwing) }, film.busy ? 'Working...' : 'Find the swing for me'),
+        h('label', { class: 'fld', for: 'scrub' }, h('span', null, 'Or slide to the moment the bat meets the ball. It works best with a second of video before that.'),
           h('input', { id: 'scrub', type: 'range', min: '0', max: String(v.duration || 0), step: '0.01', value: String(v.currentTime), disabled: film.busy, oninput: e => { v.currentTime = parseFloat(e.target.value); } })),
         h('div', { class: 'row' },
           h('button', { type: 'button', class: 'btn line sm', disabled: film.busy, onclick: () => { v.currentTime = Math.max(0, v.currentTime - 1 / 30); } }, 'Back one frame'),
