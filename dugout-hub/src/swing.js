@@ -2,7 +2,8 @@
    Pure math, no page code, so it can be tested on its own. Landmark numbers follow the body-tracking model:
    0 nose, 11/12 shoulders, 23/24 hips, 25/26 knees, 27/28 ankles. Positions are in pixels, y grows downward. */
 const HubSwing = (function () {
-  const NOSE = 0, SH = [11, 12], HIP = [23, 24], KNEE = [25, 26], ANK = [27, 28];
+  const NOSE = 0, SH = [11, 12], HIP = [23, 24], KNEE = [25, 26], ANK = [27, 28], WR = [15, 16];
+  const HANDS_GAP_MAX = 0.12, HANDS_TRAVEL_MIN = 0.20;   // share of his height; a batter's wrists sit about 4-6% apart and travel 40% or more
   const SAMPLES_PER_SEC = 30, BEFORE = 1.2, AFTER = 0.3;   // real-time seconds around contact
   const NOSE_TO_ANKLE = 0.87;   // share of standing height between nose and ankle (adult body proportions; an estimate for a child)
   const ok = p => p && isFinite(p.x) && isFinite(p.y) && (p.v == null || p.v >= 0.5);
@@ -75,6 +76,14 @@ const HubSwing = (function () {
     if (seenFeet < Math.ceil(stanceIdx.length / 2)) return fail('His head or feet were cut off or hidden at the start. Keep his whole body, head to feet, in the picture.');
     const ankY = (S(ANK[0]).y + S(ANK[1]).y) / 2, H = Math.abs(ankY - S(NOSE).y) / NOSE_TO_ANKLE;
     if (!(H > 40)) return fail('He is too small in the picture. Move the camera closer so he fills most of the height.');
+    // Is this a swing at all? Both hands on the bat (wrists together) and moving through the zone in the last 0.3 s.
+    const hand = i => ({ x: (f[i][WR[0]].x + f[i][WR[1]].x) / 2, y: (f[i][WR[0]].y + f[i][WR[1]].y) / 2 });
+    const near = []; for (let i = first; i <= c; i++) if (f[i] && realT(i) >= -0.4) near.push(i);
+    const gap = median(near.map(i => dist(f[i][WR[0]], f[i][WR[1]]) / H));
+    const from = near.find(i => realT(i) >= -0.3), travel = from != null ? dist(hand(from), hand(c)) / H : 0;
+    quality.handsGap = gap == null ? null : Math.round(gap * 100) / 100; quality.handsTravel = Math.round(travel * 100) / 100;
+    if (!(gap != null && gap <= HANDS_GAP_MAX && travel >= HANDS_TRAVEL_MIN))
+      return fail('This does not look like a swing: his hands were not together on the bat and moving through the hitting zone. Film one full swing from the side. If the video is slow motion, set Video speed to match.');
     // Front foot = the ankle that travels farthest by contact. Its direction points to the pitcher.
     const dx = ANK.map(j => f[c][j].x - S(j).x), front = Math.abs(dx[0]) >= Math.abs(dx[1]) ? 0 : 1;
     // Direction to the pitcher is only trusted when there is a real stride (5% of height or more) and the foot is clearly seen.
@@ -144,6 +153,31 @@ const HubSwing = (function () {
       events: { plant: plant != null ? Math.round(realT(plant) * 1000) : null, hips: oh != null ? Math.round(realT(oh) * 1000) : null, shoulders: os != null ? Math.round(realT(os) * 1000) : null } };
   }
 
+  /* Two reads of the same video, the second half a frame later. A problem only counts when both reads find it;
+     a big disagreement is shown as unclear instead of being guessed. */
+  function merge(a, b) {
+    if (!a || !a.ok) return a;
+    if (!b || !b.ok) return Object.assign({}, a, { ok: false, why: 'The two reads of this video did not agree that it shows a clear swing. ' + ((b && b.why) || 'Film again from the side with a steady camera.'), checks: [], faults: [], top: null });
+    const checks = [], faults = [];
+    for (const x of a.checks) {
+      const y = b.checks.find(k => k.id === x.id); let st = x.status, value = x.value, note = x.note;
+      if (!y) { st = 'unsure'; value = 'Unclear'; note = 'Only one of the two reads could measure this. Film again from the side with a steady camera.'; }
+      else if (x.status !== y.status) {
+        const pair = [x.status, y.status].sort().join('/');
+        if (pair === 'watch/work') st = 'watch';
+        else if (pair === 'good/watch') st = 'watch';
+        else if (pair === 'info/info') st = 'info';
+        else { st = 'unsure'; note = 'The two reads of this video disagreed (' + x.value + ' and ' + y.value + '), so it is not graded. Film again from the side with a steady camera.'; }
+        if (st !== 'unsure') value = x.value === y.value ? x.value : x.value + ' (2nd read: ' + y.value + ')';
+        else value = 'Unclear';
+      }
+      const ck = Object.assign({}, x, { status: st, value, note }); checks.push(ck); if (st === 'work') faults.push(x.id);
+    }
+    const order = ['head', 'foot', 'seq', 'leg', 'drop', 'stride', 'balance'];
+    faults.sort((p, q) => order.indexOf(p) - order.indexOf(q));
+    const top = faults[0] ? FIX[faults[0]] : null;
+    return Object.assign({}, a, { checks, faults, reads: 2, top: top ? { id: faults[0], title: top.title, area: top.area, drill: top.drill } : null });
+  }
   // Compare one check with his earlier side-view swings (newest first). Returns the earlier average and how many.
   const num = s => { const m = /(-?[\d.]+)/.exec(String(s)); return m ? parseFloat(m[1]) : null; };
   function trend(id, earlier) {
@@ -152,6 +186,6 @@ const HubSwing = (function () {
   }
   // Skeleton lines for drawing over a frame.
   const BONES = [[11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [11, 13], [13, 15], [12, 14], [14, 16], [0, 11], [0, 12]];
-  return { sampleTimes, clean, analyze, trend, angle, FIX, RESEARCH, BONES, SAMPLES_PER_SEC, BEFORE, AFTER, num };
+  return { sampleTimes, clean, analyze, merge, trend, angle, FIX, RESEARCH, BONES, SAMPLES_PER_SEC, BEFORE, AFTER, num };
 })();
 if (typeof module !== 'undefined') module.exports = HubSwing;

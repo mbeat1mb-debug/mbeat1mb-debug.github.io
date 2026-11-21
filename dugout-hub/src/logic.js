@@ -388,7 +388,8 @@ const HubLogic = (() => {
     const mound = armRest
       ? { name: 'Glove work (arm rest, no throws)', items: [
           I('g1', 'Shadow Grounders', 'No ball. Dad points left, right or in. Shuffle, get low, field it with your glove, freeze. 12 reps.', { min: 3 }),
-          I('g2', 'Balance Beam', 'Pitching leg lift. Hold the top for 3 seconds without wobbling. 5 each side.', { min: 2 })] }
+          I('g2', 'Balance Beam', 'Pitching leg lift. Hold the top for 3 seconds without wobbling. 5 each side.', { min: 2 }),
+          I('g3', 'Quick Feet', 'No ball. Lay 5 socks in a line. Fast feet through them, forward and back. 4 trips.', { min: 2 })] }
       : { name: 'Mound', items: [
           I('m1', 'Easy Catch', 'Play catch with Dad. 10 easy throws, short to a little longer. Not counted as pitches.', { min: 2 }),
           I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };

@@ -394,7 +394,11 @@ function seekTo(v, t) {
   return new Promise(res => {
     const tt = Math.max(0, Math.min((v.duration || 0) - 0.02, t));
     if (Math.abs(v.currentTime - tt) < 0.004) return res();
-    let done = false; const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); setTimeout(res, 90); };
+    // Wait until the new frame is actually on screen, not just until the jump is reported, so the reader never
+    // grabs the previous frame on a slow decode. Browsers without frame callbacks fall back to a short wait.
+    let done = false, shown = false; const show = () => { if (shown) return; shown = true; res(); };
+    const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin);
+      if (v.requestVideoFrameCallback) { v.requestVideoFrameCallback(() => setTimeout(show, 20)); setTimeout(show, 400); } else setTimeout(show, 90); };
     v.addEventListener('seeked', fin); setTimeout(fin, 3000); v.currentTime = tt;
   });
 }
@@ -433,17 +437,26 @@ function loadPose() {
   return poseEngine;
 }
 async function readSwing(v, contact, speed) {
-  const eng = await loadPose(); eng.reset();
-  const times = HubSwing.sampleTimes(contact, speed, v.duration), frames = [], c = times.findIndex(x => x.k === 0);
+  const eng = await loadPose();
+  const sp = speed > 0 ? speed : 1, half = sp / HubSwing.SAMPLES_PER_SEC / 2;
+  const t1 = HubSwing.sampleTimes(contact, speed, v.duration), c1 = t1.findIndex(x => x.k === 0);
+  // Second read: the same moments shifted half a frame, so one lucky or unlucky frame cannot decide a grade.
+  const t2 = t1.map(x => ({ k: x.k, t: x.t + half })).filter(x => !(v.duration > 0) || x.t <= v.duration), c2 = t2.findIndex(x => x.k === 0);
   let cw = 0, ch = 0;
-  for (let i = 0; i < times.length; i++) {
-    film.step = 'Reading his swing: frame ' + (i + 1) + ' of ' + times.length + '...'; renderFilmStatus();
-    await seekTo(v, times[i].t); const cv = grab(v, 480); cw = cv.width; ch = cv.height;
-    const lm = await eng.read(cv);
-    frames.push(lm ? lm.map(q => ({ x: q.x * cv.width, y: q.y * cv.height, v: q.visibility == null ? 1 : q.visibility })) : null);
-  }
-  const res = HubSwing.analyze(frames, times, c, speed);
-  return { res, frames, times, w: cw, h: ch };
+  const pass = async (times, n) => {
+    const frames = [];
+    for (let i = 0; i < times.length; i++) {
+      film.step = 'Reading his swing (read ' + n + ' of 2): frame ' + (i + 1) + ' of ' + times.length + '...'; renderFilmStatus();
+      await seekTo(v, times[i].t); const cv = grab(v, 480); cw = cv.width; ch = cv.height;
+      const lm = await eng.read(cv);
+      frames.push(lm ? lm.map(q => ({ x: q.x * cv.width, y: q.y * cv.height, v: q.visibility == null ? 1 : q.visibility })) : null);
+    }
+    return frames;
+  };
+  eng.reset(); const frames = await pass(t1, 1), r1 = HubSwing.analyze(frames, t1, c1, speed);
+  if (!r1.ok) return { res: r1, frames, times: t1, w: cw, h: ch };   // a clip that fails the first read is not read twice
+  eng.reset(); const frames2 = await pass(t2, 2), r2 = c2 >= 0 ? HubSwing.analyze(frames2, t2, c2, speed) : null;
+  return { res: HubSwing.merge(r1, r2), frames, times: t1, w: cw, h: ch };
 }
 /* Find the contact moment for him: scan the whole clip and pick the frame where his hands move fastest
    (the bat whips through the ball there). Returns the raw video time of contact — the same value the
