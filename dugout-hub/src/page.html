@@ -13,9 +13,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Dugout Hub">
 <title>Dugout Hub</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700;800&family=Yellowtail&display=swap" rel="stylesheet">
+<style>/* Fonts served from this site (SIL Open Font License), so no outside requests and they work offline */
+@font-face{font-family:'Barlow';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/barlow-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/barlow-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:800;font-display:swap;src:url(fonts/barlow-condensed-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'Yellowtail';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/yellowtail-latin-400-normal.woff2) format('woff2')}
+</style>
 <style>
 /* One world, on purpose: a baby-blue pinstripe jersey up top, a white scorebook page below.
    Layout idea: his name in jersey script is the only loud thing; everything under it is ruled lines, not boxes. */
@@ -44,7 +50,7 @@ body.player .top{background:var(--sky);color:var(--navy)}
 .top .in{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px;padding-bottom:8px}
 .brand{font-family:var(--cond);font-weight:700;font-size:20px;letter-spacing:.01em}
 .mode{display:flex;gap:18px}
-.mode a{font-family:var(--cond);font-weight:600;font-size:20px;text-decoration:none;color:inherit;opacity:.65;padding:6px 0;border-bottom:3px solid transparent}
+.mode a{font-family:var(--cond);font-weight:600;font-size:20px;text-decoration:none;color:inherit;opacity:.8;padding:6px 0;border-bottom:3px solid transparent}
 .mode a[aria-current="true"]{opacity:1;border-bottom-color:currentColor}
 
 /* jersey band */

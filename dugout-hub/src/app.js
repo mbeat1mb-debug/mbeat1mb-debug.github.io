@@ -563,12 +563,17 @@ function showCheck(e) {
     swingReport(e),
     h('div', { class: 'stack' }, h('h3', null, "Coach's note"), h('p', { class: 'say' }, note || 'No note yet.'), area ? h('p', { class: 'mid' }, 'Points to: ' + area.name) : null)];
 }
+// Dad's call on each reader check. The newest call per swing and check counts.
+function reviews() { const m = {}; for (const r of state.entries.filter(x => x.kind === 'review').sort((a, b) => (a.ts || 0) - (b.ts || 0))) m[r.of + ':' + r.check] = r; return m; }
+function agreement() { const all = Object.values(reviews()); const yes = all.filter(r => r.agree).length; return { yes, n: all.length }; }
+async function review(e, ck, agree) { if (await addEntry({ kind: 'review', date: today(), of: e.id, check: ck.id, agree, status: ck.status })) toast(agree ? 'Marked right. Thanks, that tracks how accurate the reader is.' : 'Marked wrong. It will not drive his drills.'); render(); }
 const MARK = { good: ['ok', 'Good'], watch: ['wait', 'Watch'], work: ['stop', 'Work on it'], unsure: ['', 'Not clear'], info: ['', 'Info'] };
 function swingReport(e) {
   const sw = e.swing;
   if (!sw) return e.view === 'side' || !e.view ? null : h('p', { class: 'small mid' }, 'Not graded: the swing reader needs a side-view video.');
   if (!sw.ok) return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'), h('p', { class: 'note' }, str(sw.why, 200)));
   const earlier = checks().filter(x => x.id !== e.id && x.swing && x.swing.ok && x.date <= e.date).map(x => x.swing);
+  const rv0 = reviews(), ag = agreement();
   const rows = (sw.checks || []).map(ck => {
     const m = MARK[ck.status] || MARK.info, tr = HubSwing.trend(ck.id, earlier), fx = sw.faults.indexOf(ck.id) >= 0 && L.FIXES[ck.id] ? L.FIXES[ck.id].drill : null;
     return h('div', { class: 'ck' },
@@ -576,11 +581,16 @@ function swingReport(e) {
       h('p', { class: 'num' }, str(ck.value, 60) + '  (target: ' + str(ck.target, 60).toLowerCase() + ')' + (tr ? '. His last ' + tr.n + (tr.n === 1 ? ' swing: ' : ' swings average: ') + (ck.id === 'seq' ? (tr.avg >= 0 ? 'hips first by ' + tr.avg + ' ms' : 'shoulders first by ' + (-tr.avg) + ' ms') : tr.avg + (/degrees/.test(ck.value) ? ' degrees' : / ms/.test(ck.value) ? ' ms' : '%')) : '')),
       h('p', { class: 'small' }, str(ck.note, 200)),
       fx ? h('p', { class: 'small' }, h('b', null, 'Fix-it drill: ' + fx.title + '. '), fx.text) : null,
-      h('details', null, h('summary', { class: 'small mid' }, 'Why this matters'), h('p', { class: 'small mid' }, str(ck.research, 400))));
+      h('details', null, h('summary', { class: 'small mid' }, 'Why this matters'), h('p', { class: 'small mid' }, str(ck.research, 400))),
+      e.id && !locked() && (ck.status === 'good' || ck.status === 'watch' || ck.status === 'work') ? (() => { const rv = rv0[e.id + ':' + ck.id];
+        return h('div', { class: 'row', role: 'group', 'aria-label': 'Is this call right?' }, h('span', { class: 'small mid' }, rv ? (rv.agree ? 'You said: right.' : 'You said: wrong.') : 'Coach: is this call right?'),
+          h('button', { type: 'button', class: 'btn line sm' + (rv && rv.agree ? ' on' : ''), onclick: guard(() => review(e, ck, true)) }, 'Right'),
+          h('button', { type: 'button', class: 'btn line sm' + (rv && !rv.agree ? ' on' : ''), onclick: guard(() => review(e, ck, false)) }, 'Wrong')); })() : null);
   });
   const nWork = sw.faults.length;
   return h('section', { class: 'stack' }, h('h3', null, 'Swing reader'),
     h('p', { class: 'say' }, nWork ? 'Top thing to fix: ' + str(sw.top && sw.top.title, 80) + '.' : 'No problems flagged on this swing.'),
+    ag.n ? h('p', { class: 'small' }, h('b', null, 'Reader accuracy so far: '), 'you agreed with ' + ag.yes + ' of ' + ag.n + ' calls (' + ag.yes + ' ÷ ' + ag.n + ' = ' + Math.round(ag.yes / ag.n * 100) + '%).' + (ag.n < 20 ? ' Mark about 20 calls before trusting this number.' : '')) : null,
     rows,
     h('p', { class: 'small mid' }, 'Read from ' + sw.quality.found + ' of ' + sw.quality.frames + ' frames of one camera, so numbers are estimates (a few percent or degrees either way). Height is estimated from the video. Film straight from the side, whole body in view, steady camera.'));
 }
@@ -670,6 +680,65 @@ async function saveQuick() {
   else if (saved.length) toast('Saved: ' + saved.join(', ') + '. The rest did not save, so it is still filled in. Try again.');
   render();
 }
+/* ---------- GameChanger import (Stats > Export Stats needs a staff account on the team) ---------- */
+const gc = { res: null, pick: null, name: '' };
+function gcLast() { return state.entries.filter(e => e.kind === 'gcsnap').sort((a, b) => (b.ts || 0) - (a.ts || 0))[0] || null; }
+function gcSection(t) {
+  const r = gc.res, who = r && r.ok ? (r.player || (gc.pick != null ? r.people[gc.pick] : null)) : null, last = gcLast();
+  const line = p => [p.bat.pa != null ? p.bat.pa + ' PA' : null, p.bat.ab != null ? p.bat.ab + ' AB' : null, p.bat.h != null ? p.bat.h + ' H' : null, p.bat.k != null ? p.bat.k + ' SO' : null, p.bat.bb != null ? p.bat.bb + ' BB' : null].filter(Boolean).join(', ') || 'no batting';
+  const pline = p => p.pit.pitches || p.pit.ip ? (p.pit.ip != null ? L.fmtInnings(p.pit.ip) + ' innings' : '') + (p.pit.pitches != null ? ', ' + p.pit.pitches + ' pitches' : '') : 'did not pitch';
+  let body = null;
+  if (r && !r.ok) body = h('p', { class: 'note' }, r.why);
+  else if (r && !who) body = [h('p', null, 'Which one is ' + state.settings.player + '?'), h('div', { class: 'row' }, r.people.map((p, i) => h('button', { type: 'button', class: 'btn line sm', onclick: () => { gc.pick = i; render(); } }, p.label)))];
+  else if (who) {
+    const d = last ? L.gcDelta(last, who) : null;
+    body = [h('p', null, h('b', null, who.label + ': '), line(who), '. Pitching: ', pline(who), '.'),
+      d && d.down ? h('p', { class: 'note' }, 'Some totals are lower than the last import, so this looks like a different filter or season. Use "One game" or check the filter in GameChanger.') : null,
+      h('div', { class: 'row' }, inp('gc_date', 'Game date', { type: 'date', def: t })),
+      h('div', { class: 'row' },
+        h('button', { type: 'button', class: 'btn', onclick: guard(() => gcSave('game', who, null)) }, 'One game: log all of it'),
+        last && d && d.any && !d.down ? h('button', { type: 'button', class: 'btn line', onclick: guard(() => gcSave('delta', who, d.delta)) }, 'Season totals: log only what is new') : null,
+        h('button', { type: 'button', class: 'btn line', onclick: guard(() => gcSave('base', who, null)) }, last ? 'Just update the totals' : 'Season totals: save as a starting point')),
+      last && d && !d.any ? h('p', { class: 'mid small' }, 'Nothing new since the last import (' + fmtDate(last.date) + ').') : null,
+      h('p', { class: 'small mid' }, 'One game: filter to that game in GameChanger before exporting. If he pitched in more than one game since the last import, log those games one at a time so his rest days are exact.')];
+  }
+  return h('section', { class: 'sec' }, h('h2', null, 'Import from GameChanger'),
+    h('label', { class: 'fld', for: 'gc-file' }, h('span', null, 'GameChanger, team Stats, Export Stats. Staff accounts only. Then pick the file here.'),
+      h('input', { id: 'gc-file', type: 'file', accept: '.csv,text/csv,text/plain', onchange: e => gcRead(e.target.files[0]) })),
+    body);
+}
+function gcRead(f) {
+  if (!f) return; if (f.size > 2e6) { gc.res = { ok: false, why: 'That file is too big to be a stats export.' }; return render(); }
+  const rd = new FileReader();
+  rd.onload = () => { gc.res = L.parseGC(String(rd.result || ''), state.settings.player); gc.pick = null; gc.name = f.name; render(); };
+  rd.onerror = () => { gc.res = { ok: false, why: 'That file could not be read.' }; render(); };
+  rd.readAsText(f);
+}
+async function gcSave(mode, who, delta) {
+  const date = state.form.gc_date || today();
+  if (date > today()) return toast('That date is in the future. Pick today or an earlier day.');
+  const src = mode === 'delta' ? delta : mode === 'game' ? { bat: who.bat, pit: who.pit } : null, saved = [];
+  if (mode === 'game') {   // the same game imported twice would double his numbers
+    const b = who.bat, same = state.entries.some(e => e.kind === 'game' && e.from === 'gamechanger' && e.date === date && e.ab === (b.ab || 0) && e.h === (b.h || 0) && e.k === (b.k || 0) && e.bb === (b.bb || 0));
+    if (same) return toast('That game is already logged for ' + fmtDate(date) + '. Nothing was added.');
+  }
+  if (src) {
+    const b = src.bat, ab = b.ab || 0;
+    if (ab || b.pa || b.bb) {
+      if ((b.h || 0) + (b.k || 0) > ab) return toast('This file has more hits plus strikeouts than at-bats, so it was not saved. Check the file.');
+      const gl = { kind: 'game', date, ab, h: b.h || 0, k: b.k || 0, bb: b.bb || 0, from: 'gamechanger' }; if (b.kl != null) gl.kl = Math.min(b.kl, gl.k);
+      if (await addEntry(gl)) saved.push('game line'); else return render();
+    }
+    if (src.pit.pitches > 0 || src.pit.ip > 0) {
+      if (!(src.pit.pitches > 0)) return toast('The file has innings but no pitch count, so pitching was not saved. Log the outing on the Arm screen.');
+      if (await addEntry({ kind: 'pitch', date, pitches: src.pit.pitches, outs: src.pit.ip || 0, where: 'game', from: 'gamechanger' })) saved.push('pitching'); else return render();
+    }
+  }
+  // Only season totals become the starting point for "what is new"; a one-game file must not replace them.
+  if (mode !== 'game' && await addEntry({ kind: 'gcsnap', date, file: str(gc.name, 80), bat: who.bat, pit: who.pit })) saved.push('season totals');
+  if (saved.length) { toast('Saved from GameChanger: ' + saved.join(', ') + '.'); gc.res = null; gc.pick = null; const el = document.getElementById('gc-file'); if (el) el.value = ''; }
+  render();
+}
 function viewLog() {
   const t = today(), recent = state.entries.slice().sort(L.byDate).reverse().slice(0, 25);
   const part = (v, w) => v ? v + ' ' + w : null;
@@ -679,6 +748,8 @@ function viewLog() {
     e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
     e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' + (e.points != null ? ', ' + e.points + ' points' : '') + (e.boss ? (e.boss.won ? ', beat the Boss' : ', lost to the Boss') : '') : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
+    e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
+    e.kind === 'gcsnap' ? 'GameChanger totals imported' + (e.file ? ' (' + e.file + ')' : '') :
     e.kind === 'body' ? 'Measured: ' + [L.isNum(e.heightIn) ? L.fmtHeight(e.heightIn) : null, L.isNum(e.weightLb) ? (Math.round(e.weightLb * 10) / 10) + ' lb' : null].filter(Boolean).join(', ') : e.kind;
   return page(strip('Log ' + who() + "'s work", 'Finished sessions log their own reps. Use this for extra work, speeds and games.'),
     h('section', { class: 'sec plain' }, h('div', { class: 'row between' }, h('h2', null, 'Today'), h('div', { style: 'flex:0 1 200px' }, inp('q_date', 'Date', { type: 'date', def: t }))),
@@ -705,6 +776,7 @@ function viewLog() {
           const gl = { kind: 'game', date: state.form.g_date || t, ab: num('g_ab'), h: num('g_h') || 0, k: num('g_k') || 0, bb: num('g_bb') || 0 };
           if (num('g_kl') != null) gl.kl = num('g_kl'); if (num('g_go') != null || num('g_fo') != null) { gl.go = num('g_go') || 0; gl.fo = num('g_fo') || 0; }
           if (await addEntry(gl)) { clear('g_ab', 'g_h', 'g_k', 'g_bb', 'g_kl', 'g_go', 'g_fo'); toast('Game line saved.'); } render(); }) }, 'Save game line'))),
+      gcSection(t),
       h('section', { class: 'sec' }, h('h2', null, 'Strength test'),
         h('div', { class: 'row' }, inp('t_date', 'Date', { type: 'date', def: t })),
         h('div', { class: 'row' }, inp('t_jump', 'Long jump (inches)'), inp('t_push', 'Push-ups', { mode: 'numeric' }), inp('t_plank', 'Plank (seconds)', { mode: 'numeric' })),

@@ -321,7 +321,10 @@ const HubLogic = (() => {
     else if (ab >= 8 && !withKL.length && allK / ab >= 0.3) out.push({ id: 'whiffs', why: allK + ' strikeouts in ' + ab + ' at-bats (' + Math.round(allK / ab * 100) + '%).', weight: allK / ab });
     // Latest side-view swing video from the last 2 weeks: its first problem becomes a target too.
     const vid = entries.filter(e => e.kind === 'analysis' && e.swing && e.swing.ok && Array.isArray(e.swing.faults) && e.date > addDays(today, -14) && e.date <= today).sort(byDate).pop();
-    const vf = vid && vid.swing.faults.find(id => FIXES[id]);
+    // A call Dad marked wrong never drives a drill.
+    const wrong = id => vid && entries.some(r => r.kind === 'review' && r.of === vid.id && r.check === id && r.agree === false &&
+      !entries.some(q => q.kind === 'review' && q.of === vid.id && q.check === id && (q.ts || 0) > (r.ts || 0)));
+    const vf = vid && vid.swing.faults.find(id => FIXES[id] && !wrong(id));
     if (vf) { const ck = (vid.swing.checks || []).find(c => c.id === vf) || {};
       out.push({ id: vf, why: 'Swing video on ' + vid.date.slice(5).replace('-', '/') + ': ' + String(ck.label || FIXES[vf].title).toLowerCase() + ' was ' + String(ck.value || 'off').replace(/^./, c => c.toLowerCase()) + ' (target: ' + String(ck.target || 'see Film room').toLowerCase() + ').', weight: 0.7, video: true }); }
     return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: FIXES[x.id].title }, x));
@@ -430,6 +433,66 @@ const HubLogic = (() => {
     return t;
   }
 
+  // ---------- GameChanger season-stats file (Stats > Export Stats, staff accounts) ----------
+  // The exact layout is not published, so this reads it by column names: an optional section row
+  // (Batting / Pitching / Fielding) above a header row with First/Last and stat names.
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = '', q = false;
+    text = String(text || '').replace(/^﻿/, '');
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cell.trim()); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell !== '' || row.length) { row.push(cell.trim()); rows.push(row); }
+    return rows.filter(r => r.some(c => c !== ''));
+  }
+  const GC_BAT = { PA: 'pa', AB: 'ab', H: 'h', SO: 'k', K: 'k', BB: 'bb', HBP: 'hbp', R: 'r', RBI: 'rbi', '1B': 'b1', '2B': 'b2', '3B': 'b3', HR: 'hr', SOL: 'kl', 'K-L': 'kl', KL: 'kl' };
+  const GC_PIT = { IP: 'ip', '#P': 'pitches', NP: 'pitches', TP: 'pitches', PITCHES: 'pitches', BF: 'bf', SO: 'k', K: 'k', BB: 'bb', H: 'h', ER: 'er' };
+  function parseGC(text, name) {
+    const rows = parseCSV(text), U = c => String(c || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const hi = rows.findIndex(r => r.some(c => /^FIRST( NAME)?$/.test(U(c)) || U(c) === 'NAME' || U(c) === 'PLAYER') && r.some(c => ['AB', 'PA', 'IP'].indexOf(U(c)) >= 0));
+    if (hi < 0) return { ok: false, why: 'This does not look like a GameChanger stats file. In GameChanger, open the team Stats, tap Export Stats, and pick that file.' };
+    const head = rows[hi].map(U), secRow = hi > 0 ? rows[hi - 1].map(U) : [];
+    const hasSec = secRow.some(c => /BATTING|OFFEN|PITCHING|FIELDING|DEFEN/.test(c));
+    const sec = []; let cur = 'batting', seenIP = false;
+    for (let j = 0; j < head.length; j++) {
+      if (hasSec && secRow[j]) cur = /PITCH/.test(secRow[j]) ? 'pitching' : /BAT|OFFEN/.test(secRow[j]) ? 'batting' : 'other';
+      else if (!hasSec) { if (head[j] === 'IP') { cur = 'pitching'; seenIP = true; } else if (seenIP && /^(TC|PO|A|E|FPCT|DP)$/.test(head[j])) cur = 'other'; }
+      sec.push(cur);
+    }
+    const col = re => head.findIndex(c => re.test(c));
+    const iF = col(/^FIRST( NAME)?$/), iL = col(/^LAST( NAME)?$/), iN = iF < 0 ? col(/^(NAME|PLAYER)$/) : -1;
+    const people = [];
+    for (let r = hi + 1; r < rows.length; r++) {
+      const row = rows[r], first = iF >= 0 ? row[iF] : (row[iN] || '').split(' ')[0], last = iL >= 0 ? row[iL] : (row[iN] || '').split(' ').slice(1).join(' ');
+      const label = ((first || '') + ' ' + (last || '')).trim();
+      if (!label || /^(TOTALS?|TEAM|GLOSSARY)\b/i.test(label) || /:/.test(label)) continue;
+      const bat = {}, pit = {};
+      head.forEach((h, j) => { const v = row[j]; if (v == null || v === '' || v === '-') return;
+        const map = sec[j] === 'pitching' ? GC_PIT : sec[j] === 'batting' ? GC_BAT : null; const key = map && map[h];
+        if (!key) return; const x = key === 'ip' ? outsFromInnings(parseFloat(v)) : parseFloat(String(v).replace(/,/g, ''));
+        if (isNum(x) && x >= 0) (sec[j] === 'pitching' ? pit : bat)[key] = x; });
+      people.push({ first: first || '', last: last || '', label, bat, pit });
+    }
+    if (!people.length) return { ok: false, why: 'No players were found in this file.' };
+    const want = String(name || '').toLowerCase();
+    const match = people.filter(p => want && (p.first.toLowerCase() === want || p.label.toLowerCase().indexOf(want) === 0));
+    return { ok: true, people, player: match.length === 1 ? match[0] : null, names: people.map(p => p.label) };
+  }
+  // What changed between two season-total snapshots. Totals going down means a different filter or season.
+  function gcDelta(prev, cur) {
+    const d = { bat: {}, pit: {} }; let down = false, any = false;
+    for (const part of ['bat', 'pit']) for (const k of Object.keys(cur[part] || {})) {
+      const a = (prev && prev[part] && prev[part][k]) || 0, x = cur[part][k] - a;
+      if (x < 0) down = true; if (x > 0) any = true; d[part][k] = Math.max(0, x);
+    }
+    return { delta: d, down, any };
+  }
+
   // ---------- 5. rules that tune themselves to his numbers ----------
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   function tune(entries, today) {
@@ -499,6 +562,6 @@ const HubLogic = (() => {
   }
 
   return { parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
-    decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
+    decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
