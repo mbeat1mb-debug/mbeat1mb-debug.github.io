@@ -406,9 +406,10 @@ function grab(v, maxSide) {
 const toBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
 /* ---------- Swing reader: body tracking runs on this device; the video never leaves it ---------- */
 let poseEngine = null;
+const POSE_LOAD_MS = 30000;   // give up if the first-time engine download stalls, so the button never hangs on "Working..."
 function loadPose() {
   if (poseEngine) return poseEngine;
-  poseEngine = new Promise((res, rej) => {
+  const build = new Promise((res, rej) => {
     const go = async () => {
       try {
         const p = new window.Pose({ locateFile: f => 'pose/' + f });
@@ -419,12 +420,16 @@ function loadPose() {
         res({ reset: () => p.reset(), read: c => new Promise((ok, bad) => { const me = ++ticket; live = me; want = ok;
           p.send({ image: c }).then(() => { if (live === me && want === ok) { want = null; ok(null); } }).catch(bad);
           setTimeout(() => { if (want === ok) { want = null; live = -1; ok(null); } }, 15000); }) });
-      } catch (e) { poseEngine = null; rej(e); }
+      } catch (e) { rej(e); }
     };
     if (window.Pose) return go();
-    const sc = document.createElement('script'); sc.src = 'pose/pose.js'; sc.onload = go; sc.onerror = () => { poseEngine = null; rej(new Error('engine')); };
+    const sc = document.createElement('script'); sc.src = 'pose/pose.js'; sc.onload = go; sc.onerror = () => rej(new Error('engine'));
     document.head.appendChild(sc);
   });
+  // A stalled download (weak connection on first use) used to hang forever; this surfaces the plain fallback instead.
+  let timer;
+  const cap = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('engine-timeout')), POSE_LOAD_MS); });
+  poseEngine = Promise.race([build, cap]).then(e => { clearTimeout(timer); return e; }, e => { clearTimeout(timer); poseEngine = null; throw e; });
   return poseEngine;
 }
 async function readSwing(v, contact, speed) {
