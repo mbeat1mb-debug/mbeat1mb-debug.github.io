@@ -2,7 +2,7 @@
 import re, sys
 src=__import__('os').path.dirname(__import__('os').path.abspath(__file__))+'/'
 h=open(src+'page.html').read()
-for f in ['logic.js','swing.js','games.js','app.js']:
+for f in ['logic.js','swing.js','games.js','media.js','app.js']:
     tag='<script src="%s"></script>' % f
     assert h.count(tag)==1, tag
     code=open(src+f).read()

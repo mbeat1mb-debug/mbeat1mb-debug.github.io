@@ -50,7 +50,7 @@ body.player .top{background:var(--sky);color:var(--navy)}
 .top .in{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:12px;padding-bottom:8px}
 .brand{font-family:var(--cond);font-weight:700;font-size:20px;letter-spacing:.01em}
 .mode{display:flex;gap:18px}
-.mode a{font-family:var(--cond);font-weight:600;font-size:20px;text-decoration:none;color:inherit;opacity:.8;padding:6px 0;border-bottom:3px solid transparent}
+.mode a{font-family:var(--cond);font-weight:600;font-size:20px;text-decoration:none;color:inherit;opacity:.8;padding:8px 4px;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;border-bottom:3px solid transparent}
 .mode a[aria-current="true"]{opacity:1;border-bottom-color:currentColor}
 
 /* jersey band */
@@ -111,7 +111,9 @@ input[type="checkbox"]{width:22px;height:22px;accent-color:var(--navy);flex:none
 .btn{font-family:var(--cond);font-weight:700;font-size:23px;border-radius:6px;border:2px solid var(--navy);background:var(--navy);color:#fff;padding:11px 20px;cursor:pointer}
 .btn.big{font-size:30px;padding:16px;width:100%}
 .btn.line{background:#fff;color:var(--navy)}
-.btn.sm{font-size:18px;padding:5px 12px}
+.btn.sm{font-size:18px;padding:5px 12px;min-height:44px}
+/* Text links get a taller tap area without moving the text. */
+#view p a:not(.btn){display:inline-block;padding:13px 0;margin:-13px 0}
 .btn.del{border-color:var(--stitch);background:#fff;color:var(--stitch)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:4px solid var(--sky-deep);outline-offset:2px}
@@ -288,6 +290,14 @@ body.gaming{overflow:hidden}
 .li[aria-pressed=true] .tip{color:var(--mid)}
 .cheer .coachtip{background:#fff;border:2px solid var(--navy);border-radius:8px;padding:8px 12px;font-size:16px}
 li.warn{font-weight:600}
+.libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.libitem{position:relative;display:flex;flex-direction:column;border:2px solid var(--rule);border-radius:8px;overflow:hidden;background:#fff;padding:0;font:inherit;color:var(--navy);text-align:left;cursor:pointer;min-height:44px}
+.libitem img,.libicon{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--navy);display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px}
+.libplay{position:absolute;top:6px;left:6px;background:rgba(13,43,85,.85);color:#fff;border-radius:4px;padding:2px 6px;font-size:13px}
+.libcap{display:flex;flex-direction:column;padding:6px 8px;font-size:14px;gap:2px}.libcap b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uplive{display:block;width:min(320px,100%);border-radius:6px;margin-top:6px;background:#000}
+.upbody{background:#000;border-radius:6px;min-height:120px;display:grid;place-items:center;color:#fff;overflow:hidden}
+.upbody video,.upbody img{display:block;width:100%;max-height:70vh;object-fit:contain}
 .prog{position:relative;height:22px;border:2px solid var(--navy);border-radius:11px;background:#fff;overflow:hidden;margin-top:6px;width:100%}
 .prog .fill{position:absolute;inset:0 auto 0 0;background:var(--sky)}
 .prog span{position:relative;display:block;text-align:center;font-size:13px;line-height:18px;font-weight:600;color:var(--navy)}
@@ -320,6 +330,7 @@ li.warn{font-weight:600}
 <script src="logic.js"></script>
 <script src="swing.js"></script>
 <script src="games.js"></script>
+<script src="media.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

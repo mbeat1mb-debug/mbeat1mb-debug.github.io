@@ -1,5 +1,19 @@
 (() => {
 const L = HubLogic;
+// Remember each answer until the saved data changes. The data list is always replaced, never edited in place,
+// so a new list means fresh answers. On two years of data this keeps a tap well under a tenth of a second.
+(() => {
+  const memo = new WeakMap();
+  for (const n of ['badges', 'game', 'records', 'totals', 'season', 'gameBests', 'champMonths', 'dayStreak', 'longestDayStreak', 'stats', 'diagnose', 'pitchDiagnose', 'weekInfo', 'armStatus', 'tune', 'recentDrills', 'weeksMap', 'streak', 'longestStreak', 'bodyNotes']) {
+    const f = L[n]; if (typeof f !== 'function') continue;
+    L[n] = function (entries, ...rest) {
+      if (!Array.isArray(entries)) return f.apply(null, arguments);
+      let m = memo.get(entries); if (!m) { m = new Map(); memo.set(entries, m); }
+      const k = n + '|' + JSON.stringify(rest); if (m.has(k)) return m.get(k);
+      const v = f(entries, ...rest); m.set(k, v); return v;
+    };
+  }
+})();
 const DEFAULT_SETTINGS = {
   player: 'Jaxson', bats: 'left', gameBatOz: 19, level: 1, tankLb: null, medBallLb: null, dailyMax: 75, prizes: [], jersey: '', team: 'Scouts', theme: 'classic', gameLimit: 5,
   batList: [
@@ -28,6 +42,7 @@ const state = { route: 'today', entries: [], settings: JSON.parse(JSON.stringify
   ticks: {}, counts: {}, form: {}, slot: null, snap: null, confirmDel: null, dirty: false, gearDraft: null, cheer: null, openCheck: null, cmpA: null, cmpB: null, unlocked: null, pinMsg: '',
   needKey: false, keyMsg: '', keyBusy: false, keyNet: false, loading: false, media: {}, mediaAsked: {} };
 const film = { file: null, url: null, video: null, ready: false, busy: false, msg: '', step: '' };
+const lib = { file: null, busy: false, step: '', pct: 0, msg: '', ok: false, usage: null, usageAt: 0, armed: null };
 // Parent code: a speed bump that keeps the Coach side with a parent. It is not encryption.
 const pinHash = pin => { let x = 5381; const s = 'dugout:' + pin; for (let i = 0; i < s.length; i++) x = ((x * 33) ^ s.charCodeAt(i)) >>> 0; return 'h' + x.toString(36); };
 const locked = () => !!state.settings.pinHash && state.unlocked !== state.settings.pinHash;
@@ -151,7 +166,7 @@ function mergeSettings(d) {
   return s;
 }
 const typing = () => { const a = document.activeElement; return !!(a && $view.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)); };
-function softRender() { if (typing() || film.busy) { state.dirty = true; return; } render(); }
+function softRender() { if (typing() || film.busy || lib.busy) { state.dirty = true; return; } render(); }
 $view.addEventListener('focusout', () => { if (state.dirty) setTimeout(() => { if (!typing() && !film.busy) { state.dirty = false; render(); } }, 60); });
 
 async function load() {
@@ -253,7 +268,7 @@ function spark(points, unit) {
     '<line x1="6" x2="294" y1="14" y2="14" stroke="#cdd5df"/><line x1="6" x2="294" y1="62" y2="62" stroke="#cdd5df"/>' +
     '<path d="' + line + ' L294 70 L6 70 Z" fill="#93cff2" opacity=".45"/><path d="' + line + '" fill="none" stroke="#0d2b55" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
     '<circle cx="' + X(last).toFixed(1) + '" cy="' + Y(vs[last]).toFixed(1) + '" r="5" fill="#d2342a" stroke="#fff" stroke-width="2"/>' +
-    '<text x="6" y="10" font-size="10" fill="#55667f">high ' + fix(hi) + '</text><text x="6" y="80" font-size="10" fill="#55667f">low ' + fix(lo) + '</text></svg>';
+    '<text x="6" y="11" font-size="12" fill="#55667f">high ' + fix(hi) + '</text><text x="6" y="82" font-size="12" fill="#55667f">low ' + fix(lo) + '</text></svg>';
   return w;
 }
 function strip(title, sub) { return h('div', { class: 'strip' }, h('div', { class: 'in' }, h('h1', null, title), sub ? h('p', { class: 'mid' }, sub) : null)); }
@@ -320,7 +335,7 @@ function viewToday() {
       h('div', null, ses.blocks.map(b => [
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
-          h('button', { type: 'button', class: 'li', id: 'li-' + i.id, 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; if (ticks[i.id]) HubGames.Sound.crack(); saveTicks(); render(); if (ticks[i.id]) toNext(items, ticks, i.id); } },
+          h('button', { type: 'button', class: 'li', id: 'li-' + i.id, 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); if (ticks[i.id]) { HubGames.Sound.later(HubGames.Sound.crack); toNext(items, ticks, i.id); } } },
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
           VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
@@ -468,6 +483,7 @@ function confetti() {
 const VIDEOS_ON = true;
 function renderVideo() {
   const box = document.getElementById('video'), v = state.video;
+  if (state.upView) return renderUpView(box);
   if (!v) { box.replaceChildren(); return; }
   const close = () => { state.video = null; renderVideo(); };
   box.replaceChildren(h('div', { class: 'vid', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Video: ' + v.title, onclick: e => { if (e.target.classList.contains('vid')) close(); } },
@@ -479,7 +495,7 @@ function renderVideo() {
       h('p', { class: 'small mid' }, navigator.onLine === false ? 'Videos need the internet. Connect to Wi-Fi and try again.' : 'Watch it, then try it yourself.'))));
   const b = document.getElementById('vid-close'); if (b) b.focus();
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.video) { state.video = null; renderVideo(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && (state.video || state.upView)) { state.video = null; state.upView = null; renderVideo(); } });
 function renderCheer() {
   if (state.cheer && !state.cheer.played) { state.cheer.played = true; HubGames.Sound.cheer(); if (state.cheer.levelUp) setTimeout(() => HubGames.Sound.say('Level up!'), 900); }
   const c = state.cheer;
@@ -791,6 +807,104 @@ function compare(all) {
     run ? h('p', null, run.name + ' has come up in ' + run.count + ' of his last ' + run.of + ' filmstrips.') : null,
     h('p', { class: 'small mid' }, 'The frames line up by moment, so differences show only if contact was marked carefully on both.'));
 }
+/* ---------- Videos, photos and PDFs library ---------- */
+const uploads = () => state.entries.filter(e => e.kind === 'upload' && e.path).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0));
+function libUsage(force) {
+  if (!force && lib.usageAt > Date.now() - 60000) return;
+  lib.usageAt = Date.now();
+  HubMedia.usage(familyKey).then(u => { lib.usage = u; softRender(); }).catch(() => { lib.usageAt = 0; });
+}
+function libStep(text, pct) {
+  lib.step = text; lib.pct = pct || 0;
+  const s = document.getElementById('up-step'), f = document.getElementById('up-fill'), p = document.getElementById('up-prog'), n = Math.round((pct || 0) * 100);
+  if (s) s.textContent = text; if (f) f.style.width = n + '%'; if (p) p.setAttribute('aria-valuenow', String(n));
+}
+async function libUpload() {
+  const f = lib.file;
+  if (!f || lib.busy) return;
+  const date = state.form.up_date || today();
+  if (date > today()) { lib.msg = 'That date is in the future. Pick today or an earlier day.'; lib.ok = false; return render(); }
+  lib.busy = true; lib.msg = ''; lib.ok = false; render();
+  try {
+    const got = await HubMedia.upload(f, familyKey, libStep);
+    libStep('Saving...', 1);
+    const title = str(state.form.up_title, 80).trim() || (got.type === 'video' ? 'Video' : got.type === 'photo' ? 'Photo' : str(f.name, 60) || 'PDF');
+    const saved = await addEntry({ kind: 'upload', date, title, path: got.path, type: got.type, size: got.size, dur: got.dur, thumbs: got.poster ? [got.poster] : undefined });
+    if (!saved) { HubMedia.remove(familyKey, got.path).catch(() => {}); lib.msg = 'The file uploaded but could not be saved to the hub, so it was removed. Try again.'; }
+    else { lib.ok = true; lib.msg = 'Uploaded: ' + title + (got.shrunk ? '. It was shrunk to fit; shrunk videos have no sound.' : '.'); lib.file = null; delete state.form.up_title; }
+  } catch (e) {
+    if (e && e.code === 'denied') dbMsg(e);
+    lib.msg = (e && e.msg) || 'The upload did not finish. Try again.';
+  }
+  lib.busy = false; lib.step = ''; lib.pct = 0; libUsage(true); render();
+}
+async function libDelete(e) {
+  if (lib.armed !== e.id) { lib.armed = e.id; return renderVideo(); }
+  lib.armed = null;
+  try { await HubMedia.remove(familyKey, e.path); } catch (err) { toast((err && err.msg) || 'Could not delete it. Try again.'); return renderVideo(); }
+  state.upView = null; renderVideo(); await delEntry(e.id); libUsage(true); render();
+}
+async function libRead(e) {
+  // Pull an uploaded swing into the filmstrip maker above.
+  try {
+    toast('Loading the video into the film room...');
+    const url = await HubMedia.link(familyKey, e.path), r = await fetch(url);
+    if (!r.ok) throw 0;
+    const b = await r.blob();
+    state.upView = null; renderVideo();
+    state.form.k_date = e.date || today();
+    loadFilm(new File([b], 'swing.' + e.path.split('.').pop(), { type: b.type || 'video/mp4' }));
+    const s = document.getElementById('film-file'); if (s) s.scrollIntoView({ block: 'start' });
+  } catch (err) { toast('That video could not be loaded. Check the internet and try again.'); }
+}
+function viewLibrary() {
+  const list = uploads(), u = lib.usage, ft = lib.file ? HubMedia.kindOf(lib.file) : null, full = u ? u.used / u.quota : 0;
+  needMedia(list);
+  libUsage();
+  return h('section', { class: 'sec', id: 'library' }, h('h2', null, 'Videos & photos'),
+    h('p', { class: 'small mid' }, "Upload from Dad's phone or the iPad: game clips, swing videos, photos, lineup cards, PDFs."),
+    h('label', { class: 'fld', for: 'up-file' }, h('span', null, 'Pick a video, photo or PDF'),
+      h('input', { id: 'up-file', type: 'file', accept: 'video/*,image/*,application/pdf,.pdf', disabled: lib.busy,
+        onchange: e => { lib.file = e.target.files[0] || null; lib.msg = ''; lib.ok = false; render(); } })),
+    lib.file ? [
+      h('p', { class: 'small' }, (ft ? ({ video: 'Video', photo: 'Photo', pdf: 'PDF' })[ft] : 'Not a video, photo or PDF') + ': ' + str(lib.file.name, 60) + ', ' + HubMedia.mb(lib.file.size) +
+        (ft === 'video' && lib.file.size > HubMedia.MAX ? '. Over 45 MB, so it gets shrunk first. That takes about as long as the video plays, so keep this screen open.' : '')),
+      h('div', { class: 'row' }, inp('up_title', 'Name it (optional)', { type: 'text' }), inp('up_date', 'Date', { type: 'date', def: today() })),
+      h('button', { type: 'button', class: 'btn big', disabled: lib.busy || !ft, onclick: guard(libUpload) }, lib.busy ? 'Uploading...' : 'Upload'),
+      lib.busy ? h('div', null,
+        h('div', { class: 'prog', id: 'up-prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(lib.pct * 100)), 'aria-label': 'Upload progress' },
+          h('div', { class: 'fill', id: 'up-fill', style: 'width:' + Math.round(lib.pct * 100) + '%' })),
+        h('p', { id: 'up-step', class: 'status wait', role: 'status' }, lib.step || 'Starting...'), h('div', { id: 'up-live' })) : null] : null,
+    lib.msg ? h('p', { class: lib.ok ? 'status ok' : 'note', role: 'status' }, lib.msg) : null,
+    u ? h('p', { class: 'small' + (full > 0.85 ? '' : ' mid') }, 'Library space: ' + HubMedia.mb(u.used) + ' of ' + HubMedia.mb(u.quota) + ' used' + (full > 0.85 ? '. Almost full. Delete old videos to make room.' : '.')) : null,
+    list.length ? h('div', { class: 'libgrid' }, list.map(e => {
+      const th = (state.media[e.id] || [])[0];
+      return h('button', { type: 'button', class: 'libitem', onclick: () => { lib.armed = null; state.upView = e; renderVideo(); }, 'aria-label': 'Open ' + str(e.title, 60) + ', ' + fmtDate(e.date) },
+        th ? h('img', { src: th, alt: '' }) : h('span', { class: 'libicon', 'aria-hidden': 'true' }, e.type === 'pdf' ? 'PDF' : e.type === 'video' ? '▶' : 'Photo'),
+        e.type === 'video' ? h('span', { class: 'libplay', 'aria-hidden': 'true' }, '▶' + (e.dur ? ' ' + Math.floor(e.dur / 60) + ':' + pad(e.dur % 60) : '')) : null,
+        h('span', { class: 'libcap' }, h('b', null, str(e.title, 40)), h('span', null, fmtDate(e.date))));
+    })) : h('p', { class: 'mid' }, 'Nothing uploaded yet.'));
+}
+function renderUpView(box) {
+  const e = state.upView, close = () => { state.upView = null; lib.armed = null; renderVideo(); };
+  box.replaceChildren(h('div', { class: 'vid', role: 'dialog', 'aria-modal': 'true', 'aria-label': str(e.title, 60), onclick: ev => { if (ev.target.classList.contains('vid')) close(); } },
+    h('div', { class: 'vbox' },
+      h('div', { class: 'vhead' }, h('div', null, h('b', null, str(e.title, 60)), h('span', null, fmtDate(e.date) + (e.size ? ', ' + HubMedia.mb(e.size) : ''))),
+        h('button', { type: 'button', class: 'btn', id: 'vid-close', onclick: close }, 'Close')),
+      h('div', { class: 'upbody', id: 'up-body' }, h('p', null, 'Loading...')),
+      h('div', { class: 'row' },
+        e.type === 'video' ? h('button', { type: 'button', class: 'btn line', onclick: () => libRead(e) }, 'Read this swing') : null,
+        locked() ? null : h('button', { type: 'button', class: 'btn ' + (lib.armed === e.id ? 'del' : 'line'), onclick: () => libDelete(e) }, lib.armed === e.id ? 'Tap again to delete' : 'Delete')))));
+  const b = document.getElementById('vid-close'); if (b && !lib.armed) b.focus();
+  HubMedia.link(familyKey, e.path).then(url => {
+    const el = document.getElementById('up-body');
+    if (!el || state.upView !== e) return;
+    el.replaceChildren(e.type === 'video' ? h('video', { src: url, controls: '', playsinline: '', preload: 'metadata' })
+      : e.type === 'photo' ? h('img', { src: url, alt: str(e.title, 60) })
+      : h('a', { class: 'btn', href: url, target: '_blank', rel: 'noopener' }, 'Open the PDF'));
+  }).catch(err => { const el = document.getElementById('up-body'); if (el && state.upView === e) el.replaceChildren(h('p', null, (err && err.msg) || 'Could not open it. Check the internet.')); });
+}
+
 function viewFilm() {
   const all = checks(), open = all.find(e => e.id === state.openCheck) || all[0], v = film.video, t = today();
   if (open) needMedia([open]);
@@ -820,6 +934,7 @@ function viewFilm() {
     open ? h('section', { class: 'sec plain' }, h('div', { class: 'row between' }, h('h2', null, (open === all[0] ? 'Latest swing' : 'Swing') + ', ' + fmtDate(open.date)),
         h('span', { class: 'status ' + (open.tag === 'game' ? 'wait' : 'ok') }, open.tag === 'game' ? 'Game swing' : 'Practice swing')), showCheck(open)) : null,
     uploader,
+    viewLibrary(),
     compare(all),
     all.length ? h('section', { class: 'sec' }, h('h2', null, 'All swings'), all.map(e => h('div', { class: 'entry' },
       h('button', { type: 'button', class: 'hist', style: 'border:0;padding:0', onclick: () => { state.openCheck = e.id; render(); window.scrollTo(0, 0); } },
@@ -875,7 +990,7 @@ function renderNote() {
   const box = document.getElementById('note'); if (!box) return;
   let seen = []; try { seen = JSON.parse(localStorage.getItem('dugout-seen-notes') || '[]'); } catch (e) {}
   const n = state.entries.filter(e => e.kind === 'note' && e.id && seen.indexOf(e.id) < 0).sort(L.byDate).pop();
-  if (!n || state.video) { box.replaceChildren(); return; }
+  if (!n || state.video || state.upView) { box.replaceChildren(); return; }
   const ok = () => { seen.push(n.id); try { localStorage.setItem('dugout-seen-notes', JSON.stringify(seen.slice(-200))); } catch (e) {} box.replaceChildren(); renderNote(); };
   box.replaceChildren(h('div', { class: 'vid', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Message from Dad' },
     h('div', { class: 'vbox notebox' }, h('div', { class: 'stk big', 'aria-hidden': 'true' }, n.sticker || '⚾'), h('h2', null, 'Message from Dad'), h('p', { class: 'say' }, n.text),
@@ -1038,6 +1153,7 @@ function viewLog() {
     e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
     e.kind === 'arcade' ? 'Arcade: ' + ((L.GAMES[e.game] || {}).name || e.game) + ', ' + e.score + ((L.GAMES[e.game] || {}).unit || '') :
     e.kind === 'challenge' ? 'Daily challenge done' :
+    e.kind === 'upload' ? 'Uploaded ' + (e.type || 'file') + ': ' + str(e.title, 60) :
     e.kind === 'note' ? 'Message to ' + who() + ': ' + (e.sticker ? e.sticker + ' ' : '') + e.text :
     e.kind === 'gcsnap' ? 'GameChanger totals imported' + (e.file ? ' (' + e.file + ')' : '') :
     e.kind === 'body' ? 'Measured: ' + [L.isNum(e.heightIn) ? L.fmtHeight(e.heightIn) : null, L.isNum(e.weightLb) ? (Math.round(e.weightLb * 10) / 10) + ' lb' : null].filter(Boolean).join(', ') : e.kind;
@@ -1059,7 +1175,7 @@ function viewLog() {
         const text = (state.form.n_text || '').trim(); if (!text) return toast('Type a message first.');
         if (await addEntry({ kind: 'note', date: today(), text: text.slice(0, 140), sticker: state.form.n_st || STICKERS[0] })) { state.form.n_text = ''; toast('Sent. He will see it next time he opens the hub.'); } render(); }) }, 'Send message'))),
     h('div', { class: 'two even' },
-      h('section', { class: 'sec' }, h('h2', null, 'Swing video'), h('p', null, 'Save swing filmstrips and compare them in the film room on the Player side.'), h('p', null, h('a', { href: '#film' }, 'Open the film room'))),
+      h('section', { class: 'sec' }, h('h2', null, 'Swing video'), h('p', null, 'Upload videos, photos and PDFs, and save swing filmstrips, in the film room on the Player side.'), h('p', null, h('a', { href: '#film' }, 'Open the film room'))),
       h('section', { class: 'sec' }, h('h2', null, 'Game line'),
         h('div', { class: 'row' }, inp('g_date', 'Date', { type: 'date', def: t })),
         h('div', { class: 'row' }, inp('g_ab', 'At-bats', { mode: 'numeric' }), inp('g_h', 'Hits', { mode: 'numeric' }), inp('g_k', 'Strikeouts', { mode: 'numeric' }), inp('g_bb', 'Walks', { mode: 'numeric' })),
@@ -1348,5 +1464,6 @@ function render() {
 }
 window.addEventListener('hashchange', () => { route(); state.confirmDel = null; state.pinMsg = ''; if (modeOf(state.route) === 'player') relock(); render(); window.scrollTo(0, 0); });
 try { const s = JSON.parse(localStorage.getItem('dugout-ticks') || 'null'); if (s && s.t) { state.ticks = s.t; state.counts = s.c || {}; } } catch (e) {}
+document.addEventListener('pointerdown', function first() { document.removeEventListener('pointerdown', first); setTimeout(HubGames.Sound.warm, 50); });
 boot();
 })();

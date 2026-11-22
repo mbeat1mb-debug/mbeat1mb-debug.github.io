@@ -16,7 +16,14 @@ const HubGames = (() => {
     const on = () => { try { return localStorage.getItem('dugout-sound') !== 'off'; } catch (e) { return true; } };
     const set = v => { try { localStorage.setItem('dugout-sound', v ? 'on' : 'off'); } catch (e) {} };
     const ac = () => { if (!on()) return null; try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); return ctx; } catch (e) { return null; } };
-    const noise = (c, secs) => { const b = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * secs)), c.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const s = c.createBufferSource(); s.buffer = b; return s; };
+    // Noise is made once per length and reused, so a tap never waits on it.
+    const bufs = {};
+    const noise = (c, secs) => { const key = Math.round(secs * 1000); let b = bufs[key];
+      if (!b) { b = bufs[key] = c.createBuffer(1, Math.max(1, Math.floor(c.sampleRate * secs)), c.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      const s = c.createBufferSource(); s.buffer = b; return s; };
+    // iPads only allow sound to start inside a real tap: unlock() runs in the tap, the sound itself plays right after the screen updates.
+    const unlock = () => { ac(); };
+    const later = f => { unlock(); setTimeout(f, 0); };
     function crack() { const c = ac(); if (!c) return; const t = c.currentTime, n = noise(c, 0.12), f = c.createBiquadFilter(), g = c.createGain();
       f.type = 'highpass'; f.frequency.value = 1800; g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.11); n.connect(f).connect(g).connect(c.destination); n.start(t);
       const o = c.createOscillator(), og = c.createGain(); o.frequency.setValueAtTime(900, t); o.frequency.exponentialRampToValueAtTime(300, t + 0.06); og.gain.setValueAtTime(0.35, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.07); o.connect(og).connect(c.destination); o.start(t); o.stop(t + 0.08); }
@@ -27,7 +34,9 @@ const HubGames = (() => {
     function blip(ok) { const c = ac(); if (!c) return; const t = c.currentTime, o = c.createOscillator(), g = c.createGain(); o.type = 'triangle';
       o.frequency.setValueAtTime(ok ? 660 : 220, t); if (ok) o.frequency.setValueAtTime(990, t + 0.08); g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2); o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.22); }
     function say(text) { if (!on() || !window.speechSynthesis) return; try { const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; u.pitch = 0.8; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
-    return { on, set, crack, cheer, blip, say };
+    // Warm the buffers once the first tap has unlocked audio.
+    const warm = () => { const c = ac(); if (c) { noise(c, 0.12); noise(c, 2.2); noise(c, 0.03); } };
+    return { on, set, crack, cheer, blip, say, later, warm };
   })();
 
   /* ---------- Trivia. lvl 1 = Rookie (rules), 2 = Pro, 3 = Hall of Fame (history). Facts kept to settled ones. ---------- */
