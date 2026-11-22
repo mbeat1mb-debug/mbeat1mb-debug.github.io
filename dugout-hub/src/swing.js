@@ -3,7 +3,10 @@
    0 nose, 11/12 shoulders, 23/24 hips, 25/26 knees, 27/28 ankles. Positions are in pixels, y grows downward. */
 const HubSwing = (function () {
   const NOSE = 0, SH = [11, 12], HIP = [23, 24], KNEE = [25, 26], ANK = [27, 28], WR = [15, 16];
-  const HANDS_GAP_MAX = 0.12, HANDS_TRAVEL_MIN = 0.20;   // share of his height; a batter's wrists sit about 4-6% apart and travel 40% or more
+  /* Swing check, set from real clips (4 real swings that must pass, a take and 3 non-swing moments that must not):
+     hands near each other (a hidden far hand reads up to ~17% apart from behind), real swing motion (hands travel
+     or the shoulders turn), and one steady person (no jumping between people or walking around). Shares of his height. */
+  const HANDS_GAP_MAX = 0.26, HANDS_TRAVEL_MIN = 0.20, SHOULDER_TURN_MIN = 0.06, HIP_JUMP_MAX = 0.045, HIP_DRIFT_MAX = 0.20;
   const SAMPLES_PER_SEC = 30, BEFORE = 1.2, AFTER = 0.3;   // real-time seconds around contact
   const NOSE_TO_ANKLE = 0.87;   // share of standing height between nose and ankle (adult body proportions; an estimate for a child)
   const ok = p => p && isFinite(p.x) && isFinite(p.y) && (p.v == null || p.v >= 0.5);
@@ -67,6 +70,9 @@ const HubSwing = (function () {
     const c = contactIdx;
     if (-times[0].k / SAMPLES_PER_SEC < 0.7) return fail('The video starts too close to contact. Start filming at least 1 second before he swings.');
     if (n < 15 || seen < n * 0.7) return fail('He was not found clearly enough in the video. Film from the side with his whole body in the picture.');
+    // The bat and hands blur most at contact, so the tracker sometimes misses that one frame. If it saw him on
+    // both sides of it, fill it in halfway between; only a real gap (two or more frames) still stops the read.
+    if (!f[c] && f[c - 1] && f[c + 1]) { f[c] = f[c - 1].map((p, j) => { const q = f[c + 1][j]; return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, v: Math.min(p.v, q.v) }; }); quality.filled = 1; }
     if (!f[c]) return fail('He was not found at the contact frame.');
     const realT = i => (times[i].t - times[c].t) / sp;   // seconds relative to contact, real time
     const first = f.findIndex(Boolean), stanceIdx = [];
@@ -76,13 +82,27 @@ const HubSwing = (function () {
     if (seenFeet < Math.ceil(stanceIdx.length / 2)) return fail('His head or feet were cut off or hidden at the start. Keep his whole body, head to feet, in the picture.');
     const ankY = (S(ANK[0]).y + S(ANK[1]).y) / 2, H = Math.abs(ankY - S(NOSE).y) / NOSE_TO_ANKLE;
     if (!(H > 40)) return fail('He is too small in the picture. Move the camera closer so he fills most of the height.');
-    // Is this a swing at all? Both hands on the bat (wrists together) and moving through the zone in the last 0.3 s.
+    // Is this a swing at all? Hands on the bat, swing motion, and the same one person throughout.
     const hand = i => ({ x: (f[i][WR[0]].x + f[i][WR[1]].x) / 2, y: (f[i][WR[0]].y + f[i][WR[1]].y) / 2 });
-    const near = []; for (let i = first; i <= c; i++) if (f[i] && realT(i) >= -0.4) near.push(i);
+    const hipc = i => ({ x: (f[i][HIP[0]].x + f[i][HIP[1]].x) / 2, y: (f[i][HIP[0]].y + f[i][HIP[1]].y) / 2 });
+    const near = [], span = [], move = [];
+    for (let i = first; i < f.length; i++) if (f[i]) {
+      const rt = realT(i);
+      if (rt >= -0.5 && rt <= -0.1) near.push(i);        // load and launch: both hands are surely on the bat here
+      if (rt >= -0.6 && rt <= 0.15) span.push(i);
+      if (rt >= -0.4 && rt <= 0.2) move.push(i);         // wide enough that a contact guess a few frames off still holds
+    }
     const gap = median(near.map(i => dist(f[i][WR[0]], f[i][WR[1]]) / H));
-    const from = near.find(i => realT(i) >= -0.3), travel = from != null ? dist(hand(from), hand(c)) / H : 0;
-    quality.handsGap = gap == null ? null : Math.round(gap * 100) / 100; quality.handsTravel = Math.round(travel * 100) / 100;
-    if (!(gap != null && gap <= HANDS_GAP_MAX && travel >= HANDS_TRAVEL_MIN))
+    let travel = 0; for (let a = 0; a < move.length; a++) for (let b = a + 1; b < move.length; b++) travel = Math.max(travel, dist(hand(move[a]), hand(move[b])) / H);
+    const turnWin = move.map(i => (f[i][SH[1]].x - f[i][SH[0]].x) / H);
+    const turn = turnWin.length ? Math.max.apply(null, turnWin) - Math.min.apply(null, turnWin) : 0;
+    let jump = 0; for (let k = 1; k < span.length; k++) jump = Math.max(jump, dist(hipc(span[k - 1]), hipc(span[k])) / H);
+    const hipXs = span.map(i => hipc(i).x / H), drift = hipXs.length ? Math.max.apply(null, hipXs) - Math.min.apply(null, hipXs) : 0;
+    const r2 = x => Math.round(x * 100) / 100;
+    Object.assign(quality, { handsGap: gap == null ? null : r2(gap), handsTravel: r2(travel), shoulderTurn: r2(turn), hipJump: Math.round(jump * 1000) / 1000, hipDrift: r2(drift) });
+    if (!(jump <= HIP_JUMP_MAX && drift <= HIP_DRIFT_MAX))
+      return fail('The tracking jumped around in this clip, as if someone walked through the shot or he moved around. Film one swing from the side with only him in the picture.');
+    if (!(gap != null && gap <= HANDS_GAP_MAX && (travel >= HANDS_TRAVEL_MIN || turn >= SHOULDER_TURN_MIN)))
       return fail('This does not look like a swing: his hands were not together on the bat and moving through the hitting zone. Film one full swing from the side. If the video is slow motion, set Video speed to match.');
     // Front foot = the ankle that travels farthest by contact. Its direction points to the pitcher.
     const dx = ANK.map(j => f[c][j].x - S(j).x), front = Math.abs(dx[0]) >= Math.abs(dx[1]) ? 0 : 1;

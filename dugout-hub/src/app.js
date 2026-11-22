@@ -458,36 +458,83 @@ async function readSwing(v, contact, speed) {
   eng.reset(); const frames2 = await pass(t2, 2), r2 = c2 >= 0 ? HubSwing.analyze(frames2, t2, c2, speed) : null;
   return { res: HubSwing.merge(r1, r2), frames, times: t1, w: cw, h: ch };
 }
-/* Find the contact moment for him: scan the whole clip and pick the frame where his hands move fastest
-   (the bat whips through the ball there). Returns the raw video time of contact — the same value the
-   scrub slider and Save filmstrip already use — plus how much of him was visible, so framing can be called out. */
+/* Find the contact moment for him. Two steps, because a real swing passes the zone in about a tenth of a second:
+   1) a quick scan of the whole clip for the moments with the most hand and shoulder motion, ignoring frames where
+      the tracking jumps to someone else; 2) a frame-by-frame look (30 a second) around the best few moments,
+      picking the frame where his hands are moving fastest. Returns the raw video time of contact. */
 async function findContact(v) {
-  const eng = await loadPose(); eng.reset();
+  const eng = await loadPose();
   const dur = v.duration;
   if (!(dur > 0) || !isFinite(dur)) throw new Error('duration');
-  const COUNT = Math.max(24, Math.min(48, Math.round(dur * 12)));
-  const pts = [];
-  for (let i = 0; i < COUNT; i++) {
-    film.step = 'Finding the swing: ' + (i + 1) + ' of ' + COUNT + '...'; renderFilmStatus();
-    await seekTo(v, dur * i / (COUNT - 1));
-    const cv = grab(v, 480), lm = await eng.read(cv);
-    let hand = null;
-    if (lm) {
-      const okp = p => p && (p.visibility == null || p.visibility >= 0.5);
-      const hands = [lm[15], lm[16]].filter(okp).map(p => ({ x: p.x * cv.width, y: p.y * cv.height }));
-      if (hands.length) hand = hands.length === 2 ? { x: (hands[0].x + hands[1].x) / 2, y: (hands[0].y + hands[1].y) / 2 } : hands[0];
-    }
-    pts.push({ t: dur * i / (COUNT - 1), hand });
+  const pose = async (t, label) => {
+    film.step = label; renderFilmStatus();
+    await seekTo(v, t); const cv = grab(v, 480), lm = await eng.read(cv);
+    if (!lm) return null;
+    const P = i => ({ x: lm[i].x * cv.width, y: lm[i].y * cv.height, v: lm[i].visibility == null ? 1 : lm[i].visibility });
+    const sh = [P(11), P(12)], hp = [P(23), P(24)], wr = [P(15), P(16)];
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const seenW = wr.filter(w => w.v >= 0.3);
+    const hand = seenW.length === 2 ? mid(seenW[0], seenW[1]) : seenW.length ? seenW[0] : mid(wr[0], wr[1]);
+    const shc = mid(sh[0], sh[1]), hipc = mid(hp[0], hp[1]);
+    return { t, hand, hipc, gap: Math.hypot(wr[0].x - wr[1].x, wr[0].y - wr[1].y), sep: sh[1].x - sh[0].x, torso: Math.hypot(shc.x - hipc.x, shc.y - hipc.y) };
+  };
+  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  // 1) quick scan
+  const COUNT = Math.max(24, Math.min(40, Math.round(dur * 10)));
+  eng.reset(); const scan = [];
+  for (let i = 0; i < COUNT; i++) scan.push(await pose(dur * i / (COUNT - 1), 'Finding the swing (quick look): ' + (i + 1) + ' of ' + COUNT + '...'));
+  const seen = scan.filter(Boolean).length / COUNT, cands = [];
+  for (let i = 2; i < scan.length; i++) {   // the first pair after starting is skipped: tracking is still settling
+    const a = scan[i - 1], b = scan[i]; if (!a || !b) continue;
+    const tor = (a.torso + b.torso) / 2; if (!(tor > 0)) continue;
+    if (d(a.hipc, b.hipc) / tor > 0.35) continue;   // running, walking, or the tracking jumped to someone else
+    cands.push({ t: (a.t + b.t) / 2, m: (d(a.hand, b.hand) + Math.abs(b.sep - a.sep)) / tor });
   }
-  let best = null, seen = 0;
-  for (let i = 1; i < pts.length; i++) {
-    if (pts[i].hand) seen++;
-    const a = pts[i - 1].hand, b = pts[i].hand, dt = pts[i].t - pts[i - 1].t;
-    if (!a || !b || !(dt > 0)) continue;
-    const spd = Math.hypot(b.x - a.x, b.y - a.y) / dt;
-    if (!best || spd > best.spd) best = { spd, t: pts[i].t };
+  cands.sort((x, y) => y.m - x.m);
+  const scanTop = cands.slice(0, 12).map(c => ({ t: Math.round(c.t * 100) / 100, m: Math.round(c.m * 100) / 100 }));
+  const picks = []; for (const c of cands) { if (picks.every(p => Math.abs(p.t - c.t) > 0.35)) picks.push(c); if (picks.length === 5) break; }
+  if (!picks.length) return { contact: null, seen };
+  // 2) frame-by-frame around each candidate
+  const tried = [], step = 1 / 30;
+  const look = async (from, to, label, fr) => { for (let t = Math.max(0, from), n = fr.length; t <= Math.min(dur, to) + 1e-6; t += step, n++) fr.push(await pose(t, label + ': frame ' + (n + 1) + '...')); };
+  for (let k = 0; k < picks.length; k++) {
+    const c = picks[k], label = 'Finding the swing (close look ' + (k + 1) + ' of ' + picks.length + ')';
+    let fr = []; eng.reset(); await look(c.t - 0.3, c.t + 0.3, label, fr);
+    const peakOf = list => { const ok = list.filter(Boolean); if (ok.length < 6) return null;
+      const tor = ok.map(x => x.torso).sort((a, b) => a - b)[Math.floor(ok.length / 2)]; let peak = null;
+      const sp = [];
+      for (let i = 2; i < list.length; i++) { const a = list[i - 1], b = list[i]; if (!a || !b || !(tor > 0)) { sp.push(null); continue; }
+        if (d(a.hipc, b.hipc) / tor > 0.3) { sp.push(null); continue; } const spd = d(a.hand, b.hand) / tor / (b.t - a.t);
+        sp.push({ spd, t: b.t }); if (!peak || spd > peak.spd) peak = { spd, t: b.t, i: sp.length - 1 }; }
+      if (!peak) return null;
+      // Hands keep speeding into the follow-through on video, so contact is where the fast run starts (60% of the top speed).
+      let j = peak.i; while (j > 0 && sp[j - 1] && sp[j - 1].spd >= 0.6 * peak.spd) j--;
+      return { peak: { spd: peak.spd, t: sp[j].t }, tor, ok }; };
+    let got = peakOf(fr);
+    // The fastest frame sitting at the edge means the swing runs past this look: extend once that way.
+    if (got && fr.length && got.peak.t >= fr[fr.length - 1 > 0 ? fr.length - 1 : 0].t - 2.5 * step) { const end = fr[fr.length - 1] && fr[fr.length - 1].t; if (end != null && end < dur - step) { await look(end + step, end + 0.3, label, fr); got = peakOf(fr); } }
+    else if (got && fr[0] && got.peak.t <= fr[0].t + 2.5 * step && fr[0].t > step) { const ext = []; eng.reset(); await look(fr[0].t - 0.3, fr[0].t - step, label, ext); fr = ext.concat(fr); got = peakOf(fr); }
+    if (!got) continue;
+    const { peak, tor, ok } = got;
+    // Judge the moments up to contact: batters take off running right after they hit.
+    const pre = ok.filter(x => x.t <= peak.t + 0.02), turnWin = ok.filter(x => x.t >= peak.t - 0.35 && x.t <= peak.t + 0.1);
+    const seps = turnWin.map(x => x.sep / tor), turn = seps.length ? Math.max.apply(null, seps) - Math.min.apply(null, seps) : 0;
+    const preWin = pre.filter(x => x.t >= peak.t - 0.4);
+    const hx = preWin.map(x => x.hipc.x / tor), travel = hx.length ? Math.max.apply(null, hx) - Math.min.apply(null, hx) : 9;
+    // One blurry frame can throw the tracking off for a moment, so the single worst hop is ignored; walking or a second person keeps hopping.
+    const hops = []; for (let i = 1; i < preWin.length; i++) hops.push(d(preWin[i].hipc, preWin[i - 1].hipc) / tor);
+    hops.sort((x, y) => y - x); const jump = hops.length > 1 ? hops[1] : (hops[0] || 0);
+    // Both hands on the bat: running or walking pumps the arms apart, a swing keeps them together.
+    const gaps = preWin.map(x => x.gap / tor).sort((a, b) => a - b), gapMed = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 9;
+    // A swing turns the shoulders some; running turns the whole body around.
+    const swingLike = travel <= 0.6 && jump <= 0.35 && turn >= 0.15 && turn <= 1.0 && gapMed <= 0.7;
+    const score = swingLike ? peak.spd * (1 + turn) : 0;
+    tried.push({ t: Math.round(peak.t * 1000) / 1000, spd: Math.round(peak.spd * 10) / 10, turn: Math.round(turn * 100) / 100, travel: Math.round(travel * 100) / 100, jump: Math.round(jump * 100) / 100, gap: Math.round(gapMed * 100) / 100, score: Math.round(score * 10) / 10 });
   }
-  return { contact: best ? best.t : null, seen: seen / pts.length };
+  // The swing comes before the follow-through, the bat drop and the run: take the earliest strong swing-like moment.
+  const valid = tried.filter(x => x.score > 0), top = valid.reduce((m, x) => Math.max(m, x.score), 0);
+  const best = valid.filter(x => x.score >= 0.4 * top).sort((a, b) => a.t - b.t)[0] || null;
+  return { contact: best ? best.t : null, seen, tried, scanTop };
 }
 // "Find the swing" button: auto-detect contact so he does not have to scrub to the exact frame. The slider stays for nudging.
 async function findSwing() {
