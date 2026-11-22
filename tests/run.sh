@@ -4,7 +4,7 @@ mkdir -p out tests/www
 sed 's#https://yglqvmdrocoknogamagr.supabase.co/#http://127.0.0.1:8080/#g' tests/src/media.js > tests/www/media.js
 python3 tests/src/build.py tests/www/app.html
 sed -i '' 's#https://yglqvmdrocoknogamagr.supabase.co/#http://127.0.0.1:8080/#g' tests/www/app.html
-cp -r tests/fonts tests/icon-180.png tests/manifest.webmanifest tests/www/
+cp -r tests/fonts tests/icon-180.png tests/manifest.webmanifest tests/derby3d.js tests/www/
 python3 tests/server.py > out/server.log 2>&1 &
 sleep 2; curl -s -o /dev/null -w "server %{http_code}\n" http://127.0.0.1:8080/harness.html
 
@@ -35,7 +35,12 @@ while read label udid name; do
   sleep 25; xcrun simctl io "$udid" screenshot "out/${label}_during.png" || true
   wait_done "$label" 1200
   xcrun simctl io "$udid" screenshot "out/${label}_harness_done.png" || true
-  for r in today film; do
+  xcrun simctl openurl "$udid" "http://127.0.0.1:8080/d3probe.html?d3probe&dev=$label"
+  sleep 14; xcrun simctl io "$udid" screenshot "out/${label}_d3_a.png" || true
+  sleep 8; xcrun simctl io "$udid" screenshot "out/${label}_d3_b.png" || true
+  sleep 6; xcrun simctl io "$udid" screenshot "out/${label}_d3_c.png" || true
+  for i in $(seq 1 30); do grep -q "\"dev\": \"$label\", \"case\": \"d3done\"" out/results.jsonl && break; sleep 2; done
+  for r in today arcade; do
     xcrun simctl openurl "$udid" "http://127.0.0.1:8080/www/app.html?k=TESTCODE1234#$r"; sleep 10
     xcrun simctl io "$udid" screenshot "out/${label}_app_$r.png" || true
   done

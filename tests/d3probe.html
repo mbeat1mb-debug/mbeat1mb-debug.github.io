@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3D Derby probe</title>
+<style>@font-face{font-family:'Barlow';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/barlow-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/barlow-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Barlow Condensed';font-style:normal;font-weight:800;font-display:swap;src:url(fonts/barlow-condensed-latin-800-normal.woff2) format('woff2')}
+@font-face{font-family:'Yellowtail';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/yellowtail-latin-400-normal.woff2) format('woff2')}
+:root{--cond:'Barlow Condensed',sans-serif;--body:'Barlow',sans-serif}html,body{margin:0;height:100%;background:#000;font-family:var(--body)}#stage{position:fixed;inset:0;display:flex;flex-direction:column}
+/* 3D Home Run Derby */
+.d3load{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:var(--cond);font-size:28px;color:#f28c38}
+.d3load i{width:220px;height:8px;border-radius:4px;background:linear-gradient(90deg,#f28c38 0 30%,rgba(255,255,255,.15) 30%);background-size:300% 100%;animation:d3l 1.1s linear infinite}
+@keyframes d3l{from{background-position:100% 0}to{background-position:0 0}}
+.d3{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;background:#0b1636}
+.d3cv{display:block;width:100%;height:100%;touch-action:none;outline:none}
+.d3hud{position:absolute;inset:0;pointer-events:none;font-family:var(--cond);color:#fff}
+.d3bug{position:absolute;left:12px;bottom:12px;display:flex;align-items:stretch;border-radius:10px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.45);border:2px solid #f28c38}
+.d3bug>div{padding:6px 12px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(#262626,#111)}
+.d3bug-team{background:linear-gradient(135deg,#f28c38,#d15d0a) !important;color:#161616}
+.d3bug-team b{font-size:22px;line-height:1;font-weight:800}.d3bug-team span{font-size:13px;font-weight:800;letter-spacing:.06em}
+.d3bug-cell span{font-size:12px;color:#bbb;font-weight:700}.d3bug-cell b{font-size:26px;line-height:1;color:#ffd23f}
+.d3bug-cell.outs div{display:grid;grid-template-columns:repeat(5,10px);gap:3px;margin-top:3px}
+.d3bug-cell.outs i{width:10px;height:10px;border-radius:50%;border:2px solid #ff8a8a}.d3bug-cell.outs i.on{background:#ff5a5a;border-color:#ff5a5a}
+.d3pitch{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:6px;background:rgba(10,10,10,.82);border-left:5px solid #f28c38;border-radius:8px;padding:6px 14px;opacity:0;transform:translateX(20px);transition:.25s}
+.d3pitch.show{opacity:1;transform:none}.d3pitch b{font-size:40px;line-height:1;color:#fff}.d3pitch span{font-size:16px;color:#bbb;font-weight:700}.d3pitch i{grid-column:1/3;font-style:normal;font-weight:800;color:#ffd23f;font-size:18px;letter-spacing:.05em}
+.d3streak{position:absolute;left:50%;top:14px;transform:translateX(-50%) scale(.6);opacity:0;transition:.3s;background:linear-gradient(90deg,#ff5a1a,#ffb21a);color:#1a0a00;font-weight:800;font-size:22px;padding:4px 16px;border-radius:30px;box-shadow:0 0 24px rgba(255,120,20,.8)}
+.d3streak.on{opacity:1;transform:translateX(-50%) scale(1)}
+.d3call{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%) scale(.3);opacity:0;text-align:center;white-space:nowrap}
+.d3call.show{animation:d3pop 1.6s cubic-bezier(.2,1.6,.4,1) forwards}.d3call.hr.show{animation-duration:2.6s}
+.d3call b{display:block;font-size:clamp(48px,11vw,104px);font-weight:800;line-height:.95;font-style:italic;color:#fff;-webkit-text-stroke:3px #161616;text-shadow:0 6px 0 #161616,0 0 30px rgba(0,0,0,.6)}
+.d3call.hr b{color:#ffd23f;-webkit-text-stroke:3px #2a1200;text-shadow:0 6px 0 #2a1200,0 0 28px rgba(255,160,20,.95),0 0 60px rgba(255,120,0,.6)}
+.d3call.out b{color:#ffdede}.d3call.ball b{color:#9ee7ff}
+.d3call span{display:inline-block;margin-top:8px;font-size:clamp(18px,3.4vw,28px);font-weight:800;background:rgba(10,10,10,.8);padding:4px 14px;border-radius:8px;border:2px solid #f28c38}
+@keyframes d3pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}20%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
+.d3tip{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(10,10,10,.7);padding:6px 14px;border-radius:20px;font-size:18px;font-weight:700;white-space:nowrap}
+.d3tip:empty{display:none}
+.d3intro{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(5,8,20,.15),rgba(5,8,20,.55));pointer-events:auto;transition:opacity .5s}
+.d3intro.gone{opacity:0;pointer-events:none}
+.d3card{width:min(520px,88%);text-align:center;background:linear-gradient(160deg,rgba(22,22,22,.94),rgba(40,20,5,.94));border:3px solid #f28c38;border-radius:20px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.d3kicker{font-weight:800;color:#f28c38;letter-spacing:.12em;font-size:16px}
+.d3card h2{font-size:clamp(44px,9vw,72px);font-style:italic;line-height:.95;margin:6px 0 12px;color:#fff;-webkit-text-stroke:2px #161616;text-shadow:0 5px 0 #d15d0a}
+.d3card p{font-family:var(--body);font-size:18px;margin:6px 0;color:#eee}
+.d3go{margin-top:14px;font-family:var(--cond);font-size:30px;font-weight:800;font-style:italic;color:#161616;background:linear-gradient(#ffb66b,#f28c38 60%,#d15d0a);border:3px solid #161616;border-radius:40px;padding:10px 44px;min-height:56px;cursor:pointer;box-shadow:0 6px 0 #161616;animation:d3b 1.2s ease-in-out infinite}
+.d3go:focus-visible{outline:4px solid #fff;outline-offset:4px}
+@keyframes d3b{50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.d3go,.d3load i{animation:none}.d3call.show{animation-duration:.01s;opacity:1}}
+</style></head><body><div id="stage"></div>
+<script type="module">
+// Plays the real 3D Derby with auto-swing and reports how fast it runs on this device.
+const dev = new URLSearchParams(location.search).get('dev') || 'x';
+const post = (c, o) => fetch('/__result?dev=' + dev + '&case=' + c, { method: 'POST', body: JSON.stringify(o) }).catch(() => {});
+window.onerror = m => post('d3error', { m: String(m) });
+const noop = () => {}, Sound = { unlock: noop, whoosh: noop, crack: noop, pop: noop, cheer: noop, boom: noop, organ: noop, blip: noop, ooh: noop, say: noop };
+let frames = 0; const count = () => { frames++; requestAnimationFrame(count); }; requestAnimationFrame(count);
+try {
+  const m = await import('./derby3d.js');
+  window.__d3auto = true;
+  m.start({ stage: document.getElementById('stage'), level: 1, me: { name: 'Jaxson', num: '20', bats: 'left' }, Sound, still: false, say: noop, end: (s, l) => post('d3end', { s, l }) });
+  setTimeout(() => document.getElementById('d3-go').click(), 3000);
+  let n = 0, last = 0; const iv = setInterval(() => { n++; const d = window.__d3 || {}; post('d3stat', { t: n * 2, fps: Math.round((frames - last) / 2), phase: d.phase, hr: d.hr, outs: d.outs }); last = frames; if (n >= 20) { clearInterval(iv); post('d3done', {}); } }, 2000);
+} catch (e) { post('d3error', { m: String(e && e.message || e) }); post('d3done', {}); }
+</script></body></html>

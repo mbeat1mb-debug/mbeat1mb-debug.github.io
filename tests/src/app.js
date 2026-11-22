@@ -15,7 +15,7 @@ const L = HubLogic;
   }
 })();
 const DEFAULT_SETTINGS = {
-  player: 'Jaxson', bats: 'left', gameBatOz: 19, level: 1, tankLb: null, medBallLb: null, dailyMax: 75, prizes: [], jersey: '', team: 'Scouts', theme: 'classic', gameLimit: 5,
+  player: 'Jaxson', bats: 'left', gameBatOz: 19, level: 1, tankLb: null, medBallLb: null, dailyMax: 75, prizes: [], jersey: '20', team: 'Seed Spitters', theme: 'classic', gameLimit: 5,
   batList: [
     { id: 'game', name: 'Easton Hype Fire 29"', oz: 19, est: false, role: 'Game bat' },
     { id: 'practice', name: 'Practice bats 29"', oz: 19, est: false, role: 'Game-weight swings' },
@@ -266,7 +266,7 @@ function spark(points, unit) {
   const line = points.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
   w.innerHTML = '<svg class="spark" viewBox="0 0 300 84" role="img" aria-label="Trend from ' + fix(vs[0]) + ' to ' + fix(vs[last]) + ' ' + unit + '">' +
     '<line x1="6" x2="294" y1="14" y2="14" stroke="#cdd5df"/><line x1="6" x2="294" y1="62" y2="62" stroke="#cdd5df"/>' +
-    '<path d="' + line + ' L294 70 L6 70 Z" fill="#93cff2" opacity=".45"/><path d="' + line + '" fill="none" stroke="#0d2b55" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<path d="' + line + ' L294 70 L6 70 Z" fill="#f28c38" opacity=".45"/><path d="' + line + '" fill="none" stroke="#161616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
     '<circle cx="' + X(last).toFixed(1) + '" cy="' + Y(vs[last]).toFixed(1) + '" r="5" fill="#d2342a" stroke="#fff" stroke-width="2"/>' +
     '<text x="6" y="11" font-size="12" fill="#55667f">high ' + fix(hi) + '</text><text x="6" y="82" font-size="12" fill="#55667f">low ' + fix(lo) + '</text></svg>';
   return w;
@@ -278,19 +278,19 @@ const page = (head, ...body) => [head, h('main', { class: 'in' }, banner(), body
 function diamond(frac) {
   const P = [[66, 118], [118, 66], [66, 14], [14, 66], [66, 118]], seg = Math.min(3, Math.floor(frac * 4)), t = frac * 4 - seg;
   const x = P[seg][0] + (P[seg + 1][0] - P[seg][0]) * t, y = P[seg][1] + (P[seg + 1][1] - P[seg][1]) * t, side = 73.54, total = side * 4;
-  const base = (i, on) => '<rect x="' + (P[i][0] - 8) + '" y="' + (P[i][1] - 8) + '" width="16" height="16" transform="rotate(45 ' + P[i][0] + ' ' + P[i][1] + ')" fill="' + (on ? '#0d2b55' : '#fff') + '" stroke="#0d2b55" stroke-width="3"/>';
+  const base = (i, on) => '<rect x="' + (P[i][0] - 8) + '" y="' + (P[i][1] - 8) + '" width="16" height="16" transform="rotate(45 ' + P[i][0] + ' ' + P[i][1] + ')" fill="' + (on ? '#161616' : '#fff') + '" stroke="#161616" stroke-width="3"/>';
   const w = h('span', { role: 'img', 'aria-label': Math.round(frac * 100) + ' percent of the way around the bases' }); w.style.display = 'contents';
   w.innerHTML = '<svg viewBox="0 0 132 132"><path d="M66 118L118 66L66 14L14 66Z" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>' +
-    '<path d="M66 118L118 66L66 14L14 66Z" fill="none" stroke="#0d2b55" stroke-width="5" stroke-linejoin="round" stroke-dasharray="' + (frac * total).toFixed(1) + ' ' + total + '"/>' +
+    '<path d="M66 118L118 66L66 14L14 66Z" fill="none" stroke="#161616" stroke-width="5" stroke-linejoin="round" stroke-dasharray="' + (frac * total).toFixed(1) + ' ' + total + '"/>' +
     base(1, frac >= .25) + base(2, frac >= .5) + base(3, frac >= .75) +
-    '<path d="M58 118h16v-8l-8-7-8 7z" fill="#fff" stroke="#0d2b55" stroke-width="3" stroke-linejoin="round"/>' +
+    '<path d="M58 118h16v-8l-8-7-8 7z" fill="#fff" stroke="#161616" stroke-width="3" stroke-linejoin="round"/>' +
     '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="8" fill="#d2342a" stroke="#fff" stroke-width="3"/></svg>';
   return w;
 }
 function jersey(p) {
   const g = L.game(state.entries), earned = L.badges(state.entries).filter(b => b.on).length, st = L.streak(state.entries, p.t);
   const tail = h('span', { 'aria-hidden': 'true' }); tail.style.display = 'contents';
-  tail.innerHTML = '<svg class="tail" viewBox="0 0 430 46"><path d="M4 20C120 2 290 4 426 16C300 18 170 26 92 42C120 28 80 22 4 20Z" fill="#0d2b55" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+  tail.innerHTML = '<svg class="tail" viewBox="0 0 430 46"><path d="M4 20C120 2 290 4 426 16C300 18 170 26 92 42C120 28 80 22 4 20Z" fill="#161616" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>';
   return h('div', { class: 'jersey' }, h('div', { class: 'in' },
     h('div', null, h('div', { class: 'name' }, who()), tail,
       h('div', { class: 'rank' }, 'Level ' + g.level + ' ' + g.title),
@@ -456,12 +456,12 @@ function runBases(from, to) {
   const path = 'M66 118L118 66L66 14L14 66Z', total = 294.2, f = Math.max(0, Math.min(1, from)), t = Math.max(f, Math.min(1, to));
   const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const w = h('span', { class: 'run', role: 'img', 'aria-label': t >= 1 ? 'He ran all the way home' : 'He moved ' + Math.round((t - f) * 100) + ' percent further around the bases' });
-  const base = (x, y, on) => '<rect x="' + (x - 8) + '" y="' + (y - 8) + '" width="16" height="16" transform="rotate(45 ' + x + ' ' + y + ')" fill="' + (on ? '#0d2b55' : '#fff') + '" stroke="#0d2b55" stroke-width="3"/>';
+  const base = (x, y, on) => '<rect x="' + (x - 8) + '" y="' + (y - 8) + '" width="16" height="16" transform="rotate(45 ' + x + ' ' + y + ')" fill="' + (on ? '#161616' : '#fff') + '" stroke="#161616" stroke-width="3"/>';
   w.innerHTML = '<svg viewBox="0 0 132 132" width="150" height="150"><path d="' + path + '" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>' +
-    '<path d="' + path + '" fill="none" stroke="#0d2b55" stroke-width="5" stroke-linejoin="round" stroke-dasharray="' + total + ' ' + total + '" stroke-dashoffset="' + (total * (1 - (still ? t : f))).toFixed(1) + '">' +
+    '<path d="' + path + '" fill="none" stroke="#161616" stroke-width="5" stroke-linejoin="round" stroke-dasharray="' + total + ' ' + total + '" stroke-dashoffset="' + (total * (1 - (still ? t : f))).toFixed(1) + '">' +
     (still ? '' : '<animate attributeName="stroke-dashoffset" values="' + (total * (1 - f)).toFixed(1) + ';' + (total * (1 - f)).toFixed(1) + ';' + (total * (1 - t)).toFixed(1) + '" keyTimes="0;0.2;1" dur="1.7s" fill="freeze"/>') + '</path>' +
     base(118, 66, t >= .25) + base(66, 14, t >= .5) + base(14, 66, t >= .75) +
-    '<path d="M58 118h16v-8l-8-7-8 7z" fill="' + (t >= 1 ? '#0d2b55' : '#fff') + '" stroke="#0d2b55" stroke-width="3" stroke-linejoin="round"/>' +
+    '<path d="M58 118h16v-8l-8-7-8 7z" fill="' + (t >= 1 ? '#161616' : '#fff') + '" stroke="#161616" stroke-width="3" stroke-linejoin="round"/>' +
     '<circle r="9" fill="#d2342a" stroke="#fff" stroke-width="3">' + (still ? '' : '<animateMotion dur="1.7s" fill="freeze" calcMode="linear" keyPoints="' + f.toFixed(3) + ';' + f.toFixed(3) + ';' + t.toFixed(3) + '" keyTimes="0;0.2;1" path="' + path + '"/>') + '</circle>' +
     (still ? '<circle cx="0" cy="0" r="9" fill="#d2342a" stroke="#fff" stroke-width="3" transform="translate(' + pointOn(t).join(' ') + ')"/>' : '') + '</svg>';
   if (still) { const c = w.querySelector('circle:not([transform])'); if (c) c.remove(); }
@@ -472,7 +472,7 @@ function pointOn(frac) {
   return [P[seg][0] + (P[seg + 1][0] - P[seg][0]) * t, P[seg][1] + (P[seg + 1][1] - P[seg][1]) * t].map(n => n.toFixed(1));
 }
 function confetti() {
-  const box = h('div', { class: 'confetti', 'aria-hidden': 'true' }), colors = ['#0d2b55', '#ffffff', '#d2342a', '#5aa9e6'];
+  const box = h('div', { class: 'confetti', 'aria-hidden': 'true' }), colors = ['#161616', '#ffffff', '#d2342a', '#d15d0a'];
   for (let i = 0; i < 36; i++) { const s = h('i'); s.style.left = (Math.random() * 100).toFixed(1) + '%'; s.style.background = colors[i % 4];
     s.style.animationDelay = (Math.random() * 0.5).toFixed(2) + 's'; s.style.animationDuration = (1.6 + Math.random() * 1.2).toFixed(2) + 's';
     s.style.setProperty('--x', ((Math.random() - 0.5) * 160).toFixed(0) + 'px'); s.style.setProperty('--r', (Math.random() * 720 - 360).toFixed(0) + 'deg'); box.appendChild(s); }
@@ -981,7 +981,7 @@ function prizeCard() {
 function seasonCard(p) {
   const S = L.season(state.entries, p.t), g = S.games.find(x => x.monday === p.wk.monday);
   if (!g) return null;
-  const team = state.settings.team || 'Scouts';
+  const team = state.settings.team || 'Seed Spitters';
   return h('section', { class: 'sec season' }, h('h2', null, (g.title ? '\u{1F3C6} Title game: ' : 'This week’s game: ') + team + ' vs ' + g.opp),
     g.status === 'W' ? h('p', { class: 'say' }, 'You won ' + g.us + '–' + g.them + '!') : h('p', { class: 'say' }, 'Finish Day 1 and Day 2 this week to win. Day 3 adds an extra run.'),
     h('p', { class: 'small mid' }, 'Season record: ' + S.mine.w + '–' + S.mine.l + '. ', h('a', { href: '#trophies' }, 'See the standings')));
@@ -1002,24 +1002,26 @@ function viewArcade() {
   const gb = L.gameBests(state.entries).best, sOn = HubGames.Sound.on();
   const best = id => gb[id] ? 'Your best: ' + gb[id].score + L.GAMES[id].unit : 'No score yet';
   const can = lim !== 0 && left > 0;
-  const card = (id, desc, extra) => h('section', { class: 'sec game' }, h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)),
-    extra || h('div', null, h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame(id, 1) }, 'Play')));
-  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Baseball games for any time.' : left + ' of ' + lim + ' games left today.'),
-    !can && lim !== 0 ? h('p', { class: 'note' }, 'That’s all the games for today. Go play catch, then come back tomorrow!') : null,
+  const levels = id => h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame(id, l[0]) }, l[1])));
+  const card = (id, icon, desc, play) => h('section', { class: 'sec game' }, h('div', { class: 'gicon', 'aria-hidden': 'true' }, icon), h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)), play || levels(id));
+  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Five baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
+    !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
     h('div', { class: 'two even' },
-      card('trivia', '10 questions about the rules, the legends and the ballparks.', h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'Hall of Fame']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame('trivia', l[0]) }, l[1])))),
-      card('reaction', 'Tap only when the ball is your color. Trains the same quick eyes as Color Call at practice. Lower is better.'),
-      card('zone', 'A pitch flashes in the strike zone. Tap where it crossed. It gets faster every pitch.'),
-      card('derby', 'Tap to swing when the pitch reaches the plate. Perfect timing is a home run.')),
-    h('section', { class: 'sec' }, h('h2', null, 'Sounds'), h('p', null, 'Bat cracks, crowd cheers and the umpire. The iPad’s silent switch turns them off too.'),
+      card('derby', '\u26be', 'Swing at fastballs, changeups and curves. Time it to pull it, tap high or low to match the pitch. 10 outs. Fireworks on every home run.'),
+      card('kking', '\ud83d\udd25', 'You\u2019re on the mound. Pick the pitch, aim for the corners, nail the timing ring. Fool hitters with a changeup. Count your strikeouts.'),
+      card('steal', '\ud83d\udca8', 'Take your lead off first, read the pitcher, and go on his first move home. Go too early or lead too far and you\u2019re picked off.'),
+      card('outfield', '\ud83e\udde4', 'Run down fly balls in center field, dive for the close ones, then make the smart throw with runners on base.'),
+      card('brain', '\ud83e\udde0', 'Every question is an at-bat. Easy = single, medium = double, hard = home run. Score runs before you make 3 outs.',
+        h('div', null, h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame('brain', 1) }, 'Play')))),
+    h('section', { class: 'sec' }, h('h2', null, 'Sounds'), h('p', null, 'Bat cracks, crowd cheers, the organ and the umpire. The iPad\u2019s silent switch turns them off too.'),
       h('div', null, h('button', { type: 'button', class: 'btn line', 'aria-pressed': String(sOn), onclick: () => { HubGames.Sound.set(!sOn); if (!sOn) HubGames.Sound.crack(); render(); } }, sOn ? 'Sounds are on. Turn off' : 'Sounds are off. Turn on'))),
     h('p', { class: 'small mid' }, 'First ' + L.XP.gamePlaysPaid + ' games each day: +' + L.XP.gamePlay + ' XP each. New best score: +' + L.XP.gameBest + ' XP. Training is still the fastest way to level up.'));
 }
 function startGame(id, level) {
-  HubGames.play(id, { level }, async (score, again) => {
+  HubGames.play(id, { level, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left' } }, async (score, again) => {
     if (score == null) { render(); return; }
     const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
-    if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id === 'trivia' ? { level } : {})))) { render(); return; }
+    if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id !== 'brain' ? { level } : {})))) { render(); return; }
     const isBest = had && (L.GAMES[id].lower ? score < had.score : score > had.score);
     const msgs = [];
     if (isBest) { msgs.push('New best! +' + L.XP.gameBest + ' XP'); HubGames.Sound.cheer(); }
@@ -1038,14 +1040,14 @@ function playerCard() {
     ['Longest jump', rec.jump && fix(rec.jump.v, 0) + ' in'], ['Swings logged', commas(t.swings)], ['Sessions', commas(t.sessions)]];
   return h('button', { type: 'button', class: 'pcard tier-' + tier.toLowerCase().replace(/[^a-z]/g, '') + (state.cardBack ? ' back' : ''), 'aria-pressed': String(!!state.cardBack), 'aria-label': 'Player card. Tap to flip.', onclick: () => { state.cardBack = !state.cardBack; render(); } },
     h('div', { class: 'face front' }, h('div', { class: 'tier' }, tier + ' card'), h('div', { class: 'num' }, num ? '#' + num : init), h('div', { class: 'pname' }, name), h('div', { class: 'ptitle' }, 'Level ' + g.level + ' ' + g.title),
-      h('div', { class: 'pmeta' }, (state.settings.bats === 'right' ? 'Bats right' : 'Bats left') + ' · ' + (state.settings.team || 'Scouts'))),
+      h('div', { class: 'pmeta' }, (state.settings.bats === 'right' ? 'Bats right' : 'Bats left') + ' · ' + (state.settings.team || 'Seed Spitters'))),
     h('div', { class: 'face rear' }, h('div', { class: 'tier' }, 'Stats'), h('table', null, h('tbody', null, back.map(r => h('tr', null, h('td', null, r[0]), h('td', { class: 'v' }, r[1] || '—'))))), h('div', { class: 'small' }, 'Tap to flip back')));
 }
 function viewTrophies() {
   const B = L.badges(state.entries), rec = L.records(state.entries), t = L.totals(state.entries);
   const recs = [['Top bat speed', rec.bat, r => fix(r.v) + ' mph'], ['Top exit speed', rec.exit, r => fix(r.v) + ' mph'], ['Best machine round', rec.contact, r => r.made + ' of ' + r.of],
     ['Longest jump', rec.jump, r => fix(r.v, 0) + ' in'], ['Most push-ups in a test', rec.pushups, r => fix(r.v, 0)], ['Longest plank', rec.plank, r => fix(r.v, 0) + ' sec'], ['Fastest pitch', rec.velo, r => fix(r.v) + ' mph']];
-  const g = L.game(state.entries), S = L.season(state.entries, today()), gb = L.gameBests(state.entries).best, team = state.settings.team || 'Scouts';
+  const g = L.game(state.entries), S = L.season(state.entries, today()), gb = L.gameBests(state.entries).best, team = state.settings.team || 'Seed Spitters';
   return page(strip('Trophies', B.filter(b => b.on).length + ' of ' + B.length + ' badges earned'),
     h('div', { class: 'two even' },
       h('section', { class: 'sec plain cardwrap' }, playerCard(), h('p', { class: 'small mid' }, 'Your card upgrades at Level 3 (Silver), 5 (Gold) and 7 (All-Star).')),
@@ -1058,7 +1060,7 @@ function viewTrophies() {
           h('td', { class: 'v' }, x.status === 'W' ? 'W ' + x.us + '\u2013' + x.them : x.status === 'L' ? 'L ' + x.us + '\u2013' + x.them : x.status === 'live' ? 'This week' : x.status === 'pre' ? 'Before you started' : 'Coming up'))))),
         h('table', null, h('caption', null, 'Standings'), h('tbody', null, S.standings.map(r => h('tr', { class: r.me ? 'me' : null }, h('td', null, r.me ? team : r.name), h('td', { class: 'v' }, r.w + '\u2013' + r.l)))))),
       h('p', { class: 'small mid' }, 'Each week is a game: finish Day 1 and Day 2 to win. The last week of the month is the title game. Win it for the Champions badge.')),
-    h('section', { class: 'sec' }, h('h2', null, 'Arcade bests'), h('table', null, h('tbody', null, Object.keys(L.GAMES).map(k => h('tr', null, h('td', null, L.GAMES[k].name), h('td', { class: 'v' }, gb[k] ? gb[k].score + L.GAMES[k].unit : '\u2014')))))),
+    h('section', { class: 'sec' }, h('h2', null, 'Arcade bests'), h('table', null, h('tbody', null, Object.keys(L.GAMES).filter(k => !L.GAMES[k].retired || gb[k]).map(k => h('tr', null, h('td', null, L.GAMES[k].name), h('td', { class: 'v' }, gb[k] ? gb[k].score + L.GAMES[k].unit : '\u2014')))))),
     h('section', { class: 'sec plain' }, h('div', { class: 'patches' }, B.map(b => h('div', { class: 'patch' + (b.on ? ' on' : '') }, h('div', { class: 'ring' }, icon(b.icon)), h('b', null, b.name), h('span', null, b.on ? 'Earned' : b.how), !b.on && b.goal ? bar(b) : null)))),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Your records'), h('table', null, h('tbody', null, recs.map(r => h('tr', null, h('td', null, r[0], r[1] ? h('div', { class: 'math' }, fmtDate(r[1].date)) : null), h('td', { class: 'v' }, r[1] ? r[2](r[1]) : '–'))))),
