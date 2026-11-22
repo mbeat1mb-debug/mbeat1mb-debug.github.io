@@ -532,7 +532,9 @@ const HubLogic = (() => {
     f8: 'hips', s9: 'hips', f1: 'twostrike', t4: 'twostrike', f6: 'strideh', f7: 'footdown', t6: 'footdown', t9: 'footdown', f9: 'frontleg', f10: 'balance', s7: 'balance',
     f2: 'liners', p2: 'liners', p6: 'liners', f3: 'lowtee', p3: 'lowtee', g2: 'legbal', g1: 'field', x2: 'pushup', a2: 'pushup', z2: 'pushup', x3: 'plank', z7: 'plank',
     x1: 'jump', z8: 'jump', a1: 'squat', z1: 'squat' };
-  function videoFor(item) { const k = DRILL_VIDEO[item.id]; return k ? VIDEOS[k] : null; }
+  // Ads played before these in a live test (Nov 21, 2026), so they stay hidden until replaced with ad-free videos.
+  const ADS = { bunt: 1, aim: 1, aim2: 1, stridep: 1, head: 1, frontleg: 1, liners: 1, pushup: 1, plank: 1 };
+  function videoFor(item) { const k = DRILL_VIDEO[item.id]; return k && !ADS[k] ? VIDEOS[k] : null; }
   const BOSS_WHY = { speed: 'Beating your own top speed is how you get faster.', contact: 'Beating your own best shows your eye is getting better.', duel: 'Competing makes every swing count.' };
   const WARM_WHY = { 'Warm up': WHY.w1, 'Mirror Me': WHY.w2, 'Base Path Warm-up': WHY.w3 };
   function whyFor(item) { return item.id === 'boss' && item.boss ? BOSS_WHY[item.boss.dad ? 'duel' : item.boss.kind] : /^w\d+$/.test(item.id) ? WARM_WHY[item.title] || null : WHY[item.id] || null; }
