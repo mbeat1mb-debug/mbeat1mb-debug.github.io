@@ -154,8 +154,11 @@ const HubLogic = (() => {
 
   const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gamePlaysPaid: 3, gameBest: 10 };
   // Arcade games. lower: a smaller score is better (reaction time in ms).
-  const GAMES = { trivia: { name: 'Baseball Trivia', unit: ' of 10', lower: false }, reaction: { name: 'Color Call', unit: ' ms', lower: true },
-    zone: { name: 'Strike Zone Memory', unit: ' of 10', lower: false }, derby: { name: 'Home Run Derby', unit: ' HR', lower: false } };
+  // The five Arcade games. Older games stay listed (retired) so past best scores and XP still count.
+  const GAMES = { derby: { name: 'Home Run Derby', unit: ' HR', lower: false }, kking: { name: 'Strikeout King', unit: ' K', lower: false },
+    steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false },
+    trivia: { name: 'Baseball Trivia (old)', unit: ' of 10', lower: false, retired: true }, reaction: { name: 'Color Call (old)', unit: ' ms', lower: true, retired: true },
+    zone: { name: 'Strike Zone Memory (old)', unit: ' of 10', lower: false, retired: true } };
   // Best score per game, and how many times he beat his own best (the first score does not count).
   function gameBests(entries) {
     const best = {}, beats = {};
@@ -207,8 +210,8 @@ const HubLogic = (() => {
       { id: 'boss3', name: 'Boss slayer', how: 'Win 3 Boss Battles.', icon: 'trophy', on: bosses >= 3, have: bosses, goal: 3 },
       { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100, have: t.pushups, goal: 100 },
       { id: 'fire7', name: 'On fire', how: 'Train or finish a daily challenge 7 days in a row.', icon: 'flame', on: dayBest >= 7, have: dayBest, goal: 7 },
-      { id: 'whiz', name: 'Trivia whiz', how: 'Get 10 of 10 in Baseball Trivia.', icon: 'star', on: gb.trivia >= 10, have: gb.trivia || 0, goal: 10 },
-      { id: 'quick', name: 'Lightning eyes', how: 'Average under 350 ms in Color Call.', icon: 'bolt', on: gb.reaction != null && gb.reaction < 350 },
+      { id: 'whiz', name: 'Baseball brain', how: 'Score 6 runs in Baseball Brain.', icon: 'star', on: gb.trivia >= 10 || gb.brain >= 6, have: Math.min(6, gb.brain || 0), goal: 6 },
+      { id: 'quick', name: 'Lightning legs', how: 'Steal 6 bases in one game of Steal Second.', icon: 'bolt', on: (gb.reaction != null && gb.reaction < 350) || gb.steal >= 6, have: Math.min(6, gb.steal || 0), goal: 6 },
       { id: 'champs', name: 'Champions', how: 'Win the title game at the end of a month.', icon: 'trophy', on: champs > 0 }
     ];
   }
@@ -619,9 +622,9 @@ const HubLogic = (() => {
     { id: 'd3', text: '20 jumping jacks, then 10 squats.' },
     { id: 'd4', text: 'Play catch with Dad: 10 throws. Count how many hit his glove.', throwing: true },
     { id: 'd5', text: 'Watch one drill video in the app, then copy the move 5 times.' },
-    { id: 'd6', text: 'Get 7 or more right in Baseball Trivia.', auto: { game: 'trivia', min: 7 } },
-    { id: 'd7', text: 'Average under 450 ms in Color Call.', auto: { game: 'reaction', max: 450 } },
-    { id: 'd8', text: 'Score 7 or more in Strike Zone Memory.', auto: { game: 'zone', min: 7 } },
+    { id: 'd6', text: 'Score 3 or more runs in Baseball Brain.', auto: { game: 'brain', min: 3 } },
+    { id: 'd7', text: 'Steal 4 or more bases in Steal Second.', auto: { game: 'steal', min: 4 } },
+    { id: 'd8', text: 'Strike out 3 or more batters in Strikeout King.', auto: { game: 'kking', min: 3 } },
     { id: 'd9', text: 'Hit 3 home runs in Home Run Derby.', auto: { game: 'derby', min: 3 } },
     { id: 'd10', text: 'Balance like your leg lift: 20 seconds on each leg.' },
     { id: 'd11', text: 'Tell Dad one thing you got better at this week.' },
@@ -631,7 +634,8 @@ const HubLogic = (() => {
     { id: 'd15', text: 'Push-ups: do 1 more than your best set.' },
     { id: 'd16', text: 'Plank: hold it 5 seconds longer than last time.' },
     { id: 'd17', text: 'Pitcher’s balance: lift your knee and hold for 3 seconds, 10 times. No ball needed.' },
-    { id: 'd18', text: 'Eyes drill: Dad holds up fingers fast, you call the number. 10 rounds.' }
+    { id: 'd18', text: 'Eyes drill: Dad holds up fingers fast, you call the number. 10 rounds.' },
+    { id: 'd19', text: 'Score 600 or more in Outfield Hero.', auto: { game: 'outfield', min: 600 } }
   ];
   function challengeFor(today, armOk) {
     const pool = CHALLENGES.filter(c => armOk || !c.throwing);
@@ -658,7 +662,7 @@ const HubLogic = (() => {
   // Card tiers and unlockable themes, by level.
   const TIERS = [[1, 'Bronze'], [3, 'Silver'], [5, 'Gold'], [7, 'All-Star']];
   const tierFor = level => TIERS.filter(t => level >= t[0]).pop()[1];
-  const THEMES = [{ id: 'classic', name: 'Classic', level: 1 }, { id: 'night', name: 'Night Game', level: 3 }, { id: 'retro', name: 'Retro', level: 5 }, { id: 'gold', name: 'All-Star Gold', level: 7 }];
+  const THEMES = [{ id: 'classic', name: 'Seed Spitters', level: 1 }, { id: 'night', name: 'Night Game', level: 3 }, { id: 'retro', name: 'Retro', level: 5 }, { id: 'gold', name: 'All-Star Gold', level: 7 }];
 
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
   function buildWeek(focus, step, armRest, o) {
