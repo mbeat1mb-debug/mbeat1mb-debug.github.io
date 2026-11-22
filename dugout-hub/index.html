@@ -1784,7 +1784,7 @@ const HubGames = (() => {
     const ui = open('Home Run Derby', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 10 outs');
     ui.stage.classList.add('cvstage');
     ui.stage.replaceChildren(el('div', { class: 'd3load' }, el('b', null, 'Loading Seed Spitters Park\u2026'), el('i', null)));
-    import('./derby3d.js').then(m => {
+    import('./derby3d.js').then(m => (m.ready || Promise.resolve()).then(() => m)).then(m => {
       if (!layer) return;
       try {
         const g = m.start({ stage: ui.stage, level, me: ME, Sound, still: still(), say: t => { ui.status.textContent = t; }, end: (score, lines) => finish(ui, score, lines, done) });
