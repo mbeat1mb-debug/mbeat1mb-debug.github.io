@@ -728,34 +728,32 @@ const HubLogic = (() => {
     fence: { id: '3RyLpYSzjsQ', title: 'The Fence Drill', by: 'Baseball Tutorials' },
     bottom: { id: 'KAaVirs7UcM', title: 'Tee Drill: Bottom Hand', by: 'Silver Sluggers Academy' },
     tophand: { id: '3USSmzO001k', title: 'Top Hand and Bottom Hand Drills', by: 'DNA Sports' },
-    bunt: { id: '0Dc0kW6touQ', title: 'The Pivot Bunt and Square Bunt', by: 'Schupak Sports' },
-    aim: { id: 'qwnvUICBWhQ', title: 'Accuracy Pitching Drills for Youth Pitchers', by: 'ARM Pitching Development' },
-    aim2: { id: '9tWZEBWuSco', title: 'Youth Pitching Drills for Accuracy, Ages 9-14', by: 'ARM Pitching Development' },
-    stridep: { id: 'LlyXy2W8jWs', title: 'How the Stride Affects Youth Pitching', by: 'Coach Dan Blewett' },
-    finishp: { id: 'lyTaFQyIRkY', title: '1 Knee Stand and Finish Drill', by: 'The Baseball Pro' },
-    head: { id: '6MikMHP854w', title: 'Drills to Keep Your Head Down', by: 'YouGoProBaseball' },
+    bunt: { id: 'ueahw9wYwZ0', title: 'How to Place Your Bunt Down the Line', by: 'Little League' },
+    strike1: { id: 'mHI5hfxIMWY', title: 'The Importance of Strike One', by: 'The Catching Academy Network' },
+    stridep: { id: 'e7665TI1C6U', title: 'Pitching: Stride Direction', by: 'Jaime Baseball Academy' },
+    finishp: { id: 'FA4S6Qafapc', title: 'Pitching: Follow Through Drills', by: 'Jaime Baseball Academy' },
+    head: { id: 'blmWIexJDH4', title: 'Head Down and Back Foot Drills', by: 'Silver Sluggers Academy' },
     pepper: { id: 'U2lqU2ESp9Q', title: 'Pepper Practice', by: 'Mike Scott Baseball' },
-    hips: { id: 'QIJMNwIVQZ0', title: 'Hip and Shoulder Separation for Youth Hitters', by: 'Ron Sullivan' },
     twostrike: { id: 'PTpq20VYyM8', title: 'The Two-Strike Approach', by: "DICK'S Sporting Goods" },
     strideh: { id: 'BbxxaQpOjHg', title: 'Stride and Separation Tee', by: 'HyperFocus Helmet' },
-    footdown: { id: 'QcljtziBomU', title: 'Timing and Getting the Front Foot Down', by: 'Pat Harrison, Diamond Sports' },
-    frontleg: { id: 'noz-aYI7pXg', title: 'Front Leg Post Drill', by: 'YouGoProBaseball' },
+    timing: { id: 'tTBSOTw7XoQ', title: '3 Drills for Timing and Load', by: 'Driveline Baseball' },
+    frontleg: { id: '0QvIPPN3edQ', title: 'Best Drill to Teach a Firm Front Side', by: 'Legends Baseball Camps' },
     balance: { id: '7o6GG3rFr88', title: 'Balance While Hitting', by: 'DNA Sports' },
-    liners: { id: 'GhMXltn9258', title: 'Drill for Hitting Line Drives', by: 'MegRem Softball' },
+    liners: { id: 'Usp8V3iarj0', title: 'Fence Drill with Tee for Line Drives', by: 'Baseballsmith' },
     lowtee: { id: 'Ad3K8y1w6Fc', title: 'Low Tee Drill', by: 'Driveline Baseball' },
     legbal: { id: 'bec3YTm25uY', title: 'Pitching Drill: Balance', by: 'BASE by Pros' },
     field: { id: 'xoygxT47to0', title: 'Fielding a Ground Ball', by: 'Ripken Baseball' },
-    pushup: { id: 'DklfnNxXu9Y', title: 'Push-Up Technique for Kids', by: 'Health·WHYS' },
-    plank: { id: 'bfS0Cv_W_ck', title: 'Forearm Plank for Kids', by: 'Pediatric Physical Therapy Exercises' },
+    pushup: { id: '4CdGuXoPht0', title: 'How to Do Push-Ups', by: 'The PE Guy' },
+    plank: { id: 'Sq_Jc_JAIr8', title: 'How to Do a Plank in 1 Minute', by: 'John Sifferman' },
     jump: { id: 'dVgtvAXeBQw', title: 'Standing Long Jump Basics', by: 'Athletics Coach' },
     squat: { id: '-2eEYWqn2wk', title: 'Squat Technique', by: 'The Move Crew' }
   };
-  const DRILL_VIDEO = { p5: 'fence', p4: 'bottom', p7: 'tophand', c10: 'bunt', q1: 'aim', m2: 'aim', q2: 'aim2', q3: 'stridep', q4: 'finishp', f5: 'head', c8: 'pepper',
-    f8: 'hips', s9: 'hips', f1: 'twostrike', t4: 'twostrike', f6: 'strideh', f7: 'footdown', t6: 'footdown', t9: 'footdown', f9: 'frontleg', f10: 'balance', s7: 'balance',
+  const DRILL_VIDEO = { p5: 'fence', p4: 'bottom', p7: 'tophand', c10: 'bunt', q1: 'strike1', m2: 'strike1', q2: 'strike1', q3: 'stridep', q4: 'finishp', f5: 'head', c8: 'pepper',
+    f8: 'head', s9: 'head', f1: 'twostrike', t4: 'twostrike', f6: 'strideh', f7: 'timing', t6: 'timing', t9: 'timing', f9: 'frontleg', f10: 'balance', s7: 'balance',
     f2: 'liners', p2: 'liners', p6: 'liners', f3: 'lowtee', p3: 'lowtee', g2: 'legbal', g1: 'field', x2: 'pushup', a2: 'pushup', z2: 'pushup', x3: 'plank', z7: 'plank',
     x1: 'jump', z8: 'jump', a1: 'squat', z1: 'squat' };
-  // Ads played before these in a live test (Nov 21, 2026), so they stay hidden until replaced with ad-free videos.
-  const ADS = { bunt: 1, aim: 1, aim2: 1, stridep: 1, head: 1, frontleg: 1, liners: 1, pushup: 1, plank: 1 };
+  // Every video above played with no ad in at least 2 live plays (Nov 21, 2026). Any that later shows ads goes here to hide it.
+  const ADS = {};
   function videoFor(item) { const k = DRILL_VIDEO[item.id]; return k && !ADS[k] ? VIDEOS[k] : null; }
   const BOSS_WHY = { speed: 'Beating your own top speed is how you get faster.', contact: 'Beating your own best shows your eye is getting better.', duel: 'Competing makes every swing count.' };
   const WARM_WHY = { 'Warm up': WHY.w1, 'Mirror Me': WHY.w2, 'Base Path Warm-up': WHY.w3 };
