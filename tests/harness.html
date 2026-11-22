@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Upload device test</title>
 <style>body{font:16px -apple-system,sans-serif;margin:16px}#up-live video{width:280px}pre{white-space:pre-wrap;font-size:12px}</style></head>
 <body><h2 id="h">Starting...</h2><div id="up-live"></div><pre id="log"></pre>
+<script src="src/mp4mux.js"></script>
 <script src="www/media.js"></script>
 <script>
 // Runs the app's real upload code (media.js) on this device against the test stand-in, no taps needed.
@@ -14,7 +15,16 @@ window.onerror = (m) => post('pageerror', { m: String(m) });
   const env = { ua: navigator.userAgent, screen: [screen.width, screen.height, devicePixelRatio],
     mediaRecorder: typeof MediaRecorder !== 'undefined' ? ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm'].map(m => m + '=' + MediaRecorder.isTypeSupported(m)) : 'none',
     canvasCapture: !!HTMLCanvasElement.prototype.captureStream, frameCallback: !!HTMLVideoElement.prototype.requestVideoFrameCallback,
-    hevc: document.createElement('video').canPlayType('video/mp4; codecs="hvc1"') };
+    hevc: document.createElement('video').canPlayType('video/mp4; codecs="hvc1"'),
+    muxerLoaded: typeof Mp4Muxer !== 'undefined', videoEncoder: typeof VideoEncoder !== 'undefined', videoFrame: typeof VideoFrame !== 'undefined' };
+  if (env.videoEncoder) { env.h264_720p = {}; for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.42001f']) { try { env.h264_720p[codec] = (await VideoEncoder.isConfigSupported({ codec, width: 1280, height: 720, bitrate: 2500000, framerate: 30, avc: { format: 'avc' } })).supported; } catch (e) { env.h264_720p[codec] = 'error ' + e.name; } } }
+  // Photo diagnostics: can this browser turn a big canvas into a JPEG?
+  env.photo = {};
+  for (const [w, h] of [[2048, 1536], [1600, 1200], [800, 600]]) { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#28a'; x.fillRect(0, 0, w, h);
+    const b = await new Promise(r => { try { c.toBlob(r, 'image/jpeg', 0.85); } catch (e) { r('throw ' + e.name); } }); let d = ''; try { d = c.toDataURL('image/jpeg', 0.85); } catch (e) { d = 'throw ' + e.name; }
+    env.photo[w + 'x' + h] = { toBlob: b && b.size ? b.size : String(b), toDataURL: d.length }; }
+  try { const bl = await (await fetch('media/photo_4032.jpg')).blob(); const u = URL.createObjectURL(bl); const i = new Image(); await new Promise((ok, bad) => { i.onload = ok; i.onerror = () => bad('img error'); i.src = u; }); env.photo.img = [i.naturalWidth, i.naturalHeight];
+    const c = document.createElement('canvas'); c.width = 2048; c.height = 1536; c.getContext('2d').drawImage(i, 0, 0, 2048, 1536); env.photo.drawnDataURL = c.toDataURL('image/jpeg', 0.85).length; } catch (e) { env.photo.imgErr = String(e); }
   await post('env', env); log(JSON.stringify(env));
   for (const [name, type] of CASES) {
     const t0 = Date.now(), steps = []; let lastKind = '', lastStep = '';
