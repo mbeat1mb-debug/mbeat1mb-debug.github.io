@@ -60,6 +60,9 @@ const HubMedia = (() => {
     try { await seek(v, Math.min(0.5, (v.duration || 1) / 2)); return draw(v, v.videoWidth, v.videoHeight, POSTER_PX).toDataURL('image/jpeg', 0.7); } catch (e) { return null; }
   }
 
+  // A short trace of what the shrinking did, for device tests.
+  const trace = [];
+  function note(ev, d) { trace.push([Math.round(performance.now()), ev, d]); if (trace.length > 80) trace.splice(10, 1); }
   const TRIM = 'Trim it in the Photos app (Edit, then drag the ends) so it is under 45 MB, and try again.';
   // Show the video while it shrinks: iPads (especially in Low Power Mode) may refuse to play a hidden one.
   function showLive(v) { const spot = document.getElementById('up-live'); if (spot) { v.className = 'uplive'; spot.replaceChildren(v); } return () => { if (spot) spot.replaceChildren(); }; }
@@ -71,14 +74,19 @@ const HubMedia = (() => {
     const dur = v.duration, STEP = 1 / 30;
     let [w, h] = fit(v.videoWidth, v.videoHeight, maxPx); w -= w % 2; h -= h % 2;
     let cfg = null;
-    for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.42001f']) {
-      try { const r = await VideoEncoder.isConfigSupported({ codec, width: w, height: h, bitrate: bps, framerate: 30, avc: { format: 'avc' } }); if (r && r.supported) { cfg = r.config; break; } } catch (e) {}
+    // "realtime" makes the encoder hand back each frame right away instead of holding a batch.
+    for (const latencyMode of ['realtime', undefined]) for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.42001f']) {
+      if (cfg) break;
+      try { const want = { codec, width: w, height: h, bitrate: bps, framerate: 30, avc: { format: 'avc' } }; if (latencyMode) want.latencyMode = latencyMode;
+        const r = await VideoEncoder.isConfigSupported(want); if (r && r.supported) cfg = r.config; } catch (e) {}
     }
+    note('config', cfg && (cfg.codec + ' ' + (cfg.latencyMode || 'default')));
     if (!cfg) throw { nowc: true };
     const target = new Mp4Muxer.ArrayBufferTarget();
     const mux = new Mp4Muxer.Muxer({ target, video: { codec: 'avc', width: w, height: h }, fastStart: 'in-memory', firstTimestampBehavior: 'offset' });
     let fail = null;
-    const enc = new VideoEncoder({ output: (chunk, meta) => { try { mux.addVideoChunk(chunk, meta); } catch (e) { fail = e; } }, error: e => { fail = e; } });
+    let outs = 0, outAt = Date.now();
+    const enc = new VideoEncoder({ output: (chunk, meta) => { outs++; outAt = Date.now(); try { mux.addVideoChunk(chunk, meta); } catch (e) { fail = e; note('mux error', String(e)); } }, error: e => { fail = e; note('encoder error', String(e)); } });
     enc.configure(cfg);
     const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d');
     let last = -1, n = 0, moved = Date.now(), watch, busy = false, stopped = false;
@@ -90,30 +98,35 @@ const HubMedia = (() => {
           if (stopped) return;
           if (fail) { stopped = true; return bad({ wc: true }); }
           const t = meta.mediaTime;
+          if (n < 5 || n % 30 === 0) note('frame', { n, t: +t.toFixed(3), q: enc.encodeQueueSize, outs, rate: v.playbackRate });
           if (!busy && (last < 0 || t >= last + STEP * 0.75)) {
             if (last >= 0 && t - last > STEP * 2.5 && v.playbackRate > 0.25) {
               // Fell behind: slow down and go back to just after the last saved frame.
-              v.playbackRate = v.playbackRate / 2; v.currentTime = last + STEP * 0.5;
+              v.playbackRate = v.playbackRate / 2; v.currentTime = last + STEP * 0.5; note('slow down', { rate: v.playbackRate, back: +last.toFixed(3), gap: +(t - last).toFixed(3) });
             } else {
               busy = true;
               ctx.drawImage(v, 0, 0, w, h);
               const f = new VideoFrame(c, { timestamp: Math.round(t * 1e6), duration: Math.round(STEP * 1e6) });
               enc.encode(f, { keyFrame: n % 60 === 0 }); f.close(); n++; last = t; moved = Date.now();
               onStep('Shrinking the video: ' + Math.min(100, Math.round(t / dur * 100)) + '%', t / dur);
-              if (enc.encodeQueueSize > 6) { v.pause(); while (enc.encodeQueueSize > 1 && !fail) await new Promise(r => setTimeout(r, 15)); if (!v.ended) v.play().catch(() => {}); }
+              // Let the encoder catch up, but never wait more than a second.
+              if (enc.encodeQueueSize > 6) { v.pause(); const until = Date.now() + 1000; while (enc.encodeQueueSize > 1 && !fail && Date.now() < until) await new Promise(r => setTimeout(r, 15)); if (!v.ended) v.play().catch(() => {}); }
               busy = false;
             }
           }
           if (!v.ended) v.requestVideoFrameCallback(frame);
         };
         v.requestVideoFrameCallback(frame);
-        v.onended = () => { stopped = true; ok(); };
-        v.onerror = () => { stopped = true; bad({ msg: 'The video stopped while shrinking. Try again.' }); };
-        watch = setInterval(() => { if (Date.now() - moved > 15000) { stopped = true; bad({ msg: 'This device stopped while shrinking the video. ' + TRIM }); } }, 1000);
-        v.play().catch(() => { stopped = true; bad({ msg: 'The video could not play to shrink it. Tap Upload again, or trim it in the Photos app first.' }); });
+        v.onended = () => { stopped = true; note('ended', { n, outs }); ok(); };
+        v.onerror = () => { stopped = true; bad({ wc: true }); };
+        // Stuck for 8 seconds: give up on this method; shrink() then uses the replay method.
+        watch = setInterval(() => { if (Date.now() - moved > 8000 || (n > 0 && Date.now() - outAt > 8000)) { stopped = true; note('stalled', { n, outs, q: enc.encodeQueueSize, t: v.currentTime, paused: v.paused }); bad({ wc: true, stall: true }); } }, 1000);
+        v.play().catch(e => { stopped = true; note('play refused', String(e)); bad({ wc: true }); });
       });
-      await enc.flush();
+      await Promise.race([enc.flush(), new Promise((_, bad) => setTimeout(() => bad({ wc: true, stall: true }), 15000))]);
       if (fail) throw { wc: true };
+      // Never accept a short or gappy result: every saved frame must come back, and the end must be reached.
+      if (outs < n * 0.95 || last < dur - 1) { note('incomplete', { n, outs, last: +last.toFixed(2), dur: +dur.toFixed(2) }); throw { wc: true }; }
       mux.finalize();
     } finally { clearInterval(watch); try { v.pause(); } catch (e) {} v.playbackRate = 1; try { enc.close(); } catch (e) {} hide(); }
     if (!n) throw { wc: true };
@@ -159,7 +172,7 @@ const HubMedia = (() => {
       try {
         for (const [px, b] of tries) { const blob = await encodeFrames(v, onStep, px, b); if (blob.size <= MAX) return { blob, ext: 'mp4', type: 'video/mp4', method: 'frames' }; }
         throw { msg: 'Even shrunk, this video is over 45 MB. ' + TRIM };
-      } catch (e) { if (e && e.msg) throw e; }   // a frame-by-frame problem falls back to method 2
+      } catch (e) { if (e && e.msg) throw e; note('switching to replay', e && e.stall ? 'stalled' : 'error'); onStep('Shrinking the video another way...', 0); }   // any frame-by-frame problem falls back to method 2
     }
     if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) throw { msg: 'This video is over 45 MB and this device cannot shrink it. ' + TRIM };
     for (const [px, b] of tries) { const out = await record(v, onStep, px, b); if (out.blob.size <= MAX) return Object.assign(out, { method: 'replay' }); }
@@ -217,5 +230,5 @@ const HubMedia = (() => {
   const remove = (k, path) => call('delete', k, { path });
   const usage = k => call('usage', k);
 
-  return { upload, link, remove, usage, kindOf, mb, MAX };
+  return { upload, link, remove, usage, kindOf, mb, MAX, trace };
 })();

@@ -27,7 +27,7 @@ window.onerror = (m) => post('pageerror', { m: String(m) });
     const c = document.createElement('canvas'); c.width = 2048; c.height = 1536; c.getContext('2d').drawImage(i, 0, 0, 2048, 1536); env.photo.drawnDataURL = c.toDataURL('image/jpeg', 0.85).length; } catch (e) { env.photo.imgErr = String(e); }
   await post('env', env); log(JSON.stringify(env));
   for (const [name, type] of CASES) {
-    const t0 = Date.now(), steps = []; let lastKind = '', lastStep = '';
+    HubMedia.trace.length = 0; const t0 = Date.now(), steps = []; let lastKind = '', lastStep = '';
     const sec = () => ((Date.now() - t0) / 1000).toFixed(1);
     try {
       const b = await (await fetch('media/' + name)).blob();
@@ -35,9 +35,9 @@ window.onerror = (m) => post('pageerror', { m: String(m) });
       const r = await Promise.race([
         HubMedia.upload(f, 'TESTCODE1234', (s) => { lastStep = s + ' @' + sec() + 's'; const k = s.replace(/\d+%/, ''); if (k !== lastKind) { lastKind = k; steps.push(lastStep); } document.getElementById('h').textContent = name + ': ' + s; }),
         new Promise((_, bad) => setTimeout(() => bad({ msg: 'TEST TIMEOUT after 6 minutes' }), 360000))]);
-      await post(name, { ok: true, inMB: +(f.size / 1048576).toFixed(1), outMB: +(r.size / 1048576).toFixed(2), path: r.path, type: r.type, shrunk: r.shrunk, method: r.method, durSec: r.dur, poster: !!r.poster, secs: +sec(), steps, lastStep });
+      await post(name, { ok: true, inMB: +(f.size / 1048576).toFixed(1), outMB: +(r.size / 1048576).toFixed(2), path: r.path, type: r.type, shrunk: r.shrunk, method: r.method, durSec: r.dur, poster: !!r.poster, secs: +sec(), steps, lastStep, trace: HubMedia.trace.slice() });
       log('OK ' + name + ' ' + sec() + 's');
-    } catch (e) { await post(name, { ok: false, err: (e && e.msg) || String(e), secs: +sec(), steps, lastStep }); log('FAIL ' + name + ': ' + ((e && e.msg) || e)); }
+    } catch (e) { await post(name, { ok: false, err: (e && e.msg) || String(e), secs: +sec(), steps, lastStep, trace: HubMedia.trace.slice() }); log('FAIL ' + name + ': ' + ((e && e.msg) || e)); }
   }
   await post('done', {}); document.getElementById('h').textContent = 'DONE';
 })();

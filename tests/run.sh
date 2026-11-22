@@ -52,7 +52,7 @@ python3 - > out/smoothness.txt 2>&1 <<'P'
 import subprocess, glob, json
 print('files:', len(glob.glob('out/files/*')), flush=True)
 for f in sorted(glob.glob('out/files/*.mp4')+glob.glob('out/files/*.mov')):
-    ts=[float(x) for x in subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=pts_time','-of','csv=p=0',f],capture_output=True,text=True).stdout.split() if x.strip()]
+    ts=[float(x) for x in subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=pts_time','-of','csv=p=0',f],capture_output=True,text=True).stdout.replace(',',' ').split() if x.strip() and x.strip()!='N/A']
     ts.sort(); g=[b-a for a,b in zip(ts,ts[1:])] or [0]
     print(f.split('/')[-1], end=' ', flush=True); print('%s frames=%d length=%.2fs fps=%.1f longest_gap=%.3fs gaps_over_0.1s=%d' % (f.split('/')[-1], len(ts), (ts[-1]-ts[0]) if ts else 0, len(ts)/max(0.01,(ts[-1]-ts[0])) if len(ts)>1 else 0, max(g), sum(x>0.1 for x in g)))
 P
