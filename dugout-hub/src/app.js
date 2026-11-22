@@ -159,7 +159,7 @@ async function load() {
   state.loading = true;
   try {
     const d = await api('load');
-    state.entries = (d.entries || []).map(r => Object.assign({}, r.data, { id: r.id, ts: r.ts }));
+    state.entries = (d.entries || []).map(r => L.normPitch(Object.assign({}, r.data, { id: r.id, ts: r.ts })));
     if (d.settings) {
       state.settings = mergeSettings(d.settings);
       // A Gear form opened before the saved settings arrived holds defaults. Refresh it, unless Dad already edited it.

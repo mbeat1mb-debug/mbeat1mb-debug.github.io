@@ -394,7 +394,16 @@ const HubLogic = (() => {
   };
   // The limits below are rules written for this hub from common youth coaching targets, not research cut-offs.
   const PR = { strikePct: 0.55, bbPerInn: 1, pPerBatter: 4.5, fpsPct: 0.5, hbp: 2, hPerInn: 1.5 };
+  // Older GameChanger outings were saved with long field names. Read both styles.
+  const PITCH_ALIASES = { bb: 'walks', k: 'strikeouts', h: 'hitsAllowed', bf: 'battersFaced', hbp: 'hitBatters' };
+  function normPitch(e) {
+    if (!e || e.kind !== 'pitch') return e;
+    let o = null;
+    for (const k in PITCH_ALIASES) if (!isNum(e[k]) && isNum(e[PITCH_ALIASES[k]])) { o = o || Object.assign({}, e); o[k] = e[PITCH_ALIASES[k]]; }
+    return o || e;
+  }
   function pitchDiagnose(entries, today) {
+    entries = entries.map(normPitch);
     const start = addDays(today, -28), g = entries.filter(e => e.kind === 'pitch' && e.where !== 'practice' && e.date > start && e.date <= today);
     const tot = k => g.reduce((s, e) => s + (isNum(e[k]) ? e[k] : 0), 0), has = k => g.filter(e => isNum(e[k]));
     const out = [], pc = x => Math.round(x * 100) + '%';
@@ -855,7 +864,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { normPitch, GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
