@@ -282,9 +282,9 @@ function plan() {
   const tuned = L.tune(state.entries, t);
   const pick = wk.lockedFocus ? { focus: wk.lockedFocus, why: wk.lockedWhy || '' } : L.decideFocus(L.stats(state.entries, t), state.entries, t, tuned.rules);
   if (!L.FOCUS[pick.focus]) pick.focus = 'baseline';
-  const before = state.entries.filter(e => e.date < wk.monday), targets = L.diagnose(state.entries, t);
-  const week = L.buildWeek(pick.focus, state.settings.level, !arm.cleared, { monday: wk.monday, level: L.game(before).level, recent: L.recentDrills(state.entries, wk.monday), targets, entries: before });
-  return { t, wk, arm, pick, tuned, targets, week };
+  const before = state.entries.filter(e => e.date < wk.monday), targets = L.diagnose(state.entries, t), pitchTargets = L.pitchDiagnose(state.entries, t);
+  const week = L.buildWeek(pick.focus, state.settings.level, !arm.cleared, { monday: wk.monday, level: L.game(before).level, recent: L.recentDrills(state.entries, wk.monday), targets, pitchTargets, entries: before });
+  return { t, wk, arm, pick, tuned, targets, pitchTargets, week };
 }
 const checks = () => state.entries.filter(e => e.kind === 'analysis').sort(L.byDate).reverse();
 function viewToday() {
@@ -300,8 +300,9 @@ function viewToday() {
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
       (() => { const nb = nextBadge(); return nb ? h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb),
         h('p', null, h('a', { href: '#trophies' }, 'See all badges'))) : null; })(),
-      p.targets.length && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
-        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')])) : null,
+      (p.targets.length || p.pitchTargets.length) && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
+        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, 'Hitting: ' + x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')]),
+        p.pitchTargets.slice(0, 1).map(x => [h('p', { class: 'say' }, 'Pitching: ' + x.title), h('p', { class: 'small mid' }, x.why + (p.arm.cleared ? ' Fix-it drill on Day 2: ' + L.PFIXES[x.id].drill.title + '.' : ' Fix-it drill comes back after his arm rest.'))])) : null,
       last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
         h('p', null, h('a', { href: '#film' }, 'Open the film room'))) : null),
     h('div', { class: 'stack' },
@@ -312,7 +313,7 @@ function viewToday() {
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
           h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); } },
-            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text)), h('span', { class: 'mark' })),
+            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null), h('span', { class: 'mark' })),
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
@@ -368,10 +369,11 @@ async function finish(p, ses, tk) {
   const items = ses.blocks.flatMap(b => b.items), val = k => { const v = parseFloat(counts[k]); return isFinite(v) && v >= 0 ? v : null; };
   const bad = badCount(items, counts); if (bad) { toast(bad); return; }
   let points = null;
-  for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) points = (points || 0) + Math.min(v, i.max || v); }
+  const drillPts = {};
+  for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) { drillPts[i.id] = Math.min(v, i.max || v); points = (points || 0) + drillPts[i.id]; } }
   const bi = items.find(i => i.boss), bres = bi ? val('boss') : null, bdad = bi ? val('bossdad') : null;
   const boss = bi && bres != null ? { kind: bi.boss.kind, target: bi.boss.target, result: bi.boss.kind === 'contact' ? Math.min(10, Math.round(bres)) : bres, dad: bdad, won: !!L.bossWon(bi.boss, bres, bdad) } : null;
-  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, drills: L.drillIds(ses), points, boss, ts: Date.now() }];
+  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, drills: L.drillIds(ses), points, drillPts: Object.keys(drillPts).length ? drillPts : null, boss, ts: Date.now() }];
   if (!(await addEntry(added[0]))) return;
   for (const i of items) {
     const made = parseInt(counts[i.id], 10);
@@ -384,7 +386,7 @@ async function finish(p, ses, tk) {
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
   delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
 }
@@ -425,6 +427,7 @@ function renderCheer() {
       c.points != null ? h('p', { class: 'say' }, c.points + ' points today.') : null,
       (c.records || []).map(r => h('p', { class: 'say rec' }, 'New record! ', h('b', null, r), ' +' + L.XP.record + ' XP')),
       c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
+      (c.tips || []).map(t => h('p', { class: 'say coachtip' }, t)),
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
       h('button', { type: 'button', class: 'btn big', id: 'cheer-ok', onclick: () => { state.cheer = null; renderCheer(); } }, 'Back to the dugout'))));
@@ -846,7 +849,7 @@ async function gcSave(mode, who, delta) {
     }
     if (src.pit.pitches > 0 || src.pit.ip > 0) {
       if (!(src.pit.pitches > 0)) return toast('The file has innings but no pitch count, so pitching was not saved. Log the outing on the Arm screen.');
-      if (await addEntry({ kind: 'pitch', date, pitches: src.pit.pitches, outs: src.pit.ip || 0, where: 'game', from: 'gamechanger' })) saved.push('pitching'); else return render();
+      if (await addEntry(Object.assign({ kind: 'pitch', date, pitches: src.pit.pitches, outs: src.pit.ip || 0, where: 'game', from: 'gamechanger' }, pitchDetail(src.pit)))) saved.push('pitching'); else return render();
     }
   }
   // Only season totals become the starting point for "what is new"; a one-game file must not replace them.
@@ -860,7 +863,7 @@ function viewLog() {
   const label = e => e.kind === 'swing' ? 'Speeds: bat ' + fix(e.batSpeed) + ', exit ' + fix(e.exitVelo) + ' mph' + (e.ball === 'mini' ? ' (mini balls)' : '') :
     e.kind === 'reps' ? (e.from ? 'Reps from ' + (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'a session') + ': ' : 'Extra reps: ') + ([part(e.swings, 'swings'), part(e.pushups, 'push-ups'), part(e.situps, 'sit-ups'), part(e.squats, 'squats')].filter(Boolean).join(', ') || 'none') :
     e.kind === 'machine' ? 'Machine' + (e.from ? ' (in session)' : '') + ': ' + e.made + ' of ' + e.of + ' solid' : e.kind === 'game' ? 'Game: ' + e.h + ' for ' + e.ab + ', ' + e.k + ' K' + (L.isNum(e.kl) ? ' (' + e.kl + ' looking)' : '') + ', ' + e.bb + ' BB' + (L.isNum(e.go) || L.isNum(e.fo) ? ', ' + (e.go || 0) + ' ground outs, ' + (e.fo || 0) + ' fly outs' : '') :
-    e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
+    e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' + [['strikes', ' strikes'], ['k', ' K'], ['bb', ' BB'], ['h', ' H']].filter(x => L.isNum(e[x[0]])).map(x => ', ' + e[x[0]] + x[1]).join('') : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
     e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' + (e.points != null ? ', ' + e.points + ' points' : '') + (e.boss ? (e.boss.won ? ', beat the Boss' : ', lost to the Boss') : '') : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
     e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
@@ -924,6 +927,28 @@ function delBtn(e) {
 }
 
 /* ---------- Coach: Arm ---------- */
+// Only the game numbers that were filled in are stored.
+function pitchDetail(d) { const o = {}; for (const k of ['strikes', 'bf', 'fps', 'k', 'bb', 'h', 'hbp']) if (L.isNum(d[k])) o[k] = d[k]; return o; }
+function pitchCheck(d) {
+  for (const k of ['pitches', 'strikes', 'bf', 'fps', 'k', 'bb', 'h', 'hbp']) if (d[k] != null && (d[k] < 0 || d[k] !== Math.round(d[k]))) return 'Use whole numbers of 0 or more.';
+  if (d.strikes != null && d.strikes > d.pitches) return 'Strikes cannot be more than pitches.';
+  if (d.fps != null && d.bf == null) return 'Enter batters faced to go with first-pitch strikes.';
+  if (d.fps != null && d.fps > d.bf) return 'First-pitch strikes cannot be more than batters faced.';
+  if (d.bf != null && d.bf > d.pitches) return 'Batters faced cannot be more than pitches.';
+  if (d.bf != null && (d.k || 0) + (d.bb || 0) + (d.h || 0) + (d.hbp || 0) > d.bf) return 'Strikeouts + walks + hits + hit batters cannot be more than batters faced.';
+  return null;
+}
+// Pitching summary over the last 4 weeks of game outings that have stats.
+function pitchSummary(t) {
+  const g = state.entries.filter(e => e.kind === 'pitch' && e.where !== 'practice' && e.date > L.addDays(t, -28) && e.date <= t);
+  const sumOf = (list, k) => list.reduce((a, e) => a + (e[k] || 0), 0), w = k => g.filter(e => L.isNum(e[k]));
+  const rows = [];
+  const s = w('strikes'); if (s.length) { const P = sumOf(s, 'pitches'), S = sumOf(s, 'strikes'); rows.push(['Strike rate', Math.round(S / P * 100) + '%', S + ' strikes ÷ ' + P + ' pitches']); }
+  const f = w('fps').filter(e => L.isNum(e.bf)); if (f.length) { const B = sumOf(f, 'bf'), F = sumOf(f, 'fps'); rows.push(['First-pitch strikes', Math.round(F / B * 100) + '%', F + ' ÷ ' + B + ' batters']); }
+  const b = w('bf'); if (b.length) { const B = sumOf(b, 'bf'), P = sumOf(b, 'pitches'); rows.push(['Pitches per batter', (P / B).toFixed(1), P + ' pitches ÷ ' + B + ' batters']); }
+  for (const [k, name] of [['k', 'Strikeouts'], ['bb', 'Walks'], ['h', 'Hits']]) { const x = w(k), O = sumOf(x, 'outs'); if (x.length && O > 0) rows.push([name + ' per inning', (sumOf(x, k) / (O / 3)).toFixed(1), sumOf(x, k) + ' ÷ ' + L.fmtInnings(O) + ' innings']); }
+  return rows;
+}
 function viewArm() {
   const t = today(), a = L.armStatus(state.entries, t, state.settings.dailyMax), yr = a.outs12 / 240;
   const rows = [['1–20', 0], ['21–35', 1], ['36–50', 2], ['51–65', 3], ['66+', 4]];
@@ -939,13 +964,24 @@ function viewArm() {
       h('section', { class: 'sec' }, h('h2', null, 'Log an outing'),
         h('div', { class: 'row' }, inp('p_date', 'Date', { type: 'date', def: t }), inp('p_pitches', 'Pitches', { mode: 'numeric' })),
         h('div', { class: 'row' }, inp('p_inn', 'Full innings', { mode: 'numeric', def: 0 }), sel('p_outs', 'Extra outs', [['0', '0'], ['1', '1'], ['2', '2']], '0')),
+        h('p', { class: 'small mid' }, 'Game stats (optional, from the scorebook or GameChanger). These tell the hub what he needs to work on.'),
+        h('div', { class: 'row' }, inp('p_strikes', 'Strikes', { mode: 'numeric' }), inp('p_bf', 'Batters faced', { mode: 'numeric' }), inp('p_fps', 'First-pitch strikes', { mode: 'numeric' })),
+        h('div', { class: 'row' }, inp('p_k', 'Strikeouts', { mode: 'numeric' }), inp('p_bb', 'Walks', { mode: 'numeric' }), inp('p_h', 'Hits allowed', { mode: 'numeric' }), inp('p_hbp', 'Hit batters', { mode: 'numeric' })),
         h('div', null, h('button', { type: 'button', class: 'btn', onclick: guard(async () => {
           if (num('p_pitches') == null) return toast('Enter the pitch count first.');
-          if (await addEntry({ kind: 'pitch', date: state.form.p_date || t, pitches: num('p_pitches'), outs: Math.round((num('p_inn') || 0) * 3 + (parseInt(state.form.p_outs, 10) || 0)) })) { clear('p_pitches', 'p_inn', 'p_outs'); toast('Outing saved.'); } render(); }) }, 'Save outing'))),
+          const d = { pitches: num('p_pitches'), strikes: num('p_strikes'), bf: num('p_bf'), fps: num('p_fps'), k: num('p_k'), bb: num('p_bb'), h: num('p_h'), hbp: num('p_hbp') };
+          const badP = pitchCheck(d); if (badP) return toast(badP);
+          if (await addEntry(Object.assign({ kind: 'pitch', date: state.form.p_date || t, pitches: d.pitches, outs: Math.round((num('p_inn') || 0) * 3 + (parseInt(state.form.p_outs, 10) || 0)), where: 'game' }, pitchDetail(d)))) { clear('p_pitches', 'p_inn', 'p_outs', 'p_strikes', 'p_bf', 'p_fps', 'p_k', 'p_bb', 'p_h', 'p_hbp'); toast('Outing saved.'); } render(); }) }, 'Save outing'))),
       h('section', { class: 'sec' }, h('h2', null, 'Year total'),
         h('p', { class: 'num' }, L.fmtInnings(a.outs12) + ' of 80 innings in the last 12 months (' + Math.round(yr * 100) + '%)'),
         h('div', { class: 'bar', role: 'img', 'aria-label': Math.round(yr * 100) + ' percent of the yearly innings limit' }, h('i', { style: 'width:' + Math.min(100, yr * 100).toFixed(1) + '%' })),
         h('p', { class: 'math' }, a.outs12 + ' outs ÷ 3 = ' + (a.outs12 / 3).toFixed(1) + ' innings; ' + (a.outs12 / 3).toFixed(1) + ' ÷ 80 = ' + (yr * 100).toFixed(1) + '%'))),
+    (() => { const pt = L.pitchDiagnose(state.entries, t), rows = pitchSummary(t);
+      return h('section', { class: 'sec' }, h('h2', null, 'What to work on: pitching'),
+        rows.length ? h('table', null, h('tbody', null, rows.map(r => h('tr', null, h('td', null, r[0], h('div', { class: 'math' }, r[2])), h('td', { class: 'v' }, r[1]))))) : h('p', { class: 'mid' }, 'Add strikes, batters faced and walks when you log a game outing. The hub will spot what to fix.'),
+        pt.length ? pt.map(x => [h('p', { class: 'say' }, h('b', null, x.title)), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.PFIXES[x.id].drill.title + ' — ' + L.PFIXES[x.id].drill.text + ' Tip: ' + L.TIPS[L.PFIXES[x.id].drill.id])])
+          : rows.length ? h('p', { class: 'status ok' }, 'Nothing flagged. Strike Zone Tic-Tac-Toe stays in the plan.') : null,
+        h('p', { class: 'small mid' }, 'Targets used: strikes ' + Math.round(L.PR.strikePct * 100) + '%+, walks under ' + L.PR.bbPerInn + ' per inning, under ' + L.PR.pPerBatter + ' pitches per batter, first-pitch strikes ' + Math.round(L.PR.fpsPct * 100) + '%+. These are common youth coaching targets, not research cut-offs.')); })(),
     h('section', { class: 'sec' }, h('h2', null, 'Pitch speed'),
       h('div', { class: 'row' }, inp('v_date', 'Date', { type: 'date', def: t }), inp('v_avg', 'Average (mph)'), inp('v_max', 'Fastest (mph)'), inp('v_n', 'Pitches timed', { mode: 'numeric' }),
         sel('v_where', 'Where', [['bullpen', 'Practice'], ['game', 'Game']], 'bullpen')),
@@ -980,6 +1016,8 @@ function viewProgress() {
   return page(strip("This week's focus: " + L.FOCUS[p.pick.focus].name, p.pick.why),
     h('section', { class: 'sec plain' }, h('h2', null, 'Week so far'), h('ul', { class: 'plain' }, rc.slice(1).map(x => h('li', null, x))),
       h('p', { class: 'small mid' }, 'The same summary is sent to your phone every Sunday evening.')),
+    (() => { const bn = L.bodyNotes(state.entries, t); return bn.length ? h('section', { class: 'sec' }, h('h2', null, 'Strength and pitch speed'),
+      h('ul', { class: 'plain' }, bn.map(x => h('li', { class: x.kind === 'down' ? 'warn' : null }, x.text)))) : null; })(),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('div', { class: 'row between' }, h('h2', null, '4-week re-test'),
           h('span', { class: 'status ' + (rt.first != null && rt.inDays > 0 ? 'ok' : 'wait') }, rt.first == null ? 'Not started' : rt.inDays <= 0 ? 'Due now' : 'Due ' + fmtDate(rt.due))),

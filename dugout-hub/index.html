@@ -178,6 +178,10 @@ nav.tabs .lockbtn{flex:0 0 auto;background:#fff;border:0;border-left:2px solid v
 .cheer .box{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:520px}
 .cheer .gain{font-family:var(--cond);font-weight:800;font-size:112px;line-height:.9;color:var(--navy);text-shadow:4px 4px 0 #fff}
 .cheer .run svg{display:block}
+.li .tip{display:block;margin-top:4px;font-size:14px;font-weight:600;color:#1d6aa8}
+.li[aria-pressed=true] .tip{color:var(--mid)}
+.cheer .coachtip{background:#fff;border:2px solid var(--navy);border-radius:8px;padding:8px 12px;font-size:16px}
+li.warn{font-weight:600}
 .prog{position:relative;height:22px;border:2px solid var(--navy);border-radius:11px;background:#fff;overflow:hidden;margin-top:6px;width:100%}
 .prog .fill{position:absolute;inset:0 auto 0 0;background:var(--sky)}
 .prog span{position:relative;display:block;text-align:center;font-size:13px;line-height:18px;font-weight:600;color:var(--navy)}
@@ -569,6 +573,114 @@ const HubLogic = (() => {
   }
   function hitting(focus) { return (DRILLS[focus] || DRILLS.contact).slice(0, 3); }
 
+  // Pitching fix-it drills. Every one stays inside the 20-pitch practice cap.
+  const PFIXES = {
+    wild: { title: 'Missing the strike zone', drill: I('q1', 'Glove Target', "Dad kneels at the plate and holds his glove still in the middle. Hit the glove. 15 pitches at most. Strike = 1 point.", { min: 5, pitches: 15, pts: 'Strike = 1', max: 15 }) },
+    deep: { title: 'Falling behind in the count', drill: I('q2', 'Strike One', 'Every pitch is the first pitch to a new batter. Get strike one. 12 pitches at most. Strike = 1 point.', { min: 5, pitches: 12, pts: 'Strike one = 1', max: 12 }) },
+    hbp: { title: 'Pitches running inside and hitting batters', drill: I('q3', 'Stay on the Line', 'Tape a line from the rubber toward the plate. Land your front foot on it and finish toward Dad. 12 pitches at most. On the line = 1 point.', { min: 5, pitches: 12, pts: 'Foot on the line = 1', max: 12 }) },
+    hittable: { title: 'Strikes are getting hit hard', drill: I('q4', 'Paint the Knees', 'Tape a strip at knee height across the net. Pitch below it but still in the zone. 15 pitches at most. Low strike = 1 point.', { min: 5, pitches: 15, pts: 'Low strike = 1', max: 15 }) }
+  };
+  // The limits below are rules written for this hub from common youth coaching targets, not research cut-offs.
+  const PR = { strikePct: 0.55, bbPerInn: 1, pPerBatter: 4.5, fpsPct: 0.5, hbp: 2, hPerInn: 1.5 };
+  function pitchDiagnose(entries, today) {
+    const start = addDays(today, -28), g = entries.filter(e => e.kind === 'pitch' && e.where !== 'practice' && e.date > start && e.date <= today);
+    const tot = k => g.reduce((s, e) => s + (isNum(e[k]) ? e[k] : 0), 0), has = k => g.filter(e => isNum(e[k]));
+    const out = [], pc = x => Math.round(x * 100) + '%';
+    const withS = has('strikes'), sP = withS.reduce((s, e) => s + e.pitches, 0), sS = withS.reduce((s, e) => s + e.strikes, 0);
+    const withBB = has('bb'), bbOuts = withBB.reduce((s, e) => s + (e.outs || 0), 0), bb = withBB.reduce((s, e) => s + e.bb, 0);
+    if (sP >= 40 && sS / sP < PR.strikePct) out.push({ id: 'wild', why: sS + ' strikes in ' + sP + ' pitches (' + pc(sS / sP) + ') over the last 4 weeks. The target is ' + pc(PR.strikePct) + ' or better.', weight: 0.6 + (PR.strikePct - sS / sP) });
+    else if (bbOuts >= 9 && bb / (bbOuts / 3) >= PR.bbPerInn) out.push({ id: 'wild', why: bb + ' walks in ' + fmtInnings(bbOuts) + ' innings (' + (bb / (bbOuts / 3)).toFixed(1) + ' per inning). The target is under ' + PR.bbPerInn + ' per inning.', weight: 0.6 });
+    const withF = has('fps').filter(e => isNum(e.bf)), fBF = withF.reduce((s, e) => s + e.bf, 0), fS = withF.reduce((s, e) => s + e.fps, 0);
+    const withBF = has('bf'), bP = withBF.reduce((s, e) => s + e.pitches, 0), bF = withBF.reduce((s, e) => s + e.bf, 0);
+    if (fBF >= 10 && fS / fBF < PR.fpsPct) out.push({ id: 'deep', why: 'First-pitch strikes to ' + fS + ' of ' + fBF + ' batters (' + pc(fS / fBF) + '). The target is ' + pc(PR.fpsPct) + ' or better.', weight: 0.55 });
+    else if (bF >= 10 && bP / bF >= PR.pPerBatter) out.push({ id: 'deep', why: bP + ' pitches to ' + bF + ' batters (' + (bP / bF).toFixed(1) + ' per batter). Under ' + PR.pPerBatter + ' means he is getting ahead.', weight: 0.5 });
+    const hbp = tot('hbp'); if (hbp >= PR.hbp) out.push({ id: 'hbp', why: hbp + ' hit batters in the last 4 weeks.', weight: 0.45 });
+    const withH = has('h'), hOuts = withH.reduce((s, e) => s + (e.outs || 0), 0), hh = withH.reduce((s, e) => s + e.h, 0);
+    if (hOuts >= 9 && hh / (hOuts / 3) >= PR.hPerInn && !out.some(x => x.id === 'wild')) out.push({ id: 'hittable', why: hh + ' hits in ' + fmtInnings(hOuts) + ' innings (' + (hh / (hOuts / 3)).toFixed(1) + ' per inning) while throwing strikes. Next step is keeping the ball low.', weight: 0.4 });
+    // Practice: Strike Zone Tic-Tac-Toe scores, when there are no game numbers to go on.
+    if (!out.length) {
+      const prac = entries.filter(e => e.kind === 'session' && e.date > start && e.date <= today && e.drillPts && isNum(e.drillPts.m2)).map(e => e.drillPts.m2);
+      if (prac.length >= 3 && avg(prac) < 3) out.push({ id: 'wild', why: 'Strike Zone Tic-Tac-Toe averaged ' + avg(prac).toFixed(1) + ' of 9 squares over his last ' + prac.length + ' practices.', weight: 0.3 });
+    }
+    return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: PFIXES[x.id].title, pitching: true }, x));
+  }
+  // Strength tests and pitch speed, compared with his own earlier numbers only (no age charts).
+  function bodyNotes(entries, today) {
+    const out = [], st = entries.filter(e => e.kind === 'strength').sort(byDate);
+    if (st.length >= 2) {
+      const a = st[st.length - 2], b = st[st.length - 1];
+      for (const [k, name, unit, tip] of [['jump', 'Long jump', ' in', 'Add Stick the Landing and squat jumps on the bodyweight day.'], ['pushups', 'Push-ups', '', 'Keep push-ups in every session; try 3 sets instead of 2.'], ['plank', 'Plank', ' sec', 'Add one extra plank hold at the end of each session.']]) {
+        if (!isNum(a[k]) || !isNum(b[k])) continue;
+        const d = b[k] - a[k];
+        out.push(d < 0 ? { kind: 'down', text: name + ' went down: ' + a[k] + unit + ' → ' + b[k] + unit + ' (' + d + unit + '). ' + tip }
+          : { kind: 'up', text: name + ' ' + (d > 0 ? 'improved: ' : 'held: ') + a[k] + unit + ' → ' + b[k] + unit + (d > 0 ? ' (+' + d + unit + ').' : '.') });
+      }
+    } else if (st.length === 1) out.push({ kind: 'info', text: 'One strength test so far. The next one shows what improved.' });
+    const v = entries.filter(e => e.kind === 'velo' && e.date <= today), val = e => isNum(e.max) ? e.max : e.avg;
+    const now = v.filter(e => e.date > addDays(today, -28)).map(val).filter(isNum), prev = v.filter(e => e.date <= addDays(today, -28) && e.date > addDays(today, -56)).map(val).filter(isNum);
+    if (now.length && prev.length) {
+      const d = Math.max.apply(null, now) - Math.max.apply(null, prev);
+      out.push(d <= -2 ? { kind: 'down', text: 'Top pitch speed is down ' + Math.abs(d).toFixed(1) + ' mph versus the 4 weeks before (' + Math.max.apply(null, prev) + ' → ' + Math.max.apply(null, now) + '). Check he is rested and not sore before adding more throwing; a drop is often tiredness.' }
+        : { kind: d > 0 ? 'up' : 'info', text: 'Top pitch speed ' + (d > 0 ? 'up ' + d.toFixed(1) + ' mph' : 'steady') + ' versus the 4 weeks before (' + Math.max.apply(null, prev) + ' → ' + Math.max.apply(null, now) + ').' });
+    }
+    return out;
+  }
+  // One cue per drill, in his words. Shown under the drill and used for "next time" tips after a low score.
+  const TIPS = {
+    c1: 'Watch the ball all the way to the bat. See it hit.', c2: 'Inside: get the bat out front. Outside: let it get deeper.',
+    c3: 'Hit the middle of the ball, not the bottom.', c4: 'Hands go straight to the ball. No big loop.',
+    c5: 'Stay through the front ball. Short and level.', c6: 'Decide early. See the color as soon as it leaves.',
+    c7: 'Let the ball get deep and push it the other way.', c8: 'Soft hands. Tap it, do not swing hard.',
+    c9: 'Relax after a miss. Breathe, then see the next one.', c10: 'Bunt: catch the ball with the bat. Swing: back to normal.',
+    s1: 'The heavy bat makes the game bat feel light. Swing it fast.', s2: 'Use the walk-in to build speed, then stay balanced.',
+    s3: 'Fast hands, not a big muscle swing.', s4: 'Hit the back of the ball for the loud crack.',
+    s5: 'Push off the back foot hard, then turn.', s6: 'Swing hard but stay on balance. Crushed balls come from the barrel.',
+    s7: 'Freeze tall at the finish. Chest to the target.', s8: 'Make the whoosh happen in front of the plate.',
+    s9: 'Hips turn first, then shoulders, then the bat.', s10: 'Full effort every swing. Rest so each one is fast.',
+    p1: 'Smooth first. Speed comes later.', p2: 'Line drives over the bucket. Level swing through the ball.',
+    p3: 'Low pitch: bend your knees, do not drop your hands.', p4: 'Pull the knob to the ball with your bottom hand.',
+    p5: 'Keep your hands close to your body. Do not cast the bat out.', p6: 'Aim for the middle of the net. Liners win.',
+    p7: 'Top hand pushes the barrel through. Palm up at contact.', p8: 'Out front means pull it. Deep means push it the other way.',
+    p9: 'Hit it right back where it came from.', p10: 'Knob first, then the barrel whips through.',
+    t1: 'Stay ready for fast. Adjust for slow.', t2: 'Load easy and early. Be ready before the ball.',
+    t3: 'Decide early. Only swing at the colors that tell you to.', t4: 'Choke up and just put it in play.',
+    t5: 'Wait for the real toss. Stay loaded.', t6: 'Front foot down when the ball comes out.',
+    t7: 'Ahead in the count, wait for your pitch. Behind, protect the plate.', t8: 'Stay back on slow. Start earlier on fast.',
+    t9: 'Be loaded and ready when the ball leaves the machine.', t10: 'Inside: pull it. Outside: go the other way.',
+    f1: 'Choke up. Foul off the tough ones. Swing at strikes.', f2: 'Swing level and hit the middle of the ball.',
+    f3: 'Hit the top half of the ball. Drive it, do not lift it.', f4: 'Short and quick. Just make contact.',
+    f5: 'Keep your head still. Eyes stay on the ball.', f6: 'Small step. Land soft on the tape.',
+    f7: 'Get your front foot down early, then swing.', f8: 'Back hip turns first. Keep your chest closed.',
+    f9: 'Brace your front leg like stepping on the brakes.', f10: 'Swing hard and stay balanced. Hold the finish.',
+    q1: 'Eyes on the glove the whole time. Throw to it, do not aim.', q2: 'First pitch is a strike. Easy speed, hit the middle of the zone.',
+    q3: 'Front foot lands on the line. Finish toward Dad.', q4: 'Reach out in front and finish low. Knees, not belt.',
+    m1: 'Easy throws. Point your glove at Dad, then throw.', m2: 'Pick a square, look at it, then throw. Same motion every time.',
+    g1: 'Stay low. Glove out in front, eyes on the ground.', g2: 'Stand tall over your back leg. Balance before you go.',
+    g3: 'Small, quick steps. Stay on the balls of your feet.',
+    w1: 'Loosen up. Easy and smooth.', w2: 'Copy fast. Stay light on your feet.', w3: 'Run hard on the sprint, easy on the rest.',
+    b1: 'Swing your fastest. Do not worry about the ball.', b2: 'Hit it hard on the barrel. The radar counts your best.',
+    b3: 'See the ball, hit the ball. Count your solid ones.',
+    x1: 'Swing your arms and land on both feet.', x2: 'Flat back. Chest to the ground every time.', x3: 'Flat back. Squeeze your stomach.',
+    a1: 'Sit back like there is a chair. Chest up.', a2: 'Straight line from head to heels.', a3: 'Slow and controlled. Do not yank your neck.',
+    z1: 'Sit back like there is a chair. Chest up.', z2: 'Straight line from head to heels.', z3: 'Slow and controlled. Do not yank your neck.',
+    z4: 'Knees just off the ground. Slow and steady.', z5: 'Hips up. Hands and feet together.', z6: 'Big step back. Front knee over the ankle.',
+    z7: 'Flat back. Squeeze your stomach.', z8: 'Land soft and freeze. Knees bend, not cave in.', z9: 'Squeeze your back. Arms and legs off the floor.',
+    k1: 'Twist slow. Keep the water quiet.', k4: 'Turn your hips, then throw. Same as a swing.', k4r: 'Stand tall. Do not let the water slosh.',
+    l1: 'Tell Dad your best numbers. He saves them so you get credit.'
+  };
+  const BOSS_TIPS = { speed: 'Swing your fastest on all 5. Rest between swings.', contact: 'See the ball. Short, quick swing.', duel: 'Line drives score double. Stay level.' };
+  // Warm-ups are renumbered per day (w0, w1...), so they are matched by name.
+  const WARM_TIPS = { 'Warm up': TIPS.w1, 'Mirror Me': TIPS.w2, 'Base Path Warm-up': TIPS.w3 };
+  function tipFor(item) { return item.id === 'boss' && item.boss ? BOSS_TIPS[item.boss.dad ? 'duel' : item.boss.kind] : /^w\d+$/.test(item.id) ? WARM_TIPS[item.title] || null : TIPS[item.id] || null; }
+  // After a session: one tip for a low score, one push for a high score (at most two lines in total).
+  function scoreTips(items, pts) {
+    const lows = [], highs = [];
+    for (const i of items) { const v = pts[i.id]; if (!isNum(v) || !(i.max > 0)) continue; const r = v / i.max;
+      if (r < 0.5 && tipFor(i)) lows.push({ r, text: i.title + ': ' + v + ' of ' + i.max + '. Next time: ' + tipFor(i) });
+      else if (r >= 0.8) highs.push({ r, text: i.title + ': ' + v + ' of ' + i.max + '. Hot! Try to beat ' + v + ' next time.' }); }
+    lows.sort((a, b) => a.r - b.r); highs.sort((a, b) => b.r - a.r);
+    return lows.slice(0, 1).concat(highs.slice(0, 1)).map(x => x.text);
+  }
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
   function buildWeek(focus, step, armRest, o) {
     o = o || {};
@@ -606,7 +718,8 @@ const HubLogic = (() => {
           I('g3', 'Quick Feet', 'No ball. Lay 5 socks in a line. Fast feet through them, forward and back. 4 trips.', { min: 2 })] }
       : { name: 'Mound', items: [
           I('m1', 'Easy Catch', 'Play catch with Dad. 10 easy throws, short to a little longer. Not counted as pitches.', { min: 2 }),
-          I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };
+          (o.pitchTargets && o.pitchTargets[0] && focus !== 'baseline') ? tag(PFIXES[o.pitchTargets[0].id].drill, o.pitchTargets[0])
+            : I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };
     mound.min = sum(mound.items);
     const bodyA = focus === 'baseline'
       ? { name: 'Strength test', min: 8, items: [
@@ -772,7 +885,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
@@ -1277,9 +1390,9 @@ function plan() {
   const tuned = L.tune(state.entries, t);
   const pick = wk.lockedFocus ? { focus: wk.lockedFocus, why: wk.lockedWhy || '' } : L.decideFocus(L.stats(state.entries, t), state.entries, t, tuned.rules);
   if (!L.FOCUS[pick.focus]) pick.focus = 'baseline';
-  const before = state.entries.filter(e => e.date < wk.monday), targets = L.diagnose(state.entries, t);
-  const week = L.buildWeek(pick.focus, state.settings.level, !arm.cleared, { monday: wk.monday, level: L.game(before).level, recent: L.recentDrills(state.entries, wk.monday), targets, entries: before });
-  return { t, wk, arm, pick, tuned, targets, week };
+  const before = state.entries.filter(e => e.date < wk.monday), targets = L.diagnose(state.entries, t), pitchTargets = L.pitchDiagnose(state.entries, t);
+  const week = L.buildWeek(pick.focus, state.settings.level, !arm.cleared, { monday: wk.monday, level: L.game(before).level, recent: L.recentDrills(state.entries, wk.monday), targets, pitchTargets, entries: before });
+  return { t, wk, arm, pick, tuned, targets, pitchTargets, week };
 }
 const checks = () => state.entries.filter(e => e.kind === 'analysis').sort(L.byDate).reverse();
 function viewToday() {
@@ -1295,8 +1408,9 @@ function viewToday() {
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
       (() => { const nb = nextBadge(); return nb ? h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb),
         h('p', null, h('a', { href: '#trophies' }, 'See all badges'))) : null; })(),
-      p.targets.length && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
-        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')])) : null,
+      (p.targets.length || p.pitchTargets.length) && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
+        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, 'Hitting: ' + x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')]),
+        p.pitchTargets.slice(0, 1).map(x => [h('p', { class: 'say' }, 'Pitching: ' + x.title), h('p', { class: 'small mid' }, x.why + (p.arm.cleared ? ' Fix-it drill on Day 2: ' + L.PFIXES[x.id].drill.title + '.' : ' Fix-it drill comes back after his arm rest.'))])) : null,
       last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
         h('p', null, h('a', { href: '#film' }, 'Open the film room'))) : null),
     h('div', { class: 'stack' },
@@ -1307,7 +1421,7 @@ function viewToday() {
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
           h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); } },
-            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text)), h('span', { class: 'mark' })),
+            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null), h('span', { class: 'mark' })),
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
@@ -1363,10 +1477,11 @@ async function finish(p, ses, tk) {
   const items = ses.blocks.flatMap(b => b.items), val = k => { const v = parseFloat(counts[k]); return isFinite(v) && v >= 0 ? v : null; };
   const bad = badCount(items, counts); if (bad) { toast(bad); return; }
   let points = null;
-  for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) points = (points || 0) + Math.min(v, i.max || v); }
+  const drillPts = {};
+  for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) { drillPts[i.id] = Math.min(v, i.max || v); points = (points || 0) + drillPts[i.id]; } }
   const bi = items.find(i => i.boss), bres = bi ? val('boss') : null, bdad = bi ? val('bossdad') : null;
   const boss = bi && bres != null ? { kind: bi.boss.kind, target: bi.boss.target, result: bi.boss.kind === 'contact' ? Math.min(10, Math.round(bres)) : bres, dad: bdad, won: !!L.bossWon(bi.boss, bres, bdad) } : null;
-  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, drills: L.drillIds(ses), points, boss, ts: Date.now() }];
+  const added = [{ kind: 'session', date: p.t, slot: state.slot, focus: p.pick.focus, why: p.pick.why, complete: true, level: state.settings.level, drills: L.drillIds(ses), points, drillPts: Object.keys(drillPts).length ? drillPts : null, boss, ts: Date.now() }];
   if (!(await addEntry(added[0]))) return;
   for (const i of items) {
     const made = parseInt(counts[i.id], 10);
@@ -1379,7 +1494,7 @@ async function finish(p, ses, tk) {
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
   delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
 }
@@ -1420,6 +1535,7 @@ function renderCheer() {
       c.points != null ? h('p', { class: 'say' }, c.points + ' points today.') : null,
       (c.records || []).map(r => h('p', { class: 'say rec' }, 'New record! ', h('b', null, r), ' +' + L.XP.record + ' XP')),
       c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
+      (c.tips || []).map(t => h('p', { class: 'say coachtip' }, t)),
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
       h('button', { type: 'button', class: 'btn big', id: 'cheer-ok', onclick: () => { state.cheer = null; renderCheer(); } }, 'Back to the dugout'))));
@@ -1841,7 +1957,7 @@ async function gcSave(mode, who, delta) {
     }
     if (src.pit.pitches > 0 || src.pit.ip > 0) {
       if (!(src.pit.pitches > 0)) return toast('The file has innings but no pitch count, so pitching was not saved. Log the outing on the Arm screen.');
-      if (await addEntry({ kind: 'pitch', date, pitches: src.pit.pitches, outs: src.pit.ip || 0, where: 'game', from: 'gamechanger' })) saved.push('pitching'); else return render();
+      if (await addEntry(Object.assign({ kind: 'pitch', date, pitches: src.pit.pitches, outs: src.pit.ip || 0, where: 'game', from: 'gamechanger' }, pitchDetail(src.pit)))) saved.push('pitching'); else return render();
     }
   }
   // Only season totals become the starting point for "what is new"; a one-game file must not replace them.
@@ -1855,7 +1971,7 @@ function viewLog() {
   const label = e => e.kind === 'swing' ? 'Speeds: bat ' + fix(e.batSpeed) + ', exit ' + fix(e.exitVelo) + ' mph' + (e.ball === 'mini' ? ' (mini balls)' : '') :
     e.kind === 'reps' ? (e.from ? 'Reps from ' + (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'a session') + ': ' : 'Extra reps: ') + ([part(e.swings, 'swings'), part(e.pushups, 'push-ups'), part(e.situps, 'sit-ups'), part(e.squats, 'squats')].filter(Boolean).join(', ') || 'none') :
     e.kind === 'machine' ? 'Machine' + (e.from ? ' (in session)' : '') + ': ' + e.made + ' of ' + e.of + ' solid' : e.kind === 'game' ? 'Game: ' + e.h + ' for ' + e.ab + ', ' + e.k + ' K' + (L.isNum(e.kl) ? ' (' + e.kl + ' looking)' : '') + ', ' + e.bb + ' BB' + (L.isNum(e.go) || L.isNum(e.fo) ? ', ' + (e.go || 0) + ' ground outs, ' + (e.fo || 0) + ' fly outs' : '') :
-    e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
+    e.kind === 'pitch' ? (e.where === 'practice' ? 'Practice pitches: ' : 'Pitched: ') + e.pitches + ' pitches, ' + L.fmtInnings(e.outs || 0) + ' innings' + [['strikes', ' strikes'], ['k', ' K'], ['bb', ' BB'], ['h', ' H']].filter(x => L.isNum(e[x[0]])).map(x => ', ' + e[x[0]] + x[1]).join('') : e.kind === 'strength' ? 'Test: jump ' + fix(e.jump, 0) + ' in, ' + fix(e.pushups, 0) + ' push-ups, plank ' + fix(e.plank, 0) + ' sec' :
     e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' + (e.points != null ? ', ' + e.points + ' points' : '') + (e.boss ? (e.boss.won ? ', beat the Boss' : ', lost to the Boss') : '') : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
     e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
@@ -1919,6 +2035,28 @@ function delBtn(e) {
 }
 
 /* ---------- Coach: Arm ---------- */
+// Only the game numbers that were filled in are stored.
+function pitchDetail(d) { const o = {}; for (const k of ['strikes', 'bf', 'fps', 'k', 'bb', 'h', 'hbp']) if (L.isNum(d[k])) o[k] = d[k]; return o; }
+function pitchCheck(d) {
+  for (const k of ['pitches', 'strikes', 'bf', 'fps', 'k', 'bb', 'h', 'hbp']) if (d[k] != null && (d[k] < 0 || d[k] !== Math.round(d[k]))) return 'Use whole numbers of 0 or more.';
+  if (d.strikes != null && d.strikes > d.pitches) return 'Strikes cannot be more than pitches.';
+  if (d.fps != null && d.bf == null) return 'Enter batters faced to go with first-pitch strikes.';
+  if (d.fps != null && d.fps > d.bf) return 'First-pitch strikes cannot be more than batters faced.';
+  if (d.bf != null && d.bf > d.pitches) return 'Batters faced cannot be more than pitches.';
+  if (d.bf != null && (d.k || 0) + (d.bb || 0) + (d.h || 0) + (d.hbp || 0) > d.bf) return 'Strikeouts + walks + hits + hit batters cannot be more than batters faced.';
+  return null;
+}
+// Pitching summary over the last 4 weeks of game outings that have stats.
+function pitchSummary(t) {
+  const g = state.entries.filter(e => e.kind === 'pitch' && e.where !== 'practice' && e.date > L.addDays(t, -28) && e.date <= t);
+  const sumOf = (list, k) => list.reduce((a, e) => a + (e[k] || 0), 0), w = k => g.filter(e => L.isNum(e[k]));
+  const rows = [];
+  const s = w('strikes'); if (s.length) { const P = sumOf(s, 'pitches'), S = sumOf(s, 'strikes'); rows.push(['Strike rate', Math.round(S / P * 100) + '%', S + ' strikes ÷ ' + P + ' pitches']); }
+  const f = w('fps').filter(e => L.isNum(e.bf)); if (f.length) { const B = sumOf(f, 'bf'), F = sumOf(f, 'fps'); rows.push(['First-pitch strikes', Math.round(F / B * 100) + '%', F + ' ÷ ' + B + ' batters']); }
+  const b = w('bf'); if (b.length) { const B = sumOf(b, 'bf'), P = sumOf(b, 'pitches'); rows.push(['Pitches per batter', (P / B).toFixed(1), P + ' pitches ÷ ' + B + ' batters']); }
+  for (const [k, name] of [['k', 'Strikeouts'], ['bb', 'Walks'], ['h', 'Hits']]) { const x = w(k), O = sumOf(x, 'outs'); if (x.length && O > 0) rows.push([name + ' per inning', (sumOf(x, k) / (O / 3)).toFixed(1), sumOf(x, k) + ' ÷ ' + L.fmtInnings(O) + ' innings']); }
+  return rows;
+}
 function viewArm() {
   const t = today(), a = L.armStatus(state.entries, t, state.settings.dailyMax), yr = a.outs12 / 240;
   const rows = [['1–20', 0], ['21–35', 1], ['36–50', 2], ['51–65', 3], ['66+', 4]];
@@ -1934,13 +2072,24 @@ function viewArm() {
       h('section', { class: 'sec' }, h('h2', null, 'Log an outing'),
         h('div', { class: 'row' }, inp('p_date', 'Date', { type: 'date', def: t }), inp('p_pitches', 'Pitches', { mode: 'numeric' })),
         h('div', { class: 'row' }, inp('p_inn', 'Full innings', { mode: 'numeric', def: 0 }), sel('p_outs', 'Extra outs', [['0', '0'], ['1', '1'], ['2', '2']], '0')),
+        h('p', { class: 'small mid' }, 'Game stats (optional, from the scorebook or GameChanger). These tell the hub what he needs to work on.'),
+        h('div', { class: 'row' }, inp('p_strikes', 'Strikes', { mode: 'numeric' }), inp('p_bf', 'Batters faced', { mode: 'numeric' }), inp('p_fps', 'First-pitch strikes', { mode: 'numeric' })),
+        h('div', { class: 'row' }, inp('p_k', 'Strikeouts', { mode: 'numeric' }), inp('p_bb', 'Walks', { mode: 'numeric' }), inp('p_h', 'Hits allowed', { mode: 'numeric' }), inp('p_hbp', 'Hit batters', { mode: 'numeric' })),
         h('div', null, h('button', { type: 'button', class: 'btn', onclick: guard(async () => {
           if (num('p_pitches') == null) return toast('Enter the pitch count first.');
-          if (await addEntry({ kind: 'pitch', date: state.form.p_date || t, pitches: num('p_pitches'), outs: Math.round((num('p_inn') || 0) * 3 + (parseInt(state.form.p_outs, 10) || 0)) })) { clear('p_pitches', 'p_inn', 'p_outs'); toast('Outing saved.'); } render(); }) }, 'Save outing'))),
+          const d = { pitches: num('p_pitches'), strikes: num('p_strikes'), bf: num('p_bf'), fps: num('p_fps'), k: num('p_k'), bb: num('p_bb'), h: num('p_h'), hbp: num('p_hbp') };
+          const badP = pitchCheck(d); if (badP) return toast(badP);
+          if (await addEntry(Object.assign({ kind: 'pitch', date: state.form.p_date || t, pitches: d.pitches, outs: Math.round((num('p_inn') || 0) * 3 + (parseInt(state.form.p_outs, 10) || 0)), where: 'game' }, pitchDetail(d)))) { clear('p_pitches', 'p_inn', 'p_outs', 'p_strikes', 'p_bf', 'p_fps', 'p_k', 'p_bb', 'p_h', 'p_hbp'); toast('Outing saved.'); } render(); }) }, 'Save outing'))),
       h('section', { class: 'sec' }, h('h2', null, 'Year total'),
         h('p', { class: 'num' }, L.fmtInnings(a.outs12) + ' of 80 innings in the last 12 months (' + Math.round(yr * 100) + '%)'),
         h('div', { class: 'bar', role: 'img', 'aria-label': Math.round(yr * 100) + ' percent of the yearly innings limit' }, h('i', { style: 'width:' + Math.min(100, yr * 100).toFixed(1) + '%' })),
         h('p', { class: 'math' }, a.outs12 + ' outs ÷ 3 = ' + (a.outs12 / 3).toFixed(1) + ' innings; ' + (a.outs12 / 3).toFixed(1) + ' ÷ 80 = ' + (yr * 100).toFixed(1) + '%'))),
+    (() => { const pt = L.pitchDiagnose(state.entries, t), rows = pitchSummary(t);
+      return h('section', { class: 'sec' }, h('h2', null, 'What to work on: pitching'),
+        rows.length ? h('table', null, h('tbody', null, rows.map(r => h('tr', null, h('td', null, r[0], h('div', { class: 'math' }, r[2])), h('td', { class: 'v' }, r[1]))))) : h('p', { class: 'mid' }, 'Add strikes, batters faced and walks when you log a game outing. The hub will spot what to fix.'),
+        pt.length ? pt.map(x => [h('p', { class: 'say' }, h('b', null, x.title)), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.PFIXES[x.id].drill.title + ' — ' + L.PFIXES[x.id].drill.text + ' Tip: ' + L.TIPS[L.PFIXES[x.id].drill.id])])
+          : rows.length ? h('p', { class: 'status ok' }, 'Nothing flagged. Strike Zone Tic-Tac-Toe stays in the plan.') : null,
+        h('p', { class: 'small mid' }, 'Targets used: strikes ' + Math.round(L.PR.strikePct * 100) + '%+, walks under ' + L.PR.bbPerInn + ' per inning, under ' + L.PR.pPerBatter + ' pitches per batter, first-pitch strikes ' + Math.round(L.PR.fpsPct * 100) + '%+. These are common youth coaching targets, not research cut-offs.')); })(),
     h('section', { class: 'sec' }, h('h2', null, 'Pitch speed'),
       h('div', { class: 'row' }, inp('v_date', 'Date', { type: 'date', def: t }), inp('v_avg', 'Average (mph)'), inp('v_max', 'Fastest (mph)'), inp('v_n', 'Pitches timed', { mode: 'numeric' }),
         sel('v_where', 'Where', [['bullpen', 'Practice'], ['game', 'Game']], 'bullpen')),
@@ -1975,6 +2124,8 @@ function viewProgress() {
   return page(strip("This week's focus: " + L.FOCUS[p.pick.focus].name, p.pick.why),
     h('section', { class: 'sec plain' }, h('h2', null, 'Week so far'), h('ul', { class: 'plain' }, rc.slice(1).map(x => h('li', null, x))),
       h('p', { class: 'small mid' }, 'The same summary is sent to your phone every Sunday evening.')),
+    (() => { const bn = L.bodyNotes(state.entries, t); return bn.length ? h('section', { class: 'sec' }, h('h2', null, 'Strength and pitch speed'),
+      h('ul', { class: 'plain' }, bn.map(x => h('li', { class: x.kind === 'down' ? 'warn' : null }, x.text)))) : null; })(),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('div', { class: 'row between' }, h('h2', null, '4-week re-test'),
           h('span', { class: 'status ' + (rt.first != null && rt.inDays > 0 ? 'ok' : 'wait') }, rt.first == null ? 'Not started' : rt.inDays <= 0 ? 'Due now' : 'Due ' + fmtDate(rt.due))),

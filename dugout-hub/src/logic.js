@@ -361,6 +361,114 @@ const HubLogic = (() => {
   }
   function hitting(focus) { return (DRILLS[focus] || DRILLS.contact).slice(0, 3); }
 
+  // Pitching fix-it drills. Every one stays inside the 20-pitch practice cap.
+  const PFIXES = {
+    wild: { title: 'Missing the strike zone', drill: I('q1', 'Glove Target', "Dad kneels at the plate and holds his glove still in the middle. Hit the glove. 15 pitches at most. Strike = 1 point.", { min: 5, pitches: 15, pts: 'Strike = 1', max: 15 }) },
+    deep: { title: 'Falling behind in the count', drill: I('q2', 'Strike One', 'Every pitch is the first pitch to a new batter. Get strike one. 12 pitches at most. Strike = 1 point.', { min: 5, pitches: 12, pts: 'Strike one = 1', max: 12 }) },
+    hbp: { title: 'Pitches running inside and hitting batters', drill: I('q3', 'Stay on the Line', 'Tape a line from the rubber toward the plate. Land your front foot on it and finish toward Dad. 12 pitches at most. On the line = 1 point.', { min: 5, pitches: 12, pts: 'Foot on the line = 1', max: 12 }) },
+    hittable: { title: 'Strikes are getting hit hard', drill: I('q4', 'Paint the Knees', 'Tape a strip at knee height across the net. Pitch below it but still in the zone. 15 pitches at most. Low strike = 1 point.', { min: 5, pitches: 15, pts: 'Low strike = 1', max: 15 }) }
+  };
+  // The limits below are rules written for this hub from common youth coaching targets, not research cut-offs.
+  const PR = { strikePct: 0.55, bbPerInn: 1, pPerBatter: 4.5, fpsPct: 0.5, hbp: 2, hPerInn: 1.5 };
+  function pitchDiagnose(entries, today) {
+    const start = addDays(today, -28), g = entries.filter(e => e.kind === 'pitch' && e.where !== 'practice' && e.date > start && e.date <= today);
+    const tot = k => g.reduce((s, e) => s + (isNum(e[k]) ? e[k] : 0), 0), has = k => g.filter(e => isNum(e[k]));
+    const out = [], pc = x => Math.round(x * 100) + '%';
+    const withS = has('strikes'), sP = withS.reduce((s, e) => s + e.pitches, 0), sS = withS.reduce((s, e) => s + e.strikes, 0);
+    const withBB = has('bb'), bbOuts = withBB.reduce((s, e) => s + (e.outs || 0), 0), bb = withBB.reduce((s, e) => s + e.bb, 0);
+    if (sP >= 40 && sS / sP < PR.strikePct) out.push({ id: 'wild', why: sS + ' strikes in ' + sP + ' pitches (' + pc(sS / sP) + ') over the last 4 weeks. The target is ' + pc(PR.strikePct) + ' or better.', weight: 0.6 + (PR.strikePct - sS / sP) });
+    else if (bbOuts >= 9 && bb / (bbOuts / 3) >= PR.bbPerInn) out.push({ id: 'wild', why: bb + ' walks in ' + fmtInnings(bbOuts) + ' innings (' + (bb / (bbOuts / 3)).toFixed(1) + ' per inning). The target is under ' + PR.bbPerInn + ' per inning.', weight: 0.6 });
+    const withF = has('fps').filter(e => isNum(e.bf)), fBF = withF.reduce((s, e) => s + e.bf, 0), fS = withF.reduce((s, e) => s + e.fps, 0);
+    const withBF = has('bf'), bP = withBF.reduce((s, e) => s + e.pitches, 0), bF = withBF.reduce((s, e) => s + e.bf, 0);
+    if (fBF >= 10 && fS / fBF < PR.fpsPct) out.push({ id: 'deep', why: 'First-pitch strikes to ' + fS + ' of ' + fBF + ' batters (' + pc(fS / fBF) + '). The target is ' + pc(PR.fpsPct) + ' or better.', weight: 0.55 });
+    else if (bF >= 10 && bP / bF >= PR.pPerBatter) out.push({ id: 'deep', why: bP + ' pitches to ' + bF + ' batters (' + (bP / bF).toFixed(1) + ' per batter). Under ' + PR.pPerBatter + ' means he is getting ahead.', weight: 0.5 });
+    const hbp = tot('hbp'); if (hbp >= PR.hbp) out.push({ id: 'hbp', why: hbp + ' hit batters in the last 4 weeks.', weight: 0.45 });
+    const withH = has('h'), hOuts = withH.reduce((s, e) => s + (e.outs || 0), 0), hh = withH.reduce((s, e) => s + e.h, 0);
+    if (hOuts >= 9 && hh / (hOuts / 3) >= PR.hPerInn && !out.some(x => x.id === 'wild')) out.push({ id: 'hittable', why: hh + ' hits in ' + fmtInnings(hOuts) + ' innings (' + (hh / (hOuts / 3)).toFixed(1) + ' per inning) while throwing strikes. Next step is keeping the ball low.', weight: 0.4 });
+    // Practice: Strike Zone Tic-Tac-Toe scores, when there are no game numbers to go on.
+    if (!out.length) {
+      const prac = entries.filter(e => e.kind === 'session' && e.date > start && e.date <= today && e.drillPts && isNum(e.drillPts.m2)).map(e => e.drillPts.m2);
+      if (prac.length >= 3 && avg(prac) < 3) out.push({ id: 'wild', why: 'Strike Zone Tic-Tac-Toe averaged ' + avg(prac).toFixed(1) + ' of 9 squares over his last ' + prac.length + ' practices.', weight: 0.3 });
+    }
+    return out.sort((a, b) => b.weight - a.weight).map(x => Object.assign({ title: PFIXES[x.id].title, pitching: true }, x));
+  }
+  // Strength tests and pitch speed, compared with his own earlier numbers only (no age charts).
+  function bodyNotes(entries, today) {
+    const out = [], st = entries.filter(e => e.kind === 'strength').sort(byDate);
+    if (st.length >= 2) {
+      const a = st[st.length - 2], b = st[st.length - 1];
+      for (const [k, name, unit, tip] of [['jump', 'Long jump', ' in', 'Add Stick the Landing and squat jumps on the bodyweight day.'], ['pushups', 'Push-ups', '', 'Keep push-ups in every session; try 3 sets instead of 2.'], ['plank', 'Plank', ' sec', 'Add one extra plank hold at the end of each session.']]) {
+        if (!isNum(a[k]) || !isNum(b[k])) continue;
+        const d = b[k] - a[k];
+        out.push(d < 0 ? { kind: 'down', text: name + ' went down: ' + a[k] + unit + ' → ' + b[k] + unit + ' (' + d + unit + '). ' + tip }
+          : { kind: 'up', text: name + ' ' + (d > 0 ? 'improved: ' : 'held: ') + a[k] + unit + ' → ' + b[k] + unit + (d > 0 ? ' (+' + d + unit + ').' : '.') });
+      }
+    } else if (st.length === 1) out.push({ kind: 'info', text: 'One strength test so far. The next one shows what improved.' });
+    const v = entries.filter(e => e.kind === 'velo' && e.date <= today), val = e => isNum(e.max) ? e.max : e.avg;
+    const now = v.filter(e => e.date > addDays(today, -28)).map(val).filter(isNum), prev = v.filter(e => e.date <= addDays(today, -28) && e.date > addDays(today, -56)).map(val).filter(isNum);
+    if (now.length && prev.length) {
+      const d = Math.max.apply(null, now) - Math.max.apply(null, prev);
+      out.push(d <= -2 ? { kind: 'down', text: 'Top pitch speed is down ' + Math.abs(d).toFixed(1) + ' mph versus the 4 weeks before (' + Math.max.apply(null, prev) + ' → ' + Math.max.apply(null, now) + '). Check he is rested and not sore before adding more throwing; a drop is often tiredness.' }
+        : { kind: d > 0 ? 'up' : 'info', text: 'Top pitch speed ' + (d > 0 ? 'up ' + d.toFixed(1) + ' mph' : 'steady') + ' versus the 4 weeks before (' + Math.max.apply(null, prev) + ' → ' + Math.max.apply(null, now) + ').' });
+    }
+    return out;
+  }
+  // One cue per drill, in his words. Shown under the drill and used for "next time" tips after a low score.
+  const TIPS = {
+    c1: 'Watch the ball all the way to the bat. See it hit.', c2: 'Inside: get the bat out front. Outside: let it get deeper.',
+    c3: 'Hit the middle of the ball, not the bottom.', c4: 'Hands go straight to the ball. No big loop.',
+    c5: 'Stay through the front ball. Short and level.', c6: 'Decide early. See the color as soon as it leaves.',
+    c7: 'Let the ball get deep and push it the other way.', c8: 'Soft hands. Tap it, do not swing hard.',
+    c9: 'Relax after a miss. Breathe, then see the next one.', c10: 'Bunt: catch the ball with the bat. Swing: back to normal.',
+    s1: 'The heavy bat makes the game bat feel light. Swing it fast.', s2: 'Use the walk-in to build speed, then stay balanced.',
+    s3: 'Fast hands, not a big muscle swing.', s4: 'Hit the back of the ball for the loud crack.',
+    s5: 'Push off the back foot hard, then turn.', s6: 'Swing hard but stay on balance. Crushed balls come from the barrel.',
+    s7: 'Freeze tall at the finish. Chest to the target.', s8: 'Make the whoosh happen in front of the plate.',
+    s9: 'Hips turn first, then shoulders, then the bat.', s10: 'Full effort every swing. Rest so each one is fast.',
+    p1: 'Smooth first. Speed comes later.', p2: 'Line drives over the bucket. Level swing through the ball.',
+    p3: 'Low pitch: bend your knees, do not drop your hands.', p4: 'Pull the knob to the ball with your bottom hand.',
+    p5: 'Keep your hands close to your body. Do not cast the bat out.', p6: 'Aim for the middle of the net. Liners win.',
+    p7: 'Top hand pushes the barrel through. Palm up at contact.', p8: 'Out front means pull it. Deep means push it the other way.',
+    p9: 'Hit it right back where it came from.', p10: 'Knob first, then the barrel whips through.',
+    t1: 'Stay ready for fast. Adjust for slow.', t2: 'Load easy and early. Be ready before the ball.',
+    t3: 'Decide early. Only swing at the colors that tell you to.', t4: 'Choke up and just put it in play.',
+    t5: 'Wait for the real toss. Stay loaded.', t6: 'Front foot down when the ball comes out.',
+    t7: 'Ahead in the count, wait for your pitch. Behind, protect the plate.', t8: 'Stay back on slow. Start earlier on fast.',
+    t9: 'Be loaded and ready when the ball leaves the machine.', t10: 'Inside: pull it. Outside: go the other way.',
+    f1: 'Choke up. Foul off the tough ones. Swing at strikes.', f2: 'Swing level and hit the middle of the ball.',
+    f3: 'Hit the top half of the ball. Drive it, do not lift it.', f4: 'Short and quick. Just make contact.',
+    f5: 'Keep your head still. Eyes stay on the ball.', f6: 'Small step. Land soft on the tape.',
+    f7: 'Get your front foot down early, then swing.', f8: 'Back hip turns first. Keep your chest closed.',
+    f9: 'Brace your front leg like stepping on the brakes.', f10: 'Swing hard and stay balanced. Hold the finish.',
+    q1: 'Eyes on the glove the whole time. Throw to it, do not aim.', q2: 'First pitch is a strike. Easy speed, hit the middle of the zone.',
+    q3: 'Front foot lands on the line. Finish toward Dad.', q4: 'Reach out in front and finish low. Knees, not belt.',
+    m1: 'Easy throws. Point your glove at Dad, then throw.', m2: 'Pick a square, look at it, then throw. Same motion every time.',
+    g1: 'Stay low. Glove out in front, eyes on the ground.', g2: 'Stand tall over your back leg. Balance before you go.',
+    g3: 'Small, quick steps. Stay on the balls of your feet.',
+    w1: 'Loosen up. Easy and smooth.', w2: 'Copy fast. Stay light on your feet.', w3: 'Run hard on the sprint, easy on the rest.',
+    b1: 'Swing your fastest. Do not worry about the ball.', b2: 'Hit it hard on the barrel. The radar counts your best.',
+    b3: 'See the ball, hit the ball. Count your solid ones.',
+    x1: 'Swing your arms and land on both feet.', x2: 'Flat back. Chest to the ground every time.', x3: 'Flat back. Squeeze your stomach.',
+    a1: 'Sit back like there is a chair. Chest up.', a2: 'Straight line from head to heels.', a3: 'Slow and controlled. Do not yank your neck.',
+    z1: 'Sit back like there is a chair. Chest up.', z2: 'Straight line from head to heels.', z3: 'Slow and controlled. Do not yank your neck.',
+    z4: 'Knees just off the ground. Slow and steady.', z5: 'Hips up. Hands and feet together.', z6: 'Big step back. Front knee over the ankle.',
+    z7: 'Flat back. Squeeze your stomach.', z8: 'Land soft and freeze. Knees bend, not cave in.', z9: 'Squeeze your back. Arms and legs off the floor.',
+    k1: 'Twist slow. Keep the water quiet.', k4: 'Turn your hips, then throw. Same as a swing.', k4r: 'Stand tall. Do not let the water slosh.',
+    l1: 'Tell Dad your best numbers. He saves them so you get credit.'
+  };
+  const BOSS_TIPS = { speed: 'Swing your fastest on all 5. Rest between swings.', contact: 'See the ball. Short, quick swing.', duel: 'Line drives score double. Stay level.' };
+  // Warm-ups are renumbered per day (w0, w1...), so they are matched by name.
+  const WARM_TIPS = { 'Warm up': TIPS.w1, 'Mirror Me': TIPS.w2, 'Base Path Warm-up': TIPS.w3 };
+  function tipFor(item) { return item.id === 'boss' && item.boss ? BOSS_TIPS[item.boss.dad ? 'duel' : item.boss.kind] : /^w\d+$/.test(item.id) ? WARM_TIPS[item.title] || null : TIPS[item.id] || null; }
+  // After a session: one tip for a low score, one push for a high score (at most two lines in total).
+  function scoreTips(items, pts) {
+    const lows = [], highs = [];
+    for (const i of items) { const v = pts[i.id]; if (!isNum(v) || !(i.max > 0)) continue; const r = v / i.max;
+      if (r < 0.5 && tipFor(i)) lows.push({ r, text: i.title + ': ' + v + ' of ' + i.max + '. Next time: ' + tipFor(i) });
+      else if (r >= 0.8) highs.push({ r, text: i.title + ': ' + v + ' of ' + i.max + '. Hot! Try to beat ' + v + ' next time.' }); }
+    lows.sort((a, b) => a.r - b.r); highs.sort((a, b) => b.r - a.r);
+    return lows.slice(0, 1).concat(highs.slice(0, 1)).map(x => x.text);
+  }
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
   function buildWeek(focus, step, armRest, o) {
     o = o || {};
@@ -398,7 +506,8 @@ const HubLogic = (() => {
           I('g3', 'Quick Feet', 'No ball. Lay 5 socks in a line. Fast feet through them, forward and back. 4 trips.', { min: 2 })] }
       : { name: 'Mound', items: [
           I('m1', 'Easy Catch', 'Play catch with Dad. 10 easy throws, short to a little longer. Not counted as pitches.', { min: 2 }),
-          I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };
+          (o.pitchTargets && o.pitchTargets[0] && focus !== 'baseline') ? tag(PFIXES[o.pitchTargets[0].id].drill, o.pitchTargets[0])
+            : I('m2', 'Strike Zone Tic-Tac-Toe', 'Tape a 3 by 3 grid on the net. Pitch from your spot. Get 3 in a row to win. ' + MOUND_MAX + ' pitches at most, then stop.', { min: 5, pitches: MOUND_MAX, pts: 'Each square hit = 1', max: 9 })] };
     mound.min = sum(mound.items);
     const bodyA = focus === 'baseline'
       ? { name: 'Strength test', min: 8, items: [
@@ -564,7 +673,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
