@@ -177,8 +177,17 @@ nav.tabs .lockbtn{flex:0 0 auto;background:#fff;border:0;border-left:2px solid v
 .cheer{position:fixed;inset:0;z-index:8;display:grid;place-items:center;padding:24px;text-align:center;background-color:var(--sky);background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.6) 0 2px,transparent 2px 28px)}
 .cheer .box{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:520px}
 .cheer .gain{font-family:var(--cond);font-weight:800;font-size:112px;line-height:.9;color:var(--navy);text-shadow:4px 4px 0 #fff}
+.cheer .run svg{display:block}
+.prog{position:relative;height:22px;border:2px solid var(--navy);border-radius:11px;background:#fff;overflow:hidden;margin-top:6px;width:100%}
+.prog .fill{position:absolute;inset:0 auto 0 0;background:var(--sky)}
+.prog span{position:relative;display:block;text-align:center;font-size:13px;line-height:18px;font-weight:600;color:var(--navy)}
+.cheer .rec b{color:var(--navy)}
+.confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.confetti i{position:absolute;top:-16px;width:9px;height:14px;border-radius:2px;opacity:0}
 @media (prefers-reduced-motion:no-preference){
-  .cheer .gain{animation:land .45s cubic-bezier(.2,1.5,.4,1) both}
+  .confetti i{animation:fall linear both}
+  @keyframes fall{0%{transform:translate(0,0) rotate(0);opacity:1}85%{opacity:1}100%{transform:translate(var(--x),105vh) rotate(var(--r));opacity:0}}
+  .cheer .gain{animation:land .45s .5s cubic-bezier(.2,1.5,.4,1) both}
   @keyframes land{from{transform:scale(.4) rotate(-8deg);opacity:0}to{transform:none;opacity:1}}
 }
 </style>

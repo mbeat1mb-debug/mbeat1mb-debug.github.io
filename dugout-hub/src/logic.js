@@ -171,18 +171,21 @@ const HubLogic = (() => {
     const fullWeek = Object.keys(w).some(m => w[m].A && w[m].B && w[m].C);
     const sharp = entries.some(e => e.kind === 'machine' && e.of >= 20 && e.made / e.of >= 0.8);
     const tested = entries.some(e => e.kind === 'strength');
+    const sharpBest = entries.filter(e => e.kind === 'machine' && e.of >= 20).reduce((m, e) => Math.max(m, Math.round(e.made / e.of * 20)), 0);
+    const bosses = game(entries).bosses, streakBest = longestStreak(entries);
+    // have/goal drive the progress bars on badges he has not earned yet.
     return [
-      { id: 'first', name: 'First session', how: 'Finish any session.', icon: 'star', on: t.sessions >= 1 },
-      { id: 'week', name: 'Full week', how: 'Finish A, B and C in one week.', icon: 'trophy', on: fullWeek },
-      { id: 'streak3', name: 'Three in a row', how: 'Finish A and B three weeks straight.', icon: 'flame', on: longestStreak(entries) >= 3 },
+      { id: 'first', name: 'First session', how: 'Finish any session.', icon: 'star', on: t.sessions >= 1, have: t.sessions, goal: 1 },
+      { id: 'week', name: 'Full week', how: 'Finish Day 1, Day 2 and Day 3 in one week.', icon: 'trophy', on: fullWeek },
+      { id: 'streak3', name: 'Three in a row', how: 'Finish Day 1 and Day 2 three weeks in a row.', icon: 'flame', on: streakBest >= 3, have: streakBest, goal: 3 },
       { id: 'tested', name: 'Starting line', how: 'Log your first strength test.', icon: 'flag', on: tested },
       { id: 'breaker', name: 'Record breaker', how: 'Beat one of your records.', icon: 'bolt', on: rec.breaks >= 1 },
-      { id: 'sharp', name: 'Sharp eye', how: 'Get 16 solid hits out of 20 on the machine.', icon: 'target', on: sharp },
+      { id: 'sharp', name: 'Sharp eye', how: 'Get 16 solid hits out of 20 on the machine.', icon: 'target', on: sharp, have: sharpBest, goal: 16 },
       { id: 'film', name: 'Film study', how: 'Save your first filmstrip.', icon: 'play', on: entries.some(e => e.kind === 'analysis') },
-      { id: 'ten', name: '10 sessions', how: 'Finish 10 sessions.', icon: 'star', on: t.sessions >= 10 },
-      { id: 'sw500', name: '500 swings', how: 'Log 500 swings.', icon: 'bat', on: t.swings >= 500 },
-      { id: 'boss3', name: 'Boss slayer', how: 'Win 3 Boss Battles.', icon: 'trophy', on: game(entries).bosses >= 3 },
-      { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100 }
+      { id: 'ten', name: '10 sessions', how: 'Finish 10 sessions.', icon: 'star', on: t.sessions >= 10, have: t.sessions, goal: 10 },
+      { id: 'sw500', name: '500 swings', how: 'Log 500 swings.', icon: 'bat', on: t.swings >= 500, have: t.swings, goal: 500 },
+      { id: 'boss3', name: 'Boss slayer', how: 'Win 3 Boss Battles.', icon: 'trophy', on: bosses >= 3, have: bosses, goal: 3 },
+      { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100, have: t.pushups, goal: 100 }
     ];
   }
 

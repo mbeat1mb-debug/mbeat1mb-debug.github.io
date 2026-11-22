@@ -298,6 +298,8 @@ function viewToday() {
     h('div', { class: 'stack' },
       h('section', { class: 'sec' }, h('h2', null, 'This week: ' + F.name), h('p', { class: 'say' }, F.kid),
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
+      (() => { const nb = nextBadge(); return nb ? h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb),
+        h('p', null, h('a', { href: '#trophies' }, 'See all badges'))) : null; })(),
       p.targets.length && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
         p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')])) : null,
       last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
@@ -336,9 +338,35 @@ function extras(i, counts) {
   return out.length ? out : null;
 }
 function saveTicks() { try { localStorage.setItem('dugout-ticks', JSON.stringify({ t: state.ticks, c: state.counts })); } catch (e) {} }
+// A typo like 25 out of 20 used to be quietly cut to 20, which could hand out a badge he did not earn. Now it is stopped.
+function badCount(items, counts) {
+  const chk = (raw, max, whole, what) => {
+    if (raw == null || String(raw).trim() === '') return null;
+    const v = Number(raw);
+    if (!isFinite(v) || v < 0) return what + ' cannot be below 0.';
+    if (whole && v !== Math.round(v)) return what + ' must be a whole number.';
+    if (max != null && v > max) return what + ' cannot be more than ' + max + '.';
+    return null;
+  };
+  for (const i of items) {
+    const m = (i.count && chk(counts[i.id], i.count, true, 'Solid hits')) || (i.pts && chk(counts['pts:' + i.id], i.max || null, true, 'Points for ' + i.title)) ||
+      (i.pitches && chk(counts['pc:' + i.id], i.pitches, true, 'Pitches thrown')) ||
+      (i.boss && chk(counts.boss, i.boss.kind === 'contact' ? 10 : i.boss.kind === 'speed' ? 120 : null, i.boss.kind !== 'speed', i.boss.label)) || (i.boss && chk(counts.bossdad, null, true, "Dad's points"));
+    if (m) return m;
+  }
+  return null;
+}
+const REC_NAMES = { bat: ['Top bat speed', r => fix(r.v) + ' mph'], exit: ['Top exit speed', r => fix(r.v) + ' mph'], contact: ['Best machine round', r => r.made + ' of ' + r.of],
+  jump: ['Longest jump', r => fix(r.v, 0) + ' in'], pushups: ['Most push-ups', r => fix(r.v, 0)], plank: ['Longest plank', r => fix(r.v, 0) + ' sec'], velo: ['Fastest pitch', r => fix(r.v) + ' mph'] };
+function newRecords(before, after) {
+  const a = L.records(before), b = L.records(after), out = [];
+  for (const k of Object.keys(REC_NAMES)) if (a[k] && b[k] && b[k].v > a[k].v) out.push(REC_NAMES[k][0] + ': ' + REC_NAMES[k][1](b[k]));
+  return out;
+}
 async function finish(p, ses, tk) {
-  const counts = state.counts[tk] || {}, before = L.badges(state.entries).filter(b => b.on).map(b => b.id), lvlBefore = L.game(state.entries).level;
+  const counts = state.counts[tk] || {}, before = L.badges(state.entries).filter(b => b.on).map(b => b.id), g0 = L.game(state.entries), lvlBefore = g0.level, entriesBefore = state.entries.slice();
   const items = ses.blocks.flatMap(b => b.items), val = k => { const v = parseFloat(counts[k]); return isFinite(v) && v >= 0 ? v : null; };
+  const bad = badCount(items, counts); if (bad) { toast(bad); return; }
   let points = null;
   for (const i of items) if (i.pts) { const v = val('pts:' + i.id); if (v != null) points = (points || 0) + Math.min(v, i.max || v); }
   const bi = items.find(i => i.boss), bres = bi ? val('boss') : null, bdad = bi ? val('bossdad') : null;
@@ -356,17 +384,46 @@ async function finish(p, ses, tk) {
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: L.XP[added[0].slot] + (boss && boss.won ? L.XP.boss : 0), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
   delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
+}
+// The runner moves from where he was to where he is now, so every session visibly gets him closer to home.
+function runBases(from, to) {
+  const path = 'M66 118L118 66L66 14L14 66Z', total = 294.2, f = Math.max(0, Math.min(1, from)), t = Math.max(f, Math.min(1, to));
+  const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const w = h('span', { class: 'run', role: 'img', 'aria-label': t >= 1 ? 'He ran all the way home' : 'He moved ' + Math.round((t - f) * 100) + ' percent further around the bases' });
+  const base = (x, y, on) => '<rect x="' + (x - 8) + '" y="' + (y - 8) + '" width="16" height="16" transform="rotate(45 ' + x + ' ' + y + ')" fill="' + (on ? '#0d2b55' : '#fff') + '" stroke="#0d2b55" stroke-width="3"/>';
+  w.innerHTML = '<svg viewBox="0 0 132 132" width="150" height="150"><path d="' + path + '" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>' +
+    '<path d="' + path + '" fill="none" stroke="#0d2b55" stroke-width="5" stroke-linejoin="round" stroke-dasharray="' + total + ' ' + total + '" stroke-dashoffset="' + (total * (1 - (still ? t : f))).toFixed(1) + '">' +
+    (still ? '' : '<animate attributeName="stroke-dashoffset" values="' + (total * (1 - f)).toFixed(1) + ';' + (total * (1 - f)).toFixed(1) + ';' + (total * (1 - t)).toFixed(1) + '" keyTimes="0;0.2;1" dur="1.7s" fill="freeze"/>') + '</path>' +
+    base(118, 66, t >= .25) + base(66, 14, t >= .5) + base(14, 66, t >= .75) +
+    '<path d="M58 118h16v-8l-8-7-8 7z" fill="' + (t >= 1 ? '#0d2b55' : '#fff') + '" stroke="#0d2b55" stroke-width="3" stroke-linejoin="round"/>' +
+    '<circle r="9" fill="#d2342a" stroke="#fff" stroke-width="3">' + (still ? '' : '<animateMotion dur="1.7s" fill="freeze" calcMode="linear" keyPoints="' + f.toFixed(3) + ';' + f.toFixed(3) + ';' + t.toFixed(3) + '" keyTimes="0;0.2;1" path="' + path + '"/>') + '</circle>' +
+    (still ? '<circle cx="0" cy="0" r="9" fill="#d2342a" stroke="#fff" stroke-width="3" transform="translate(' + pointOn(t).join(' ') + ')"/>' : '') + '</svg>';
+  if (still) { const c = w.querySelector('circle:not([transform])'); if (c) c.remove(); }
+  return w;
+}
+function pointOn(frac) {
+  const P = [[66, 118], [118, 66], [66, 14], [14, 66], [66, 118]], seg = Math.min(3, Math.floor(frac * 4)), t = frac * 4 - seg;
+  return [P[seg][0] + (P[seg + 1][0] - P[seg][0]) * t, P[seg][1] + (P[seg + 1][1] - P[seg][1]) * t].map(n => n.toFixed(1));
+}
+function confetti() {
+  const box = h('div', { class: 'confetti', 'aria-hidden': 'true' }), colors = ['#0d2b55', '#ffffff', '#d2342a', '#5aa9e6'];
+  for (let i = 0; i < 36; i++) { const s = h('i'); s.style.left = (Math.random() * 100).toFixed(1) + '%'; s.style.background = colors[i % 4];
+    s.style.animationDelay = (Math.random() * 0.5).toFixed(2) + 's'; s.style.animationDuration = (1.6 + Math.random() * 1.2).toFixed(2) + 's';
+    s.style.setProperty('--x', ((Math.random() - 0.5) * 160).toFixed(0) + 'px'); s.style.setProperty('--r', (Math.random() * 720 - 360).toFixed(0) + 'deg'); box.appendChild(s); }
+  return box;
 }
 function renderCheer() {
   const c = state.cheer;
   if (!c) { $cheer.replaceChildren(); return; }
   $cheer.replaceChildren(h('div', { class: 'cheer', role: 'dialog', 'aria-modal': 'true', 'aria-label': c.title },
-    h('div', { class: 'box' }, h('h1', null, c.title), h('div', { class: 'gain' }, '+' + c.xp + ' XP'),
+    confetti(),
+    h('div', { class: 'box' }, h('h1', null, c.title), runBases(c.from || 0, c.to || 0), h('div', { class: 'gain' }, '+' + c.xp + ' XP'),
       h('p', { class: 'say' }, c.levelUp ? 'You scored. Level ' + c.levelUp.level + ', ' + c.levelUp.title + '.' + (c.levelUp.level === 2 ? ' New drills unlock next week.' : '') : c.base + '.'),
       c.points != null ? h('p', { class: 'say' }, c.points + ' points today.') : null,
+      (c.records || []).map(r => h('p', { class: 'say rec' }, 'New record! ', h('b', null, r), ' +' + L.XP.record + ' XP')),
       c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
@@ -699,12 +756,23 @@ function viewFilm() {
 }
 
 /* ---------- Player: Trophies ---------- */
+function bar(b) {
+  const have = Math.min(b.have || 0, b.goal), pct = Math.round(have / b.goal * 100);
+  return h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(b.goal), 'aria-valuenow': String(have), 'aria-label': b.name },
+    h('div', { class: 'fill', style: 'width:' + pct + '%' }), h('span', { class: 'num' }, commas(have) + ' / ' + commas(b.goal)));
+}
+// The unearned badge he is closest to, so there is always a next thing to chase.
+function nextBadge() {
+  const open = L.badges(state.entries).filter(b => !b.on && b.goal);
+  if (!open.length) return null;
+  return open.sort((x, y) => (y.have || 0) / y.goal - (x.have || 0) / x.goal)[0];
+}
 function viewTrophies() {
   const B = L.badges(state.entries), rec = L.records(state.entries), t = L.totals(state.entries);
   const recs = [['Top bat speed', rec.bat, r => fix(r.v) + ' mph'], ['Top exit speed', rec.exit, r => fix(r.v) + ' mph'], ['Best machine round', rec.contact, r => r.made + ' of ' + r.of],
     ['Longest jump', rec.jump, r => fix(r.v, 0) + ' in'], ['Most push-ups in a test', rec.pushups, r => fix(r.v, 0)], ['Longest plank', rec.plank, r => fix(r.v, 0) + ' sec'], ['Fastest pitch', rec.velo, r => fix(r.v) + ' mph']];
   return page(strip('Trophies', B.filter(b => b.on).length + ' of ' + B.length + ' badges earned'),
-    h('section', { class: 'sec plain' }, h('div', { class: 'patches' }, B.map(b => h('div', { class: 'patch' + (b.on ? ' on' : '') }, h('div', { class: 'ring' }, icon(b.icon)), h('b', null, b.name), h('span', null, b.on ? 'Earned' : b.how))))),
+    h('section', { class: 'sec plain' }, h('div', { class: 'patches' }, B.map(b => h('div', { class: 'patch' + (b.on ? ' on' : '') }, h('div', { class: 'ring' }, icon(b.icon)), h('b', null, b.name), h('span', null, b.on ? 'Earned' : b.how), !b.on && b.goal ? bar(b) : null)))),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Your records'), h('table', null, h('tbody', null, recs.map(r => h('tr', null, h('td', null, r[0], r[1] ? h('div', { class: 'math' }, fmtDate(r[1].date)) : null), h('td', { class: 'v' }, r[1] ? r[2](r[1]) : '–'))))),
         h('p', { class: 'small mid' }, 'Beat a record and you earn ' + L.XP.record + ' XP. Beat the weekly Boss and you earn ' + L.XP.boss + ' XP.')),
