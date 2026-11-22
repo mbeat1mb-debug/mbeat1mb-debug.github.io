@@ -296,7 +296,21 @@ const HubGames = (() => {
   const dots = (n, of, col) => { let s = ''; for (let i = 0; i < of; i++) s += i < n ? '●' : '○'; return s; };
 
   /* ---------- 1. HOME RUN DERBY: view from behind the plate, 10 outs ---------- */
+  // Home Run Derby is a 3D game in its own file (derby3d.js), loaded the first time it opens.
+  // If this device can't run 3D graphics, the flat version below is used instead.
   function derby(level, done) {
+    const ui = open('Home Run Derby', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 10 outs');
+    ui.stage.classList.add('cvstage');
+    ui.stage.replaceChildren(el('div', { class: 'd3load' }, el('b', null, 'Loading Seed Spitters Park\u2026'), el('i', null)));
+    import('./derby3d.js').then(m => {
+      if (!layer) return;
+      try {
+        const g = m.start({ stage: ui.stage, level, me: ME, Sound, still: still(), say: t => { ui.status.textContent = t; }, end: (score, lines) => finish(ui, score, lines, done) });
+        live = { stop: g.stop };
+      } catch (e) { close(true); onExit = done; derby2d(level, done); }
+    }).catch(() => { if (!layer) return; close(true); onExit = done; derby2d(level, done); });
+  }
+  function derby2d(level, done) {
     const ui = open('Home Run Derby', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' · 10 outs · fences 200 to 225 ft');
     const E = Engine(ui), c = E.c;
     const SLOW = [0, 1.75, 1.45, 1.2][level], WIN = [0, 150, 120, 100][level], EVB = [0, 7, 4, 2][level];
