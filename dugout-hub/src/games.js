@@ -16,7 +16,7 @@ const HubGames = (() => {
   const ease = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const shuffled = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = rand(i + 1); [b[i], b[j]] = [b[j], b[i]]; } return b; };
-  const TEAM = { black: '#161616', orange: '#f28c38', deep: '#d15d0a', name: 'SEED SPITTERS' };
+  const TEAM = { black: '#161616', green: '#1d6a3b', orange: '#f28c38', deep: '#d15d0a', name: 'SEED SPITTERS' };
   let ME = { name: 'Jaxson', num: '20', bats: 'left' };
 
   /* ---------- Sounds: made in the browser, no files. Off switch is per device. ---------- */
@@ -364,7 +364,7 @@ const HubGames = (() => {
     }
     function batter() {
       const p = proj(side * 3.6, 1.5, 0), s = p.s, swingK = sw ? clamp((E.t - sw.at) / 0.22, 0, 1) : 0;
-      const g = guy(c, p.x, p.y, s, { face: -side, back: false, num: ME.num, helmet: TEAM.black, top: TEAM.black, legL: -0.35 - swingK * 0.2, legR: 0.3, armL: side * (1.6 - swingK * 2.6), armR: side * (1.3 - swingK * 2.4), elbowL: -side * 1.4 * (1 - swingK), elbowR: -side * 1.6 * (1 - swingK), lean: -side * 0.2 + swingK * -side * 0.3 });
+      const g = guy(c, p.x, p.y, s, { face: -side, back: false, num: ME.num, helmet: TEAM.green, top: TEAM.green, legL: -0.35 - swingK * 0.2, legR: 0.3, armL: side * (1.6 - swingK * 2.6), armR: side * (1.3 - swingK * 2.4), elbowL: -side * 1.4 * (1 - swingK), elbowR: -side * 1.6 * (1 - swingK), lean: -side * 0.2 + swingK * -side * 0.3 });
       const hands = g.handL, ang = side * (-0.6 + swingK * 2.6) - (swingK > 0.9 ? side * (swingK - 0.9) * 8 : 0);
       bat(c, hands[0], hands[1], -ang, s);
     }
@@ -666,7 +666,7 @@ const HubGames = (() => {
     function runner() {
       const s = E.H * 0.05, x = X(runX), running = res === null && went != null, k = E.t * 14;
       const sliding = res && res.t < 0.5 && res.kind === 'steal';
-      guy(c, x, L.y, s, { top: TEAM.black, helmet: TEAM.black, num: ME.num, face: back ? -1 : 1, legL: running ? Math.sin(k) * 0.9 : sliding ? 1.3 : -0.35, legR: running ? -Math.sin(k) * 0.9 : sliding ? 1.4 : 0.35,
+      guy(c, x, L.y, s, { top: TEAM.green, helmet: TEAM.green, num: ME.num, face: back ? -1 : 1, legL: running ? Math.sin(k) * 0.9 : sliding ? 1.3 : -0.35, legR: running ? -Math.sin(k) * 0.9 : sliding ? 1.4 : 0.35,
         armL: running ? -Math.sin(k) * 1.2 : -0.6, armR: running ? Math.sin(k) * 1.2 : 0.6, lean: running ? 0.6 : 0.25, crouch: !running && !back ? 0.25 : 0 });
     }
     function fielder() { const s = E.H * 0.05; guy(c, L.b2 + 26, L.y, s, { top: '#2457a6', cap: '#2457a6', face: -1, glove: 'L', armL: throwBall && throwBall.to === 2 ? -1.6 : -0.4 }); guy(c, L.b1 - 26, L.y, s, { top: '#2457a6', cap: '#2457a6', face: 1, glove: 'R', armR: 0.4 }); }

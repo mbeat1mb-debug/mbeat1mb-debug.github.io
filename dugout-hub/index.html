@@ -283,13 +283,13 @@ body.gaming{overflow:hidden}
 .d3cv{display:block;width:100%;height:100%;touch-action:none;outline:none}
 .d3hud{position:absolute;inset:0;pointer-events:none;font-family:var(--cond);color:#fff}
 .d3bug{position:absolute;left:12px;bottom:12px;display:flex;align-items:stretch;border-radius:10px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.45);border:2px solid #f28c38}
-.d3bug>div{padding:6px 12px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(#262626,#111)}
+.d3bug>div{padding:6px 12px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(#17543a,#0c3322)}
 .d3bug-team{background:linear-gradient(135deg,#f28c38,#d15d0a) !important;color:#161616}
 .d3bug-team b{font-size:22px;line-height:1;font-weight:800}.d3bug-team span{font-size:13px;font-weight:800;letter-spacing:.06em}
 .d3bug-cell span{font-size:12px;color:#bbb;font-weight:700}.d3bug-cell b{font-size:26px;line-height:1;color:#ffd23f}
 .d3bug-cell.outs div{display:grid;grid-template-columns:repeat(5,10px);gap:3px;margin-top:3px}
 .d3bug-cell.outs i{width:10px;height:10px;border-radius:50%;border:2px solid #ff8a8a}.d3bug-cell.outs i.on{background:#ff5a5a;border-color:#ff5a5a}
-.d3pitch{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:6px;background:rgba(10,10,10,.82);border-left:5px solid #f28c38;border-radius:8px;padding:6px 14px;opacity:0;transform:translateX(20px);transition:.25s}
+.d3pitch{position:absolute;right:12px;top:12px;display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:6px;background:rgba(10,40,25,.88);border-left:5px solid #f28c38;border-radius:8px;padding:6px 14px;opacity:0;transform:translateX(20px);transition:.25s}
 .d3pitch.show{opacity:1;transform:none}.d3pitch b{font-size:40px;line-height:1;color:#fff}.d3pitch span{font-size:16px;color:#bbb;font-weight:700}.d3pitch i{grid-column:1/3;font-style:normal;font-weight:800;color:#ffd23f;font-size:18px;letter-spacing:.05em}
 .d3streak{position:absolute;left:50%;top:14px;transform:translateX(-50%) scale(.6);opacity:0;transition:.3s;background:linear-gradient(90deg,#ff5a1a,#ffb21a);color:#1a0a00;font-weight:800;font-size:22px;padding:4px 16px;border-radius:30px;box-shadow:0 0 24px rgba(255,120,20,.8)}
 .d3streak.on{opacity:1;transform:translateX(-50%) scale(1)}
@@ -297,7 +297,7 @@ body.gaming{overflow:hidden}
 .d3call.show{animation:d3pop 1.6s cubic-bezier(.2,1.6,.4,1) forwards}.d3call.hr.show{animation-duration:2.6s}
 .d3call b{display:block;font-size:clamp(48px,11vw,104px);font-weight:800;line-height:.95;font-style:italic;color:#fff;-webkit-text-stroke:3px #161616;text-shadow:0 6px 0 #161616,0 0 30px rgba(0,0,0,.6)}
 .d3call.hr b{color:#ffd23f;-webkit-text-stroke:3px #2a1200;text-shadow:0 6px 0 #2a1200,0 0 28px rgba(255,160,20,.95),0 0 60px rgba(255,120,0,.6)}
-.d3call.out b{color:#ffdede}.d3call.ball b{color:#9ee7ff}
+.d3call.out b{color:#ffdede}.d3call.ball b{color:#9ee7ff}.d3call.hit b{color:#a6f5b9;-webkit-text-stroke:3px #0c3322;text-shadow:0 6px 0 #0c3322,0 0 24px rgba(80,220,120,.6)}
 .d3call span{display:inline-block;margin-top:8px;font-size:clamp(18px,3.4vw,28px);font-weight:800;background:rgba(10,10,10,.8);padding:4px 14px;border-radius:8px;border:2px solid #f28c38}
 @keyframes d3pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}20%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-60%) scale(1)}}
 .d3tip{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(10,10,10,.7);padding:6px 14px;border-radius:20px;font-size:18px;font-weight:700;white-space:nowrap}
@@ -1498,7 +1498,7 @@ const HubGames = (() => {
   const ease = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const shuffled = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = rand(i + 1); [b[i], b[j]] = [b[j], b[i]]; } return b; };
-  const TEAM = { black: '#161616', orange: '#f28c38', deep: '#d15d0a', name: 'SEED SPITTERS' };
+  const TEAM = { black: '#161616', green: '#1d6a3b', orange: '#f28c38', deep: '#d15d0a', name: 'SEED SPITTERS' };
   let ME = { name: 'Jaxson', num: '20', bats: 'left' };
 
   /* ---------- Sounds: made in the browser, no files. Off switch is per device. ---------- */
@@ -1846,7 +1846,7 @@ const HubGames = (() => {
     }
     function batter() {
       const p = proj(side * 3.6, 1.5, 0), s = p.s, swingK = sw ? clamp((E.t - sw.at) / 0.22, 0, 1) : 0;
-      const g = guy(c, p.x, p.y, s, { face: -side, back: false, num: ME.num, helmet: TEAM.black, top: TEAM.black, legL: -0.35 - swingK * 0.2, legR: 0.3, armL: side * (1.6 - swingK * 2.6), armR: side * (1.3 - swingK * 2.4), elbowL: -side * 1.4 * (1 - swingK), elbowR: -side * 1.6 * (1 - swingK), lean: -side * 0.2 + swingK * -side * 0.3 });
+      const g = guy(c, p.x, p.y, s, { face: -side, back: false, num: ME.num, helmet: TEAM.green, top: TEAM.green, legL: -0.35 - swingK * 0.2, legR: 0.3, armL: side * (1.6 - swingK * 2.6), armR: side * (1.3 - swingK * 2.4), elbowL: -side * 1.4 * (1 - swingK), elbowR: -side * 1.6 * (1 - swingK), lean: -side * 0.2 + swingK * -side * 0.3 });
       const hands = g.handL, ang = side * (-0.6 + swingK * 2.6) - (swingK > 0.9 ? side * (swingK - 0.9) * 8 : 0);
       bat(c, hands[0], hands[1], -ang, s);
     }
@@ -2148,7 +2148,7 @@ const HubGames = (() => {
     function runner() {
       const s = E.H * 0.05, x = X(runX), running = res === null && went != null, k = E.t * 14;
       const sliding = res && res.t < 0.5 && res.kind === 'steal';
-      guy(c, x, L.y, s, { top: TEAM.black, helmet: TEAM.black, num: ME.num, face: back ? -1 : 1, legL: running ? Math.sin(k) * 0.9 : sliding ? 1.3 : -0.35, legR: running ? -Math.sin(k) * 0.9 : sliding ? 1.4 : 0.35,
+      guy(c, x, L.y, s, { top: TEAM.green, helmet: TEAM.green, num: ME.num, face: back ? -1 : 1, legL: running ? Math.sin(k) * 0.9 : sliding ? 1.3 : -0.35, legR: running ? -Math.sin(k) * 0.9 : sliding ? 1.4 : 0.35,
         armL: running ? -Math.sin(k) * 1.2 : -0.6, armR: running ? Math.sin(k) * 1.2 : 0.6, lean: running ? 0.6 : 0.25, crouch: !running && !back ? 0.25 : 0 });
     }
     function fielder() { const s = E.H * 0.05; guy(c, L.b2 + 26, L.y, s, { top: '#2457a6', cap: '#2457a6', face: -1, glove: 'L', armL: throwBall && throwBall.to === 2 ? -1.6 : -0.4 }); guy(c, L.b1 - 26, L.y, s, { top: '#2457a6', cap: '#2457a6', face: 1, glove: 'R', armR: 0.4 }); }
