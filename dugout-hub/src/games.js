@@ -133,7 +133,8 @@ const HubGames = (() => {
     if (live && live.stop) live.stop(); live = null;
     onExit = null;
     ui.stage.replaceChildren(el('div', { class: 'g-end' }, el('p', { class: 'g-big' }, lines[0]), lines.slice(1).map(t => el('p', null, t)),
-      el('button', { type: 'button', class: 'btn', id: 'game-done', onclick: () => { close(true); done(score); } }, 'Save my score')));
+      el('div', { class: 'g-endbtns' }, score == null ? null : el('button', { type: 'button', class: 'btn line', id: 'game-again', onclick: () => { close(true); done(score, true); } }, 'Save and play again'),
+        el('button', { type: 'button', class: 'btn', id: 'game-done', onclick: () => { close(true); done(score); } }, score == null ? 'Back to the Arcade' : 'Save my score'))));
     document.getElementById('game-done').focus();
   }
 

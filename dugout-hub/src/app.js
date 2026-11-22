@@ -296,40 +296,77 @@ function plan() {
 const checks = () => state.entries.filter(e => e.kind === 'analysis').sort(L.byDate).reverse();
 function viewToday() {
   const p = plan(), slots = ['A', 'B', 'C'], F = L.FOCUS[p.pick.focus];
-  if (!state.slot || !p.week[state.slot]) state.slot = slots.find(s => !p.wk.done[s]) || 'A';
+  // Until he taps a day himself, always show the first unfinished one (data can arrive after the first draw).
+  if (!state.slotPicked || !state.slot || !p.week[state.slot]) state.slot = slots.find(s => !p.wk.done[s]) || 'A';
   const ses = p.week[state.slot], tk = p.wk.monday + state.slot;
   const ticks = state.ticks[tk] || (state.ticks[tk] = {}), counts = state.counts[tk] || (state.counts[tk] = {});
   const items = ses.blocks.flatMap(b => b.items), doneN = items.filter(i => ticks[i.id]).length, isDone = !!p.wk.done[state.slot];
   const last = checks()[0]; let n = 0;
-  return page(jersey(p), h('div', { class: 'two' },
-    h('div', { class: 'stack' },
-      h('section', { class: 'sec' }, h('h2', null, 'This week: ' + F.name), h('p', { class: 'say' }, F.kid),
+  const nextUp = items.find(i => !ticks[i.id]);
+  const fixSec = (p.targets.length || p.pitchTargets.length) && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
+    p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, 'Hitting: ' + x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')]),
+    p.pitchTargets.slice(0, 1).map(x => [h('p', { class: 'say' }, 'Pitching: ' + x.title), h('p', { class: 'small mid' }, x.why + (p.arm.cleared ? ' Fix-it drill on Day 2: ' + L.PFIXES[x.id].drill.title + '.' : ' Fix-it drill comes back after his arm rest.'))])) : null;
+  const filmSec = last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
+    h('p', null, h('a', { href: '#film' }, 'Open the film room'))) : null;
+  return page(jersey(p), h('div', { class: 'todaygrid' },
+    tilesRow(p),
+    // The session comes first: it is what he opened the app to do.
+    h('section', { class: 'session' },
+      h('div', { class: 'focusline' }, h('h2', null, 'This week: ' + F.name), h('p', { class: 'say' }, F.kid),
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
-      challengeCard(p), prizeCard(), seasonCard(p),
-      (() => { const nb = nextBadge(); return nb ? h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb),
-        h('p', null, h('a', { href: '#trophies' }, 'See all badges'))) : null; })(),
-      (p.targets.length || p.pitchTargets.length) && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
-        p.targets.slice(0, 2).map(x => [h('p', { class: 'say' }, 'Hitting: ' + x.title), h('p', { class: 'small mid' }, x.why + ' Fix-it drill: ' + L.FIXES[x.id].drill.title + '.')]),
-        p.pitchTargets.slice(0, 1).map(x => [h('p', { class: 'say' }, 'Pitching: ' + x.title), h('p', { class: 'small mid' }, x.why + (p.arm.cleared ? ' Fix-it drill on Day 2: ' + L.PFIXES[x.id].drill.title + '.' : ' Fix-it drill comes back after his arm rest.'))])) : null,
-      last && str(last.fix && last.fix.title) ? h('section', { class: 'sec' }, h('h2', null, 'From your last filmstrip'), h('p', { class: 'say' }, str(last.fix && last.fix.title, 80)),
-        h('p', null, h('a', { href: '#film' }, 'Open the film room'))) : null),
-    h('div', { class: 'stack' },
       slots.every(s => p.wk.done[s]) ? h('div', { class: 'weekdone' }, h('b', null, 'Week complete!'), h('span', null, 'All 3 days done. A new plan shows up Monday.')) : null,
-      h('div', { class: 'stabs', role: 'group', 'aria-label': 'Pick a session' }, slots.map(s => h('button', { type: 'button', 'aria-pressed': String(state.slot === s), onclick: () => { state.slot = s; render(); } },
+      h('div', { class: 'stabs', role: 'group', 'aria-label': 'Pick a session' }, slots.map(s => h('button', { type: 'button', 'aria-pressed': String(state.slot === s), onclick: () => { state.slot = s; state.slotPicked = true; render(); } },
         p.week[s].title, h('small', null, p.week[s].sub), h('small', null, p.wk.done[s] ? 'Done ✓' : p.week[s].min + ' minutes')))),
       h('div', null, ses.blocks.map(b => [
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
-          h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; if (ticks[i.id]) HubGames.Sound.crack(); saveTicks(); render(); } },
+          h('button', { type: 'button', class: 'li', id: 'li-' + i.id, 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; if (ticks[i.id]) HubGames.Sound.crack(); saveTicks(); render(); if (ticks[i.id]) toNext(items, ticks, i.id); } },
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
-          VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
+          VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
           !isDone ? extras(i, counts) : null]; })])),
+      // Progress and Finish ride along at the bottom of the screen while he works.
       isDone ? h('p', { class: 'status ok' }, ses.title + ' is done for this week.')
-        : h('button', { type: 'button', class: 'btn big', disabled: doneN < items.length, onclick: guard(() => finish(p, ses, tk)) },
-          doneN < items.length ? (items.length - doneN) + ' to go' : 'Finish and collect ' + L.XP[state.slot] + ' XP'))));
+        : h('div', { class: 'sessbar' },
+          h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(items.length), 'aria-valuenow': String(doneN), 'aria-label': ses.title + ' progress' },
+            h('div', { class: 'fill', style: 'width:' + Math.round(doneN / items.length * 100) + '%' }), h('span', null, doneN + ' of ' + items.length + ' done')),
+          h('div', { class: 'sessbtns' },
+            nextUp ? h('button', { type: 'button', class: 'btn line small', onclick: () => jumpTo(nextUp.id) }, 'Next: ' + nextUp.title) : null,
+            h('button', { type: 'button', class: 'btn big', disabled: doneN < items.length, onclick: guard(() => finish(p, ses, tk)) },
+              doneN < items.length ? (items.length - doneN) + ' to go' : 'Finish and collect ' + L.XP[state.slot] + ' XP'))))),
+    // Coaching notes come after the session.
+    fixSec || filmSec ? h('div', { class: 'two even' }, fixSec, filmSec) : null);
+}
+// Smooth scroll that respects "reduce motion".
+const motion = () => !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+function jumpTo(id) { const el = document.getElementById('li-' + id); if (el) { el.scrollIntoView({ behavior: motion() ? 'smooth' : 'auto', block: 'center' }); try { el.focus({ preventScroll: true }); } catch (e) {} } }
+// After ticking a drill, bring the next open one into view if it is off screen (not when he ticks out of order above it).
+function toNext(items, ticks, fromId) {
+  const at = items.findIndex(i => i.id === fromId), nx = items.slice(at + 1).find(i => !ticks[i.id]);
+  if (!nx) return;
+  const el = document.getElementById('li-' + nx.id), bar = document.querySelector('.sessbar');
+  if (!el) return;
+  const r = el.getBoundingClientRect(), limit = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8;
+  if (r.top > limit - 60 || r.bottom > limit) el.scrollIntoView({ behavior: motion() ? 'smooth' : 'auto', block: 'center' });
+}
+// Four small tiles instead of four tall cards. Tap one to open its details right below.
+function tilesRow(p) {
+  const t = p.t, c = L.challengeFor(t, p.arm.cleared), cDone = L.challengeDone(state.entries, t, c), ds = L.dayStreak(state.entries, t);
+  const g = L.game(state.entries), pz = (state.settings.prizes || []).slice().sort((a, b) => a.level - b.level), earned = pz.find(z => g.level >= z.level && !z.given), next = pz.find(z => z.level > g.level);
+  const S = L.season(state.entries, t), gm = S.games.find(x => x.monday === p.wk.monday), nb = nextBadge();
+  const tiles = [
+    ['chal', '\u{1F525}', 'Daily challenge', cDone ? 'Done ✓' : ds.n ? ds.n + (ds.n === 1 ? ' day' : ' days') + ' in a row' : 'Start a streak', challengeCard],
+    (earned || next) ? ['prize', '\u{1F381}', earned ? 'Prize earned!' : next.text, earned ? 'Show Dad' : commas((next.level - 1) * L.XP.perLevel - g.xp) + ' XP to go', () => prizeCard()] : null,
+    gm ? ['game', '⚾', (gm.title ? 'Title game' : 'This week') + ' vs ' + gm.opp, gm.status === 'W' ? 'Won ' + gm.us + '–' + gm.them : 'Day 1 + Day 2 wins it', seasonCard] : null,
+    nb ? ['badge', '\u{1F3C5}', nb.name, commas(Math.min(nb.have || 0, nb.goal)) + ' / ' + commas(nb.goal), () => h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb), h('p', null, h('a', { href: '#trophies' }, 'See all badges')))] : null
+  ].filter(Boolean);
+  const open = tiles.find(x => x[0] === state.tile);
+  return h('div', { class: 'tilewrap' },
+    h('div', { class: 'tiles' }, tiles.map(x => h('button', { type: 'button', class: 'tile' + (x[0] === 'chal' && !cDone ? ' todo' : ''), 'aria-expanded': String(state.tile === x[0]), 'aria-controls': 'tile-more', onclick: () => { state.tile = state.tile === x[0] ? null : x[0]; render(); } },
+      h('span', { class: 'ti', 'aria-hidden': 'true' }, x[1]), h('span', { class: 'tt' }, x[2]), h('span', { class: 'ts' }, x[3])))),
+    h('div', { id: 'tile-more' }, open ? open[4](p) : null));
 }
 function numBox(id, label, max, counts, key, after) {
   return [h('label', { for: id }, label), h('input', { id, type: 'number', inputmode: 'decimal', min: '0', max: max == null ? null : String(max), value: counts[key] == null ? '' : counts[key], oninput: e => { counts[key] = e.target.value; saveTicks(); } }),
@@ -395,9 +432,9 @@ async function finish(p, ses, tk) {
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), unlocks: L.THEMES.filter(x => x.level > lvlBefore && x.level <= g.level).map(x => 'the ' + x.name + ' theme'), levelUp: g.level > lvlBefore ? g : null, prizes: g.level > lvlBefore ? (state.settings.prizes || []).filter(z => z.level > lvlBefore && z.level <= g.level) : [], base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), chal: !L.challengeDone(after, today(), L.challengeFor(today(), p.arm.cleared)), arcade: gameLimit() !== 0 && (gameLimit() >= 99 || after.filter(e => e.kind === 'arcade' && e.date === today()).length < gameLimit()), unlocks: L.THEMES.filter(x => x.level > lvlBefore && x.level <= g.level).map(x => 'the ' + x.name + ' theme'), levelUp: g.level > lvlBefore ? g : null, prizes: g.level > lvlBefore ? (state.settings.prizes || []).filter(z => z.level > lvlBefore && z.level <= g.level) : [], base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
-  delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
+  delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; state.slotPicked = false; render();
 }
 // The runner moves from where he was to where he is now, so every session visibly gets him closer to home.
 function runBases(from, to) {
@@ -459,7 +496,10 @@ function renderCheer() {
       (c.tips || []).map(t => h('p', { class: 'say coachtip' }, t)),
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
-      h('button', { type: 'button', class: 'btn big', id: 'cheer-ok', onclick: () => { state.cheer = null; renderCheer(); } }, 'Back to the dugout'))));
+      h('div', { class: 'nextsteps' },
+        c.chal ? h('button', { type: 'button', class: 'btn line', onclick: () => { state.cheer = null; state.tile = 'chal'; renderCheer(); location.hash = '#today'; render(); window.scrollTo(0, 0); } }, 'Do today\u2019s challenge') : null,
+        c.arcade ? h('button', { type: 'button', class: 'btn line', onclick: () => { state.cheer = null; renderCheer(); location.hash = '#arcade'; } }, 'Play the Arcade') : null,
+        h('button', { type: 'button', class: 'btn big', id: 'cheer-ok', onclick: () => { state.cheer = null; renderCheer(); window.scrollTo(0, 0); } }, 'Back to the dugout')))));
   const ok = document.getElementById('cheer-ok'); if (ok) ok.focus();
 }
 
@@ -861,7 +901,7 @@ function viewArcade() {
     h('p', { class: 'small mid' }, 'First ' + L.XP.gamePlaysPaid + ' games each day: +' + L.XP.gamePlay + ' XP each. New best score: +' + L.XP.gameBest + ' XP. Training is still the fastest way to level up.'));
 }
 function startGame(id, level) {
-  HubGames.play(id, { level }, async score => {
+  HubGames.play(id, { level }, async (score, again) => {
     if (score == null) { render(); return; }
     const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
     if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id === 'trivia' ? { level } : {})))) { render(); return; }
@@ -872,6 +912,8 @@ function startGame(id, level) {
     const g = L.game(state.entries); if (g.xp > g0.xp) msgs.push('+' + (g.xp - g0.xp) + ' XP total');
     if (g.level > g0.level) msgs.push('Level up! Level ' + g.level);
     toast(msgs.length ? msgs.join(' · ') : 'Score saved.'); render();
+    const lim = gameLimit(), playedNow = state.entries.filter(e => e.kind === 'arcade' && e.date === t).length;
+    if (again) { if (lim >= 99 || playedNow < lim) startGame(id, level); else toast('That\u2019s all the games for today. Go play catch!'); }
   });
 }
 function playerCard() {

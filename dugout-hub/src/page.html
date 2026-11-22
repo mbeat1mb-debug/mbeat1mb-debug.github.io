@@ -56,7 +56,7 @@ body.player .top{background:var(--sky);color:var(--navy)}
 /* jersey band */
 .jersey{background-color:var(--sky);
   background-image:linear-gradient(to top,var(--navy) 0 6px,#fff 6px 11px,var(--navy) 11px 13px,transparent 13px),repeating-linear-gradient(90deg,rgba(255,255,255,.6) 0 2px,transparent 2px 28px)}
-.jersey .in{display:grid;grid-template-columns:1fr;gap:18px;padding-top:8px;padding-bottom:36px;align-items:end}
+.jersey .in{display:grid;grid-template-columns:1fr;gap:12px;padding-top:6px;padding-bottom:20px;align-items:end}
 .name{font-family:var(--script);font-size:clamp(76px,17vw,132px);line-height:.86;color:var(--navy);text-shadow:3px 3px 0 #fff,-1px -1px 0 #fff;transform:rotate(-4deg);transform-origin:left bottom;display:inline-block;padding:14px 10px 0 2px}
 .tail{display:block;width:min(78%,430px);height:auto;margin:-2px 0 0 22px;transform:rotate(-4deg);transform-origin:left top}
 .rank{font-family:var(--cond);font-weight:700;font-size:30px;margin-top:14px}
@@ -178,6 +178,34 @@ nav.tabs .lockbtn{flex:0 0 auto;background:#fff;border:0;border-left:2px solid v
 .cheer .box{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:520px}
 .cheer .gain{font-family:var(--cond);font-weight:800;font-size:112px;line-height:.9;color:var(--navy);text-shadow:4px 4px 0 #fff}
 .cheer .run svg{display:block}
+.tilewrap{display:flex;flex-direction:column;gap:10px}
+.todaygrid{display:flex;flex-direction:column;gap:22px}
+/* Wide screens (iPad landscape): tiles become a side column so the drills start at the top. */
+@media (min-width:1000px){
+  .todaygrid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:28px;align-items:start}
+  .todaygrid .tiles{grid-template-columns:1fr}
+  .todaygrid .tilewrap{position:sticky;top:12px}
+}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;min-height:72px;border:2px solid var(--rule);border-radius:10px;background:#fff;cursor:pointer;color:var(--navy);font:inherit}
+.tile .ti{font-size:22px;line-height:1}.tile .tt{font-weight:700;font-size:16px;line-height:1.2}.tile .ts{font-size:14px;color:var(--mid)}
+.tile.todo{border-color:var(--navy)}
+.tile[aria-expanded=true]{border-color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy)}
+.session{display:flex;flex-direction:column;gap:14px}
+.focusline h2{margin-bottom:2px}
+.sessbar{position:sticky;bottom:calc(66px + env(safe-area-inset-bottom));z-index:3;background:#fff;border-top:3px solid var(--navy);padding:8px 0;display:flex;flex-direction:row;align-items:center;gap:10px;box-shadow:0 -6px 12px rgba(13,43,85,.08)}
+.sessbar .prog{flex:0 0 130px;margin:0}
+.sessbtns{display:flex;gap:10px;align-items:stretch;flex:1;min-width:0}
+.sessbar .btn.big{min-height:52px;padding-top:6px;padding-bottom:6px}
+@media (max-width:560px){.sessbar{flex-direction:column;align-items:stretch}.sessbar .prog{flex:none;width:100%}}
+.sessbtns .btn.big{flex:1}
+.sessbtns .btn.small{flex:0 1 auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn.small{min-height:44px;padding:6px 14px;font-size:17px}
+.watch{padding:0 0 10px 54px}
+.nextsteps{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:6px}
+.g-endbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
 /* themes unlock by level: they only swap the team colors */
 body.theme-night{--navy:#1f1650;--sky:#c3b6ff;--sky-deep:#6a4fd8;--stitch:#b8401a}
 body.theme-retro{--navy:#5a2a12;--sky:#f3cf98;--sky-deep:#c8792a;--stitch:#a8321e}
@@ -249,7 +277,6 @@ body.gaming{overflow:hidden}
 .sec.game h2{margin-bottom:4px}
 
 .li .why{display:block;margin-top:2px;font-size:14px;color:var(--mid)}
-.watch{padding:0 0 12px 54px}
 .btn.ghost{background:#fff;color:var(--navy);border:2px solid var(--navy)}
 .vid{position:fixed;inset:0;z-index:9;background:rgba(13,43,85,.92);display:grid;place-items:center;padding:16px}
 .vbox{background:#fff;border-radius:10px;padding:14px;width:min(860px,100%);display:flex;flex-direction:column;gap:10px}
