@@ -420,7 +420,7 @@ function confetti() {
 }
 // Drill videos stay off until Dad has approved the list. The player is YouTube's privacy-enhanced embed inside a sandbox
 // without pop-ups, so tapping the YouTube logo or a title cannot open YouTube or any other site.
-const VIDEOS_ON = false;
+const VIDEOS_ON = true;
 function renderVideo() {
   const box = document.getElementById('video'), v = state.video;
   if (!v) { box.replaceChildren(); return; }
