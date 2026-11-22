@@ -1,0 +1,32 @@
+name: device-tests
+on:
+  push:
+    branches: [device-tests]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apple-devices:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          which ffmpeg || brew install ffmpeg
+          sw_vers; xcodebuild -version; xcrun simctl list runtimes
+      - name: Make iPhone-style test videos and photos
+        run: bash tests/make_media.sh
+      - name: Run uploads in Mac Safari, iPad simulator, iPhone simulator
+        run: bash tests/run.sh
+      - name: Save results to the device-tests-results branch
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/res && cp -r out/*.jsonl out/*.txt out/*.png out/server.log /tmp/res/ 2>/dev/null || true
+          cp tests/media/*.txt /tmp/res/ 2>/dev/null || true
+          cd /tmp/res && echo "run ${{ github.run_id }} $(date -u)" > RUN.txt
+          git init -q && git checkout -q -b device-tests-results && git add -A
+          git -c user.name=device-tests -c user.email=device-tests@users.noreply.github.com commit -qm "Device test results ${{ github.run_id }}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}" device-tests-results

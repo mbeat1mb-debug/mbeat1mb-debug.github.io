@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Upload device test</title>
+<style>body{font:16px -apple-system,sans-serif;margin:16px}#up-live video{width:280px}pre{white-space:pre-wrap;font-size:12px}</style></head>
+<body><h2 id="h">Starting...</h2><div id="up-live"></div><pre id="log"></pre>
+<script src="www/media.js"></script>
+<script>
+// Runs the app's real upload code (media.js) on this device against the test stand-in, no taps needed.
+const dev = new URLSearchParams(location.search).get('dev') || 'unknown';
+const post = (c, o) => fetch('/__result?dev=' + dev + '&case=' + c, { method: 'POST', body: JSON.stringify(o) }).catch(() => {});
+const log = t => { document.getElementById('log').textContent += t + '\n'; };
+const CASES = [['iphone_hevc_1080_small.mov', 'video/quicktime'], ['iphone_hevc_4k60_big.mov', 'video/quicktime'], ['iphone_h264_1080p60_big.mp4', 'video/mp4'],
+  ['photo.heic', 'image/heic'], ['photo_4032.jpg', 'image/jpeg'], ['card.pdf', 'application/pdf']];
+window.onerror = (m) => post('pageerror', { m: String(m) });
+(async () => {
+  const env = { ua: navigator.userAgent, screen: [screen.width, screen.height, devicePixelRatio],
+    mediaRecorder: typeof MediaRecorder !== 'undefined' ? ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm'].map(m => m + '=' + MediaRecorder.isTypeSupported(m)) : 'none',
+    canvasCapture: !!HTMLCanvasElement.prototype.captureStream, frameCallback: !!HTMLVideoElement.prototype.requestVideoFrameCallback,
+    hevc: document.createElement('video').canPlayType('video/mp4; codecs="hvc1"') };
+  await post('env', env); log(JSON.stringify(env));
+  for (const [name, type] of CASES) {
+    const t0 = Date.now(), steps = []; let lastKind = '', lastStep = '';
+    const sec = () => ((Date.now() - t0) / 1000).toFixed(1);
+    try {
+      const b = await (await fetch('media/' + name)).blob();
+      const f = new File([b], name, { type });
+      const r = await Promise.race([
+        HubMedia.upload(f, 'TESTCODE1234', (s) => { lastStep = s + ' @' + sec() + 's'; const k = s.replace(/\d+%/, ''); if (k !== lastKind) { lastKind = k; steps.push(lastStep); } document.getElementById('h').textContent = name + ': ' + s; }),
+        new Promise((_, bad) => setTimeout(() => bad({ msg: 'TEST TIMEOUT after 6 minutes' }), 360000))]);
+      await post(name, { ok: true, inMB: +(f.size / 1048576).toFixed(1), outMB: +(r.size / 1048576).toFixed(2), path: r.path, type: r.type, shrunk: r.shrunk, durSec: r.dur, poster: !!r.poster, secs: +sec(), steps, lastStep });
+      log('OK ' + name + ' ' + sec() + 's');
+    } catch (e) { await post(name, { ok: false, err: (e && e.msg) || String(e), secs: +sec(), steps, lastStep }); log('FAIL ' + name + ': ' + ((e && e.msg) || e)); }
+  }
+  await post('done', {}); document.getElementById('h').textContent = 'DONE';
+})();
+</script></body></html>
