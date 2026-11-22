@@ -1,7 +1,7 @@
 (() => {
 const L = HubLogic;
 const DEFAULT_SETTINGS = {
-  player: 'Jaxson', bats: 'left', gameBatOz: 19, level: 1, tankLb: null, medBallLb: null, dailyMax: 75,
+  player: 'Jaxson', bats: 'left', gameBatOz: 19, level: 1, tankLb: null, medBallLb: null, dailyMax: 75, prizes: [], jersey: '', team: 'Scouts', theme: 'classic', gameLimit: 5,
   batList: [
     { id: 'game', name: 'Easton Hype Fire 29"', oz: 19, est: false, role: 'Game bat' },
     { id: 'practice', name: 'Practice bats 29"', oz: 19, est: false, role: 'Game-weight swings' },
@@ -145,6 +145,9 @@ function mergeSettings(d) {
   if (!Array.isArray(s.batList) || !s.batList.length) s.batList = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.batList));
   if (s.bats !== 'left' && s.bats !== 'right') s.bats = 'left';
   if (!s.player) s.player = DEFAULT_SETTINGS.player;
+  if (!Array.isArray(s.prizes)) s.prizes = [];
+  if (![0, 3, 5, 10, 99].includes(s.gameLimit)) s.gameLimit = 5;
+  if (!L.THEMES.some(t => t.id === s.theme)) s.theme = 'classic';
   return s;
 }
 const typing = () => { const a = document.activeElement; return !!(a && $view.contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)); };
@@ -157,7 +160,11 @@ async function load() {
   try {
     const d = await api('load');
     state.entries = (d.entries || []).map(r => Object.assign({}, r.data, { id: r.id, ts: r.ts }));
-    if (d.settings) state.settings = mergeSettings(d.settings);
+    if (d.settings) {
+      state.settings = mergeSettings(d.settings);
+      // A Gear form opened before the saved settings arrived holds defaults. Refresh it, unless Dad already edited it.
+      if (state.gearDraft && JSON.stringify(state.gearDraft) === state.gearDraftFrom) state.gearDraft = null;
+    }
     state.cut = d.total > state.entries.length;
     state.dbState = 'live';
   } catch (err) {
@@ -298,6 +305,7 @@ function viewToday() {
     h('div', { class: 'stack' },
       h('section', { class: 'sec' }, h('h2', null, 'This week: ' + F.name), h('p', { class: 'say' }, F.kid),
         p.arm.cleared ? null : h('p', { class: 'note' }, 'Arm rest until ' + fmtDate(L.addDays(p.arm.clearedOn, -1)) + '. No throwing drills today.')),
+      challengeCard(p), prizeCard(), seasonCard(p),
       (() => { const nb = nextBadge(); return nb ? h('section', { class: 'sec' }, h('h2', null, 'Next badge'), h('p', { class: 'say' }, h('b', null, nb.name), ': ' + nb.how), bar(nb),
         h('p', null, h('a', { href: '#trophies' }, 'See all badges'))) : null; })(),
       (p.targets.length || p.pitchTargets.length) && p.pick.focus !== 'baseline' ? h('section', { class: 'sec' }, h('h2', null, 'Game fix'),
@@ -312,7 +320,7 @@ function viewToday() {
       h('div', null, ses.blocks.map(b => [
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
-          h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); } },
+          h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; if (ticks[i.id]) HubGames.Sound.crack(); saveTicks(); render(); } },
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
           VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
@@ -387,7 +395,7 @@ async function finish(p, ses, tk) {
   if (credit.swings + credit.pushups + credit.situps + credit.squats > 0) { const r = Object.assign({ kind: 'reps', date: p.t, from: added[0].ts, slot: added[0].slot }, credit); added.push(r); await addEntry(r); }
   const after = state.entries;
   const g = L.game(after);
-  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), levelUp: g.level > lvlBefore ? g : null, base: g.baseText,
+  state.cheer = { title: ses.title + ' done', xp: g.xp - g0.xp, from: g0.frac, to: g.level > lvlBefore ? 1 : g.frac, records: newRecords(entriesBefore, after), tips: L.scoreTips(items, drillPts), points, boss, badges: L.badges(after).filter(b => b.on && before.indexOf(b.id) < 0), unlocks: L.THEMES.filter(x => x.level > lvlBefore && x.level <= g.level).map(x => 'the ' + x.name + ' theme'), levelUp: g.level > lvlBefore ? g : null, prizes: g.level > lvlBefore ? (state.settings.prizes || []).filter(z => z.level > lvlBefore && z.level <= g.level) : [], base: g.baseText,
     logged: [[credit.swings, 'swings'], [credit.squats, 'squats'], [credit.pushups, 'push-ups'], [credit.situps, 'sit-ups']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') };
   delete state.ticks[tk]; delete state.counts[tk]; saveTicks(); state.slot = null; render();
 }
@@ -436,12 +444,15 @@ function renderVideo() {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.video) { state.video = null; renderVideo(); } });
 function renderCheer() {
+  if (state.cheer && !state.cheer.played) { state.cheer.played = true; HubGames.Sound.cheer(); if (state.cheer.levelUp) setTimeout(() => HubGames.Sound.say('Level up!'), 900); }
   const c = state.cheer;
   if (!c) { $cheer.replaceChildren(); return; }
   $cheer.replaceChildren(h('div', { class: 'cheer', role: 'dialog', 'aria-modal': 'true', 'aria-label': c.title },
     confetti(),
     h('div', { class: 'box' }, h('h1', null, c.title), runBases(c.from || 0, c.to || 0), h('div', { class: 'gain' }, '+' + c.xp + ' XP'),
       h('p', { class: 'say' }, c.levelUp ? 'You scored. Level ' + c.levelUp.level + ', ' + c.levelUp.title + '.' + (c.levelUp.level === 2 ? ' New drills unlock next week.' : '') : c.base + '.'),
+      (c.prizes || []).map(z => h('p', { class: 'say prize' }, '\u{1F381} You earned your prize: ', h('b', null, z.text), '! Show Dad.')),
+      (c.unlocks || []).map(u => h('p', { class: 'say' }, 'Unlocked: ' + u + '. Pick it on the Trophies page.')),
       c.points != null ? h('p', { class: 'say' }, c.points + ' points today.') : null,
       (c.records || []).map(r => h('p', { class: 'say rec' }, 'New record! ', h('b', null, r), ' +' + L.XP.record + ' XP')),
       c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
@@ -788,11 +799,109 @@ function nextBadge() {
   if (!open.length) return null;
   return open.sort((x, y) => (y.have || 0) / y.goal - (x.have || 0) / x.goal)[0];
 }
+const STICKERS = ['\u{1F525}', '⚾', '\u{1F3C6}', '\u{1F4AA}', '⭐', '\u{1F44F}'];
+function gameLimit() { const v = state.settings.gameLimit; return v == null ? 5 : v; }
+function challengeCard(p) {
+  const t = p.t, c = L.challengeFor(t, p.arm.cleared), done = L.challengeDone(state.entries, t, c), ds = L.dayStreak(state.entries, t);
+  return h('section', { class: 'sec chal' }, h('div', { class: 'row between' }, h('h2', null, 'Daily challenge'), h('span', { class: 'flame', 'aria-label': ds.n + ' days in a row' }, '\u{1F525} ' + ds.n + (ds.n === 1 ? ' day' : ' days'))),
+    h('p', { class: 'say' }, c.text),
+    done ? h('p', { class: 'status ok' }, 'Done! +' + L.XP.challenge + ' XP') :
+      c.auto ? h('div', null, h('a', { class: 'btn', href: '#arcade' }, 'Play it in the Arcade'))
+        : h('div', null, h('button', { type: 'button', class: 'btn', id: 'chal-done', onclick: guard(async () => {
+          if (await addEntry({ kind: 'challenge', date: t, cid: c.id })) { HubGames.Sound.crack(); { const n = L.dayStreak(state.entries, t).n; toast('+' + L.XP.challenge + ' XP! \u{1F525} ' + n + (n === 1 ? ' day' : ' days') + ' in a row.'); } } render(); }) }, 'I did it!')),
+    !ds.today && ds.n ? h('p', { class: 'small mid' }, 'Train or finish today’s challenge to keep your streak going.') : null);
+}
+function prizeCard() {
+  const g = L.game(state.entries), pz = (state.settings.prizes || []).slice().sort((a, b) => a.level - b.level);
+  const earned = pz.filter(z => g.level >= z.level && !z.given), next = pz.find(z => z.level > g.level);
+  if (!earned.length && !next) return null;
+  const need = next ? (next.level - 1) * L.XP.perLevel - g.xp : 0, total = next ? (next.level - 1) * L.XP.perLevel : 1;
+  return h('section', { class: 'sec prizecard' }, h('h2', null, '\u{1F381} Prizes'),
+    earned.map(z => h('p', { class: 'say' }, 'You earned: ', h('b', null, z.text), '! Show Dad.')),
+    next ? [h('p', { class: 'say' }, h('b', null, next.text), ' at Level ' + next.level),
+      h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': String(g.xp), 'aria-label': 'Progress to ' + next.text },
+        h('div', { class: 'fill', style: 'width:' + Math.min(100, Math.round(g.xp / total * 100)) + '%' }), h('span', null, commas(need) + ' XP to go')),
+      h('p', { class: 'small mid' }, (next.level - g.level) + (next.level - g.level === 1 ? ' level' : ' levels') + ' away. A full week of training is about 250 XP.')] : null);
+}
+function seasonCard(p) {
+  const S = L.season(state.entries, p.t), g = S.games.find(x => x.monday === p.wk.monday);
+  if (!g) return null;
+  const team = state.settings.team || 'Scouts';
+  return h('section', { class: 'sec season' }, h('h2', null, (g.title ? '\u{1F3C6} Title game: ' : 'This week’s game: ') + team + ' vs ' + g.opp),
+    g.status === 'W' ? h('p', { class: 'say' }, 'You won ' + g.us + '–' + g.them + '!') : h('p', { class: 'say' }, 'Finish Day 1 and Day 2 this week to win. Day 3 adds an extra run.'),
+    h('p', { class: 'small mid' }, 'Season record: ' + S.mine.w + '–' + S.mine.l + '. ', h('a', { href: '#trophies' }, 'See the standings')));
+}
+function renderNote() {
+  const box = document.getElementById('note'); if (!box) return;
+  let seen = []; try { seen = JSON.parse(localStorage.getItem('dugout-seen-notes') || '[]'); } catch (e) {}
+  const n = state.entries.filter(e => e.kind === 'note' && e.id && seen.indexOf(e.id) < 0).sort(L.byDate).pop();
+  if (!n || state.video) { box.replaceChildren(); return; }
+  const ok = () => { seen.push(n.id); try { localStorage.setItem('dugout-seen-notes', JSON.stringify(seen.slice(-200))); } catch (e) {} box.replaceChildren(); renderNote(); };
+  box.replaceChildren(h('div', { class: 'vid', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Message from Dad' },
+    h('div', { class: 'vbox notebox' }, h('div', { class: 'stk big', 'aria-hidden': 'true' }, n.sticker || '⚾'), h('h2', null, 'Message from Dad'), h('p', { class: 'say' }, n.text),
+      h('button', { type: 'button', class: 'btn big', id: 'note-ok', onclick: ok }, 'Thanks, Dad!'))));
+  const b = document.getElementById('note-ok'); if (b) b.focus();
+}
+function viewArcade() {
+  const t = today(), played = state.entries.filter(e => e.kind === 'arcade' && e.date === t).length, lim = gameLimit(), left = lim >= 99 ? Infinity : Math.max(0, lim - played);
+  const gb = L.gameBests(state.entries).best, sOn = HubGames.Sound.on();
+  const best = id => gb[id] ? 'Your best: ' + gb[id].score + L.GAMES[id].unit : 'No score yet';
+  const can = lim !== 0 && left > 0;
+  const card = (id, desc, extra) => h('section', { class: 'sec game' }, h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)),
+    extra || h('div', null, h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame(id, 1) }, 'Play')));
+  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Baseball games for any time.' : left + ' of ' + lim + ' games left today.'),
+    !can && lim !== 0 ? h('p', { class: 'note' }, 'That’s all the games for today. Go play catch, then come back tomorrow!') : null,
+    h('div', { class: 'two even' },
+      card('trivia', '10 questions about the rules, the legends and the ballparks.', h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'Hall of Fame']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame('trivia', l[0]) }, l[1])))),
+      card('reaction', 'Tap only when the ball is your color. Trains the same quick eyes as Color Call at practice. Lower is better.'),
+      card('zone', 'A pitch flashes in the strike zone. Tap where it crossed. It gets faster every pitch.'),
+      card('derby', 'Tap to swing when the pitch reaches the plate. Perfect timing is a home run.')),
+    h('section', { class: 'sec' }, h('h2', null, 'Sounds'), h('p', null, 'Bat cracks, crowd cheers and the umpire. The iPad’s silent switch turns them off too.'),
+      h('div', null, h('button', { type: 'button', class: 'btn line', 'aria-pressed': String(sOn), onclick: () => { HubGames.Sound.set(!sOn); if (!sOn) HubGames.Sound.crack(); render(); } }, sOn ? 'Sounds are on. Turn off' : 'Sounds are off. Turn on'))),
+    h('p', { class: 'small mid' }, 'First ' + L.XP.gamePlaysPaid + ' games each day: +' + L.XP.gamePlay + ' XP each. New best score: +' + L.XP.gameBest + ' XP. Training is still the fastest way to level up.'));
+}
+function startGame(id, level) {
+  HubGames.play(id, { level }, async score => {
+    if (score == null) { render(); return; }
+    const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
+    if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id === 'trivia' ? { level } : {})))) { render(); return; }
+    const isBest = had && (L.GAMES[id].lower ? score < had.score : score > had.score);
+    const msgs = [];
+    if (isBest) { msgs.push('New best! +' + L.XP.gameBest + ' XP'); HubGames.Sound.cheer(); }
+    if (!chalBefore && L.challengeDone(state.entries, t, c)) { if (await addEntry({ kind: 'challenge', date: t, cid: c.id })) msgs.push('Daily challenge done! +' + L.XP.challenge + ' XP'); }
+    const g = L.game(state.entries); if (g.xp > g0.xp) msgs.push('+' + (g.xp - g0.xp) + ' XP total');
+    if (g.level > g0.level) msgs.push('Level up! Level ' + g.level);
+    toast(msgs.length ? msgs.join(' · ') : 'Score saved.'); render();
+  });
+}
+function playerCard() {
+  const g = L.game(state.entries), tier = L.tierFor(g.level), rec = L.records(state.entries), t = L.totals(state.entries), num = state.settings.jersey || '';
+  const name = who(), init = name.slice(0, 1).toUpperCase();
+  const back = [['Top bat speed', rec.bat && fix(rec.bat.v) + ' mph'], ['Top exit speed', rec.exit && fix(rec.exit.v) + ' mph'], ['Fastest pitch', rec.velo && fix(rec.velo.v) + ' mph'],
+    ['Longest jump', rec.jump && fix(rec.jump.v, 0) + ' in'], ['Swings logged', commas(t.swings)], ['Sessions', commas(t.sessions)]];
+  return h('button', { type: 'button', class: 'pcard tier-' + tier.toLowerCase().replace(/[^a-z]/g, '') + (state.cardBack ? ' back' : ''), 'aria-pressed': String(!!state.cardBack), 'aria-label': 'Player card. Tap to flip.', onclick: () => { state.cardBack = !state.cardBack; render(); } },
+    h('div', { class: 'face front' }, h('div', { class: 'tier' }, tier + ' card'), h('div', { class: 'num' }, num ? '#' + num : init), h('div', { class: 'pname' }, name), h('div', { class: 'ptitle' }, 'Level ' + g.level + ' ' + g.title),
+      h('div', { class: 'pmeta' }, (state.settings.bats === 'right' ? 'Bats right' : 'Bats left') + ' · ' + (state.settings.team || 'Scouts'))),
+    h('div', { class: 'face rear' }, h('div', { class: 'tier' }, 'Stats'), h('table', null, h('tbody', null, back.map(r => h('tr', null, h('td', null, r[0]), h('td', { class: 'v' }, r[1] || '—'))))), h('div', { class: 'small' }, 'Tap to flip back')));
+}
 function viewTrophies() {
   const B = L.badges(state.entries), rec = L.records(state.entries), t = L.totals(state.entries);
   const recs = [['Top bat speed', rec.bat, r => fix(r.v) + ' mph'], ['Top exit speed', rec.exit, r => fix(r.v) + ' mph'], ['Best machine round', rec.contact, r => r.made + ' of ' + r.of],
     ['Longest jump', rec.jump, r => fix(r.v, 0) + ' in'], ['Most push-ups in a test', rec.pushups, r => fix(r.v, 0)], ['Longest plank', rec.plank, r => fix(r.v, 0) + ' sec'], ['Fastest pitch', rec.velo, r => fix(r.v) + ' mph']];
+  const g = L.game(state.entries), S = L.season(state.entries, today()), gb = L.gameBests(state.entries).best, team = state.settings.team || 'Scouts';
   return page(strip('Trophies', B.filter(b => b.on).length + ' of ' + B.length + ' badges earned'),
+    h('div', { class: 'two even' },
+      h('section', { class: 'sec plain cardwrap' }, playerCard(), h('p', { class: 'small mid' }, 'Your card upgrades at Level 3 (Silver), 5 (Gold) and 7 (All-Star).')),
+      h('section', { class: 'sec' }, h('h2', null, 'Themes'), h('div', { class: 'themes', role: 'radiogroup', 'aria-label': 'App theme' }, L.THEMES.map(x => {
+        const open = g.level >= x.level, on = (state.settings.theme || 'classic') === x.id;
+        return h('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'theme-pick t-' + x.id, disabled: !open, onclick: () => { if (!on) saveSettings(Object.assign({}, state.settings, { theme: x.id })); } }, h('b', null, x.name), h('span', null, open ? (on ? 'In use' : 'Tap to use') : '\u{1F512} Level ' + x.level)); })))),
+    h('section', { class: 'sec' }, h('h2', null, 'Season: ' + new Date(S.month + '-15T12:00:00').toLocaleString('en-US', { month: 'long' }) + ' \u00b7 ' + team + ' ' + S.mine.w + '\u2013' + S.mine.l),
+      h('div', { class: 'two even' },
+        h('table', null, h('caption', null, 'Schedule'), h('tbody', null, S.games.map(x => h('tr', null, h('td', null, (x.title ? '\u{1F3C6} ' : '') + 'Week of ' + fmtDate(x.monday) + ' vs ' + x.opp),
+          h('td', { class: 'v' }, x.status === 'W' ? 'W ' + x.us + '\u2013' + x.them : x.status === 'L' ? 'L ' + x.us + '\u2013' + x.them : x.status === 'live' ? 'This week' : x.status === 'pre' ? 'Before you started' : 'Coming up'))))),
+        h('table', null, h('caption', null, 'Standings'), h('tbody', null, S.standings.map(r => h('tr', { class: r.me ? 'me' : null }, h('td', null, r.me ? team : r.name), h('td', { class: 'v' }, r.w + '\u2013' + r.l)))))),
+      h('p', { class: 'small mid' }, 'Each week is a game: finish Day 1 and Day 2 to win. The last week of the month is the title game. Win it for the Champions badge.')),
+    h('section', { class: 'sec' }, h('h2', null, 'Arcade bests'), h('table', null, h('tbody', null, Object.keys(L.GAMES).map(k => h('tr', null, h('td', null, L.GAMES[k].name), h('td', { class: 'v' }, gb[k] ? gb[k].score + L.GAMES[k].unit : '\u2014')))))),
     h('section', { class: 'sec plain' }, h('div', { class: 'patches' }, B.map(b => h('div', { class: 'patch' + (b.on ? ' on' : '') }, h('div', { class: 'ring' }, icon(b.icon)), h('b', null, b.name), h('span', null, b.on ? 'Earned' : b.how), !b.on && b.goal ? bar(b) : null)))),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Your records'), h('table', null, h('tbody', null, recs.map(r => h('tr', null, h('td', null, r[0], r[1] ? h('div', { class: 'math' }, fmtDate(r[1].date)) : null), h('td', { class: 'v' }, r[1] ? r[2](r[1]) : '–'))))),
@@ -885,6 +994,9 @@ function viewLog() {
     e.kind === 'session' ? (({ A: 'Day 1', B: 'Day 2', C: 'Day 3' })[e.slot] || 'Session') + ' (' + ((L.FOCUS[e.focus] || {}).name || e.focus) + ')' + (e.points != null ? ', ' + e.points + ' points' : '') + (e.boss ? (e.boss.won ? ', beat the Boss' : ', lost to the Boss') : '') : e.kind === 'analysis' ? 'Filmstrip: ' + (str(e.fix && e.fix.title, 60) || 'no note') :
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
     e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
+    e.kind === 'arcade' ? 'Arcade: ' + ((L.GAMES[e.game] || {}).name || e.game) + ', ' + e.score + ((L.GAMES[e.game] || {}).unit || '') :
+    e.kind === 'challenge' ? 'Daily challenge done' :
+    e.kind === 'note' ? 'Message to ' + who() + ': ' + (e.sticker ? e.sticker + ' ' : '') + e.text :
     e.kind === 'gcsnap' ? 'GameChanger totals imported' + (e.file ? ' (' + e.file + ')' : '') :
     e.kind === 'body' ? 'Measured: ' + [L.isNum(e.heightIn) ? L.fmtHeight(e.heightIn) : null, L.isNum(e.weightLb) ? (Math.round(e.weightLb * 10) / 10) + ' lb' : null].filter(Boolean).join(', ') : e.kind;
   return page(strip('Log ' + who() + "'s work", 'Finished sessions log their own reps. Use this for extra work, speeds and games.'),
@@ -897,6 +1009,13 @@ function viewLog() {
       h('div', { class: 'row' }, inp('q_made', 'Solid hits', { mode: 'numeric' }), inp('q_of', 'Pitches', { mode: 'numeric' })),
       h('p', { class: 'small mid' }, 'Only for machine work outside a session. Hits he types into a session are already counted.'),
       h('div', null, h('button', { type: 'button', class: 'btn', id: 'quick-save', onclick: guard(saveQuick) }, 'Save'))),
+    h('section', { class: 'sec' }, h('h2', null, 'Send ' + who() + ' a message'),
+      h('p', { class: 'small mid' }, 'It pops up the next time he opens the Player side.'),
+      h('label', { class: 'fld', for: 'f-n_text' }, h('span', null, 'Message (up to 140 letters)'), h('textarea', { id: 'f-n_text', maxlength: '140', rows: '2', oninput: e => { state.form.n_text = e.target.value; } }, state.form.n_text || '')),
+      h('div', { class: 'stickers', role: 'radiogroup', 'aria-label': 'Sticker' }, STICKERS.map(x => h('button', { type: 'button', role: 'radio', 'aria-checked': String((state.form.n_st || STICKERS[0]) === x), class: 'stk', onclick: () => { state.form.n_st = x; render(); } }, x))),
+      h('div', null, h('button', { type: 'button', class: 'btn', id: 'note-send', onclick: guard(async () => {
+        const text = (state.form.n_text || '').trim(); if (!text) return toast('Type a message first.');
+        if (await addEntry({ kind: 'note', date: today(), text: text.slice(0, 140), sticker: state.form.n_st || STICKERS[0] })) { state.form.n_text = ''; toast('Sent. He will see it next time he opens the hub.'); } render(); }) }, 'Send message'))),
     h('div', { class: 'two even' },
       h('section', { class: 'sec' }, h('h2', null, 'Swing video'), h('p', null, 'Save swing filmstrips and compare them in the film room on the Player side.'), h('p', null, h('a', { href: '#film' }, 'Open the film room'))),
       h('section', { class: 'sec' }, h('h2', null, 'Game line'),
@@ -1093,7 +1212,7 @@ function viewProgress() {
 
 /* ---------- Coach: Gear ---------- */
 function viewGear() {
-  if (!state.gearDraft) state.gearDraft = JSON.parse(JSON.stringify(state.settings));
+  if (!state.gearDraft) { state.gearDraft = JSON.parse(JSON.stringify(state.settings)); state.gearDraftFrom = JSON.stringify(state.gearDraft); }
   const d = state.gearDraft, g = parseFloat(d.gameBatOz);
   const tagOf = st => ({ match: ['ok', 'Game weight'], inrange: ['ok', 'In range'], heavy: ['wait', 'Heavy'], veryheavy: ['stop', 'Very heavy'], verylight: ['wait', 'Very light'], unknown: ['wait', 'Weigh it'] })[st];
   const setNum = (obj, k) => e => { const v = parseFloat(e.target.value); obj[k] = isFinite(v) ? v : null; };
@@ -1125,6 +1244,24 @@ function viewGear() {
           h('label', { class: 'fld', for: 'g-med' }, h('span', null, 'Med ball (pounds)'), h('input', { id: 'g-med', type: 'number', inputmode: 'decimal', min: '0', step: 'any', value: d.medBallLb == null ? '' : String(d.medBallLb), oninput: setNum(d, 'medBallLb') }))),
         h('p', { class: 'small mid' }, 'Each strength step adds 2 reps per set and 5 seconds per hold. Move up one step after two weeks of clean form.'),
         h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { const n = JSON.parse(JSON.stringify(d)); n.pinHash = state.settings.pinHash || null; state.gearDraft = null; saveSettings(n); } }, 'Save'))),
+      h('section', { class: 'sec' }, h('h2', null, 'Prizes, card and Arcade'),
+        h('div', { class: 'row' },
+          h('label', { class: 'fld', for: 'g-jersey' }, h('span', null, 'Jersey number'), h('input', { id: 'g-jersey', type: 'text', inputmode: 'numeric', maxlength: '2', value: d.jersey || '', oninput: e => { d.jersey = e.target.value.replace(/\D/g, '').slice(0, 2); } })),
+          h('label', { class: 'fld', for: 'g-team' }, h('span', null, 'Team name (for season mode)'), h('input', { id: 'g-team', type: 'text', maxlength: '20', value: d.team || '', oninput: e => { d.team = e.target.value; } })),
+          h('label', { class: 'fld', for: 'g-limit' }, h('span', null, 'Arcade games per day'), h('select', { id: 'g-limit', onchange: e => { d.gameLimit = parseInt(e.target.value, 10); } }, [[0, 'Off'], [3, '3'], [5, '5'], [10, '10'], [99, 'No limit']].map(o => h('option', { value: String(o[0]), selected: (d.gameLimit == null ? 5 : d.gameLimit) === o[0] }, o[1]))))),
+        h('h3', null, 'Prizes for reaching a level'),
+        (d.prizes || []).length ? h('ul', { class: 'plain' }, d.prizes.slice().sort((a, b) => a.level - b.level).map(z => h('li', { class: 'row between' }, h('span', null, 'Level ' + z.level + ': ' + z.text + (z.given ? ' (given)' : L.game(state.entries).level >= z.level ? ' (earned, not given yet)' : '')),
+          h('span', null, L.game(state.entries).level >= z.level && !z.given ? h('button', { type: 'button', class: 'btn line', onclick: () => { z.given = true; render(); } }, 'Mark given') : null,
+            h('button', { type: 'button', class: 'btn line', onclick: () => { d.prizes = d.prizes.filter(x => x !== z); render(); } }, 'Remove'))))) : h('p', { class: 'mid' }, 'No prizes yet. Add one, like "Level 5: ice cream trip".'),
+        h('div', { class: 'row' },
+          h('label', { class: 'fld', for: 'g-plevel' }, h('span', null, 'Level'), h('input', { id: 'g-plevel', type: 'number', inputmode: 'numeric', min: '2', max: '50', value: state.form.pz_lvl || '', oninput: e => { state.form.pz_lvl = e.target.value; } })),
+          h('label', { class: 'fld', for: 'g-ptext' }, h('span', null, 'Prize'), h('input', { id: 'g-ptext', type: 'text', maxlength: '60', value: state.form.pz_text || '', oninput: e => { state.form.pz_text = e.target.value; } })),
+          h('div', { class: 'fld' }, h('span', null, '\u00a0'), h('button', { type: 'button', class: 'btn line', onclick: () => {
+            const lv = parseInt(state.form.pz_lvl, 10), tx = (state.form.pz_text || '').trim();
+            if (!(lv >= 2 && lv <= 50)) return toast('Pick a level from 2 to 50.'); if (!tx) return toast('Type the prize.');
+            d.prizes = (d.prizes || []).concat([{ level: lv, text: tx.slice(0, 60), given: false }]); state.form.pz_lvl = ''; state.form.pz_text = ''; render(); } }, 'Add prize'))),
+        h('p', { class: 'small mid' }, 'He sees the next prize and how close he is on his Today page. Arcade games give a little XP (5 each for the first 3 a day), so the limit keeps training the main way to level up.'),
+        h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { const n = JSON.parse(JSON.stringify(d)); n.pinHash = state.settings.pinHash || null; state.gearDraft = null; saveSettings(n); } }, 'Save prizes and Arcade'))),
       h('section', { class: 'sec' }, h('h2', null, 'This device'),
         h('p', null, 'This device is signed in with the family code. Sign it out if it is lost or no longer used for the hub.'),
         h('div', null, h('button', { type: 'button', class: 'btn ' + (state.confirmDel === 'signout' ? 'del' : 'line'), onclick: () => {
@@ -1149,13 +1286,14 @@ function viewGear() {
 }
 
 /* ---------- shell ---------- */
-const VIEWS = { today: viewToday, film: viewFilm, trophies: viewTrophies, log: viewLog, arm: viewArm, progress: viewProgress, gear: viewGear };
-const TABS = { player: [['today', 'Today'], ['film', 'Film room'], ['trophies', 'Trophies']], coach: [['log', 'Log'], ['arm', 'Arm'], ['progress', 'Progress'], ['gear', 'Gear']] };
+const VIEWS = { today: viewToday, arcade: viewArcade, film: viewFilm, trophies: viewTrophies, log: viewLog, arm: viewArm, progress: viewProgress, gear: viewGear };
+const TABS = { player: [['today', 'Today'], ['arcade', 'Arcade'], ['film', 'Film room'], ['trophies', 'Trophies']], coach: [['log', 'Log'], ['arm', 'Arm'], ['progress', 'Progress'], ['gear', 'Gear']] };
 const modeOf = r => TABS.player.some(t => t[0] === r) ? 'player' : 'coach';
 function route() { const r = (location.hash || '').replace('#', ''); state.route = VIEWS[r] ? r : 'today'; if (state.route !== 'gear') state.gearDraft = null; }
 function render() {
   const keep = document.activeElement && document.activeElement.id, mode = state.needKey ? 'player' : modeOf(state.route);
-  document.body.className = mode;
+  const th = L.THEMES.find(x => x.id === state.settings.theme), lvl = L.game(state.entries).level;
+  document.body.className = mode + (th && th.id !== 'classic' && lvl >= th.level ? ' theme-' + th.id : '');
   const body = state.needKey ? viewSetup() : mode === 'coach' && locked() ? page(strip('Coach side', 'Enter the parent code to open it.'), unlockBox(null)) : VIEWS[state.route]();
   $view.replaceChildren(...body.flat(Infinity).filter(Boolean));
   $tabs.hidden = !!state.needKey; document.querySelector('.mode').hidden = !!state.needKey;
@@ -1163,6 +1301,7 @@ function render() {
     mode === 'coach' && state.settings.pinHash && !locked() ? h('button', { type: 'button', class: 'lockbtn', onclick: () => { relock(); location.hash = '#today'; } }, 'Lock') : null].filter(Boolean));
   document.querySelectorAll('.mode a').forEach(a => a.setAttribute('aria-current', String(a.dataset.m === mode)));
   renderCheer();
+  if (mode === 'player' && !state.needKey && !state.cheer) renderNote();
   if (keep && !state.cheer) { const el = document.getElementById(keep); if (el) { try { el.focus({ preventScroll: true }); } catch (e) {} } }
 }
 window.addEventListener('hashchange', () => { route(); state.confirmDel = null; state.pinMsg = ''; if (modeOf(state.route) === 'player') relock(); render(); window.scrollTo(0, 0); });

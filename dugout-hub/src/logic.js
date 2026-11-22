@@ -152,7 +152,19 @@ const HubLogic = (() => {
     return t;
   }
 
-  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300 };
+  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gamePlaysPaid: 3, gameBest: 10 };
+  // Arcade games. lower: a smaller score is better (reaction time in ms).
+  const GAMES = { trivia: { name: 'Baseball Trivia', unit: ' of 10', lower: false }, reaction: { name: 'Color Call', unit: ' ms', lower: true },
+    zone: { name: 'Strike Zone Memory', unit: ' of 10', lower: false }, derby: { name: 'Home Run Derby', unit: ' HR', lower: false } };
+  // Best score per game, and how many times he beat his own best (the first score does not count).
+  function gameBests(entries) {
+    const best = {}, beats = {};
+    for (const e of entries.filter(x => x.kind === 'arcade' && GAMES[x.game] && isNum(x.score)).sort(byDate)) {
+      const lower = GAMES[e.game].lower, b = best[e.game];
+      if (!b || (lower ? e.score < b.score : e.score > b.score)) { if (b) beats[e.game] = (beats[e.game] || 0) + 1; best[e.game] = { score: e.score, date: e.date }; }
+    }
+    return { best, beats, total: Object.values(beats).reduce((a, b) => a + b, 0) };
+  }
   const TITLES = ['Rookie', 'Starter', 'Slugger', 'All-Star', 'Captain', 'MVP', 'Legend'];
   function game(entries) {
     let xp = 0;
@@ -160,6 +172,12 @@ const HubLogic = (() => {
     for (const e of entries) if (e.kind === 'session' && e.complete) { xp += XP[e.slot] || 0; if (e.boss && e.boss.won) { xp += XP.boss; bosses++; } }
     const breaks = records(entries).breaks;
     xp += breaks * XP.record;
+    // Daily challenges, plus a little for the Arcade: the first 3 games each day, and each new game best.
+    const chal = new Set(entries.filter(e => e.kind === 'challenge').map(e => e.date)), played = {};
+    xp += chal.size * XP.challenge;
+    for (const e of entries) if (e.kind === 'arcade') played[e.date] = (played[e.date] || 0) + 1;
+    for (const d in played) xp += Math.min(played[d], XP.gamePlaysPaid) * XP.gamePlay;
+    xp += gameBests(entries).total * XP.gameBest;
     const level = Math.floor(xp / XP.perLevel) + 1;
     const into = xp % XP.perLevel, base = Math.min(3, Math.floor(into / XP.perLevel * 4));
     return { xp, bosses, level, title: TITLES[Math.min(level, TITLES.length) - 1], into, need: XP.perLevel, breaks, frac: into / XP.perLevel,
@@ -172,7 +190,9 @@ const HubLogic = (() => {
     const sharp = entries.some(e => e.kind === 'machine' && e.of >= 20 && e.made / e.of >= 0.8);
     const tested = entries.some(e => e.kind === 'strength');
     const sharpBest = entries.filter(e => e.kind === 'machine' && e.of >= 20).reduce((m, e) => Math.max(m, Math.round(e.made / e.of * 20)), 0);
-    const bosses = game(entries).bosses, streakBest = longestStreak(entries);
+    const bosses = game(entries).bosses, streakBest = longestStreak(entries), dayBest = longestDayStreak(entries);
+    const gbx = gameBests(entries).best, gb = {}; for (const k in gbx) gb[k] = gbx[k].score;
+    const champs = champMonths(entries).length;
     // have/goal drive the progress bars on badges he has not earned yet.
     return [
       { id: 'first', name: 'First session', how: 'Finish any session.', icon: 'star', on: t.sessions >= 1, have: t.sessions, goal: 1 },
@@ -185,7 +205,11 @@ const HubLogic = (() => {
       { id: 'ten', name: '10 sessions', how: 'Finish 10 sessions.', icon: 'star', on: t.sessions >= 10, have: t.sessions, goal: 10 },
       { id: 'sw500', name: '500 swings', how: 'Log 500 swings.', icon: 'bat', on: t.swings >= 500, have: t.swings, goal: 500 },
       { id: 'boss3', name: 'Boss slayer', how: 'Win 3 Boss Battles.', icon: 'trophy', on: bosses >= 3, have: bosses, goal: 3 },
-      { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100, have: t.pushups, goal: 100 }
+      { id: 'pu100', name: '100 push-ups', how: 'Log 100 push-ups.', icon: 'bolt', on: t.pushups >= 100, have: t.pushups, goal: 100 },
+      { id: 'fire7', name: 'On fire', how: 'Train or finish a daily challenge 7 days in a row.', icon: 'flame', on: dayBest >= 7, have: dayBest, goal: 7 },
+      { id: 'whiz', name: 'Trivia whiz', how: 'Get 10 of 10 in Baseball Trivia.', icon: 'star', on: gb.trivia >= 10, have: gb.trivia || 0, goal: 10 },
+      { id: 'quick', name: 'Lightning eyes', how: 'Average under 350 ms in Color Call.', icon: 'bolt', on: gb.reaction != null && gb.reaction < 350 },
+      { id: 'champs', name: 'Champions', how: 'Win the title game at the end of a month.', icon: 'trophy', on: champs > 0 }
     ];
   }
 
@@ -549,6 +573,84 @@ const HubLogic = (() => {
     lows.sort((a, b) => a.r - b.r); highs.sort((a, b) => b.r - a.r);
     return lows.slice(0, 1).concat(highs.slice(0, 1)).map(x => x.text);
   }
+  // ---------- Season mode: each week is a game, each month a season, the last week of the month is the title game.
+  const OPPONENTS = ['Thunder', 'Gators', 'Rockets', 'Mustangs', 'Hornets', 'Sharks', 'Comets', 'Grizzlies'];
+  function season(entries, today) {
+    const month = today.slice(0, 7), w = weeksMap(entries), first = month + '-01';
+    let mon = mondayOf(first); if (mon < first) mon = addDays(mon, 7);
+    const weeks = []; while (mon.slice(0, 7) === month) { weeks.push(mon); mon = addDays(mon, 7); }
+    const r = seeded('season' + month), foes = shuffle(OPPONENTS, 'foes' + month).slice(0, 4);
+    // Weeks before his very first session are pre-season: no game, no loss.
+    const firstSes = entries.filter(e => e.kind === 'session' && e.complete).map(e => e.date).sort()[0], startMon = firstSes ? mondayOf(firstSes) : mondayOf(today);
+    const games = weeks.map((m, i) => {
+      const done = w[m] || {}, opp = foes[i % foes.length], oppRuns = 1 + Math.floor(seeded(m + opp)() * 4);
+      const last = i === weeks.length - 1, past = addDays(m, 6) < today, current = !past && m <= today;
+      const ours = (done.A ? 2 : 0) + (done.B ? 2 : 0) + (done.C ? 1 : 0);
+      const win = !!(done.A && done.B), score = win ? Math.max(ours, oppRuns + 1) : Math.min(ours, oppRuns - 1 < 0 ? 0 : oppRuns - 1);
+      const pre = m < startMon;
+      return { monday: m, opp, title: last, status: pre ? 'pre' : past ? (win ? 'W' : 'L') : current ? (win ? 'W' : 'live') : 'next', us: score, them: oppRuns, win };
+    });
+    // The other teams' records come from a fixed random draw, so the standings never change after the fact.
+    const played = games.filter(g => g.status === 'W' || g.status === 'L');
+    const table = foes.map(name => { let wn = 0, ls = 0; played.forEach((g, i) => { if (g.opp === name) { if (g.win) ls++; else wn++; } else if (r() < 0.5) wn++; else ls++; }); return { name, w: wn, l: ls }; });
+    const mine = { name: 'You', w: played.filter(g => g.win).length, l: played.filter(g => !g.win).length, me: true };
+    const standings = table.concat([mine]).sort((a, b) => (b.w - a.w) || (a.l - b.l) || (a.me ? -1 : 1));
+    const titleGame = games[games.length - 1], champ = titleGame && titleGame.status === 'W' && titleGame.win;
+    return { month, games, standings, mine, champ };
+  }
+  function champMonths(entries) {
+    const months = [...new Set(entries.filter(e => e.kind === 'session').map(e => e.date.slice(0, 7)))];
+    return months.filter(m => { const lastDay = addDays(addDays(m + '-01', 32).slice(0, 7) + '-01', -1); return season(entries, lastDay > '9999' ? lastDay : lastDay).champ; });
+  }
+
+  // ---------- Daily challenge: one per day, the same all day. Some check themselves from Arcade scores.
+  const CHALLENGES = [
+    { id: 'd1', text: 'Hold your finish: 15 dry swings, freeze for 2 seconds at the end of each one.' },
+    { id: 'd2', text: 'Wall sit for 30 seconds. Back flat on the wall, knees bent like a chair.' },
+    { id: 'd3', text: '20 jumping jacks, then 10 squats.' },
+    { id: 'd4', text: 'Play catch with Dad: 10 throws. Count how many hit his glove.', throwing: true },
+    { id: 'd5', text: 'Watch one drill video in the app, then copy the move 5 times.' },
+    { id: 'd6', text: 'Get 7 or more right in Baseball Trivia.', auto: { game: 'trivia', min: 7 } },
+    { id: 'd7', text: 'Average under 450 ms in Color Call.', auto: { game: 'reaction', max: 450 } },
+    { id: 'd8', text: 'Score 7 or more in Strike Zone Memory.', auto: { game: 'zone', min: 7 } },
+    { id: 'd9', text: 'Hit 3 home runs in Home Run Derby.', auto: { game: 'derby', min: 3 } },
+    { id: 'd10', text: 'Balance like your leg lift: 20 seconds on each leg.' },
+    { id: 'd11', text: 'Tell Dad one thing you got better at this week.' },
+    { id: 'd12', text: 'Shadow grounders: 10 reps. Stay low, glove out in front.' },
+    { id: 'd13', text: 'Stride check: 10 dry swings, landing your front foot on the same spot.' },
+    { id: 'd14', text: 'Bear crawl across the room and back, 2 times.' },
+    { id: 'd15', text: 'Push-ups: do 1 more than your best set.' },
+    { id: 'd16', text: 'Plank: hold it 5 seconds longer than last time.' },
+    { id: 'd17', text: 'Pitcher’s balance: lift your knee and hold for 3 seconds, 10 times. No ball needed.' },
+    { id: 'd18', text: 'Eyes drill: Dad holds up fingers fast, you call the number. 10 rounds.' }
+  ];
+  function challengeFor(today, armOk) {
+    const pool = CHALLENGES.filter(c => armOk || !c.throwing);
+    return pool[Math.floor(seeded('day' + today)() * pool.length)];
+  }
+  function challengeDone(entries, today, c) {
+    if (entries.some(e => e.kind === 'challenge' && e.date === today)) return true;
+    if (!c || !c.auto) return false;
+    return entries.some(e => e.kind === 'arcade' && e.date === today && e.game === c.auto.game && isNum(e.score) && (c.auto.min != null ? e.score >= c.auto.min : e.score <= c.auto.max));
+  }
+  // Days in a row with a finished session or a daily challenge. Today still counts as "alive" until midnight.
+  function dayStreak(entries, today) {
+    const days = new Set(entries.filter(e => (e.kind === 'session' && e.complete) || e.kind === 'challenge').map(e => e.date));
+    let d = days.has(today) ? today : addDays(today, -1), n = 0;
+    while (days.has(d)) { n++; d = addDays(d, -1); }
+    return { n, today: days.has(today) };
+  }
+  function longestDayStreak(entries) {
+    const days = [...new Set(entries.filter(e => (e.kind === 'session' && e.complete) || e.kind === 'challenge').map(e => e.date))].sort();
+    let best = 0, run = 0, prev = null;
+    for (const d of days) { run = prev && addDays(prev, 1) === d ? run + 1 : 1; best = Math.max(best, run); prev = d; }
+    return best;
+  }
+  // Card tiers and unlockable themes, by level.
+  const TIERS = [[1, 'Bronze'], [3, 'Silver'], [5, 'Gold'], [7, 'All-Star']];
+  const tierFor = level => TIERS.filter(t => level >= t[0]).pop()[1];
+  const THEMES = [{ id: 'classic', name: 'Classic', level: 1 }, { id: 'night', name: 'Night Game', level: 3 }, { id: 'retro', name: 'Retro', level: 5 }, { id: 'gold', name: 'All-Star Gold', level: 7 }];
+
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
   function buildWeek(focus, step, armRest, o) {
     o = o || {};
@@ -753,7 +855,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
