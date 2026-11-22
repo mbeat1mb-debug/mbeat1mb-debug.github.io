@@ -4,7 +4,7 @@ mkdir -p out tests/www
 sed 's#https://yglqvmdrocoknogamagr.supabase.co/#http://127.0.0.1:8080/#g' tests/src/media.js > tests/www/media.js
 python3 tests/src/build.py tests/www/app.html
 sed -i '' 's#https://yglqvmdrocoknogamagr.supabase.co/#http://127.0.0.1:8080/#g' tests/www/app.html
-cp -r tests/fonts tests/icon-180.png tests/manifest.webmanifest tests/derby3d.js tests/www/
+cp -r tests/fonts tests/icon-180.png tests/manifest.webmanifest tests/derby3d.js tests/player.glb tests/www/
 python3 tests/server.py > out/server.log 2>&1 &
 sleep 2; curl -s -o /dev/null -w "server %{http_code}\n" http://127.0.0.1:8080/harness.html
 
