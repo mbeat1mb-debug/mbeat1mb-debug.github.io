@@ -25,7 +25,7 @@ window.onerror = (m) => post('pageerror', { m: String(m) });
       const r = await Promise.race([
         HubMedia.upload(f, 'TESTCODE1234', (s) => { lastStep = s + ' @' + sec() + 's'; const k = s.replace(/\d+%/, ''); if (k !== lastKind) { lastKind = k; steps.push(lastStep); } document.getElementById('h').textContent = name + ': ' + s; }),
         new Promise((_, bad) => setTimeout(() => bad({ msg: 'TEST TIMEOUT after 6 minutes' }), 360000))]);
-      await post(name, { ok: true, inMB: +(f.size / 1048576).toFixed(1), outMB: +(r.size / 1048576).toFixed(2), path: r.path, type: r.type, shrunk: r.shrunk, durSec: r.dur, poster: !!r.poster, secs: +sec(), steps, lastStep });
+      await post(name, { ok: true, inMB: +(f.size / 1048576).toFixed(1), outMB: +(r.size / 1048576).toFixed(2), path: r.path, type: r.type, shrunk: r.shrunk, method: r.method, durSec: r.dur, poster: !!r.poster, secs: +sec(), steps, lastStep });
       log('OK ' + name + ' ' + sec() + 's');
     } catch (e) { await post(name, { ok: false, err: (e && e.msg) || String(e), secs: +sec(), steps, lastStep }); log('FAIL ' + name + ': ' + ((e && e.msg) || e)); }
   }

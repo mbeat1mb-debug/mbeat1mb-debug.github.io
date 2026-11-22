@@ -48,4 +48,11 @@ for f in out/files/*; do
   ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,nb_frames:format=duration,format_name -of compact "$f" 2>&1 | head -4
   case "$f" in *.mp4|*.mov) echo "decoded frames: $(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$f")";; esac
 done > out/files_report.txt 2>&1
-cat out/results.jsonl; cat out/files_report.txt
+python3 - <<'P' > out/smoothness.txt
+import subprocess, glob, json
+for f in sorted(glob.glob('out/files/*.mp4')+glob.glob('out/files/*.mov')):
+    ts=[float(x) for x in subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','frame=pts_time','-of','csv=p=0',f],capture_output=True,text=True).stdout.split() if x.strip()]
+    ts.sort(); g=[b-a for a,b in zip(ts,ts[1:])] or [0]
+    print('%s frames=%d length=%.2fs fps=%.1f longest_gap=%.3fs gaps_over_0.1s=%d' % (f.split('/')[-1], len(ts), (ts[-1]-ts[0]) if ts else 0, len(ts)/max(0.01,(ts[-1]-ts[0])) if len(ts)>1 else 0, max(g), sum(x>0.1 for x in g)))
+P
+cat out/results.jsonl; cat out/files_report.txt; cat out/smoothness.txt
