@@ -456,6 +456,86 @@ const HubLogic = (() => {
     k1: 'Twist slow. Keep the water quiet.', k4: 'Turn your hips, then throw. Same as a swing.', k4r: 'Stand tall. Do not let the water slosh.',
     l1: 'Tell Dad your best numbers. He saves them so you get credit.'
   };
+  // Why each drill matters, in his words. Shown under the tip so a drill is a reason, not just an order.
+  const WHY = {
+    c1: 'Seeing the ball hit the bat is how you stop missing.', c2: 'Pitchers throw everywhere. This teaches you to hit every spot.',
+    c3: 'Hitting the middle of the ball makes line drives, and line drives are hits.', c4: 'A short swing gets to the ball faster, so fast pitches stop beating you.',
+    c5: 'It trains your bat to stay level through the ball instead of chopping.', c6: 'Good hitters decide fast. This makes your brain quicker.',
+    c7: 'Hitting it the other way means outside pitches become hits, not outs.', c8: 'Soft hands help you control the bat and the barrel.',
+    c9: 'Shaking off a miss is how you stay strong for the next pitch.', c10: 'A good bunt wins games, and it teaches you to watch the ball onto the bat.',
+    s1: 'Swinging heavy, then light, teaches your body to move faster.', s2: 'Moving into the swing builds speed you can carry into games.',
+    s3: 'Bat speed comes from quick hands more than big muscles.', s4: 'A loud crack means you hit it on the sweet spot.',
+    s5: 'Pushing off the back leg powers the swing from the ground up.', s6: 'Harder hit balls get through the infield faster.',
+    s7: 'Holding the finish builds strength and balance at the end of the swing.', s8: 'Speed has to peak at the ball, not before or after.',
+    s9: 'Power starts in the hips. The bat comes last, like a whip.', s10: 'Full-effort swings train your top speed.',
+    p1: 'Slow, smooth reps build the right swing path into muscle memory.', p2: 'Line drives turn into hits more than any other ball.',
+    p3: 'Pitches come high and low. This makes both feel normal.', p4: 'Your bottom hand steers the bat. A strong bottom hand means a direct swing.',
+    p5: 'Hands close to your body make a shorter, faster swing.', p6: 'Line drives are the hits that win games.',
+    p7: 'Your top hand gives the swing its power at contact.', p8: 'Where you hit the ball decides where it goes.',
+    p9: 'Up the middle is the biggest open space on the field.', p10: 'Knob first keeps the swing short so the barrel snaps through.',
+    t1: 'Real pitchers change speeds. This keeps you ready for anything.', t2: 'Starting on time is half of hitting.',
+    t3: 'Smart hitters only swing at pitches they can crush.', t4: 'With two strikes, putting the ball in play beats striking out.',
+    t5: 'Waiting for the real pitch stops you from swinging too early.', t6: 'If your front foot lands late, you are late on every pitch.',
+    t7: 'Knowing the count tells you when to swing big and when to protect.', t8: 'Staying on time when speeds change is what good hitters do.',
+    t9: 'Being loaded early gives you time to see the pitch.', t10: 'Hitting the ball where it is pitched makes every pitch hittable.',
+    f1: 'Fouling off tough pitches keeps your at-bat alive.', f2: 'Too many ground balls are easy outs. This makes line drives.',
+    f3: 'Too many fly balls are easy outs. This makes line drives.', f4: 'A shorter swing means more contact and fewer strikeouts.',
+    f5: 'If your head moves, your eyes lose the ball.', f6: 'A long stride throws off your timing and drops your head.',
+    f7: 'Your foot has to be down before you can swing on time.', f8: 'Hips before shoulders is where real power comes from.',
+    f9: 'A firm front leg stops your body and whips the bat through.', f10: 'Balance at the finish means the whole swing was under control.',
+    q1: 'Strikes make batters swing. Balls give them free bases.', q2: 'After strike one, batters are on defense and you are in charge.',
+    q3: 'Landing on the line points your whole body at the target.', q4: 'Low strikes are hard to hit hard. They turn into ground-ball outs.',
+    m1: 'A good warm-up throw keeps your arm healthy.', m2: 'Hitting your spot is more important than throwing hard.',
+    g1: 'Fielders who stay low get to more balls.', g2: 'Good balance at the top makes every pitch the same.', g3: 'Quick feet help you field, run and pitch.',
+    w1: 'Warm muscles move faster and get hurt less.', w2: 'It wakes up your body and your reaction speed.', w3: 'It warms up the muscles you use running the bases.',
+    b1: 'This is your starting line. Next month you try to beat it.', b2: 'This shows how hard you hit it now, so you can see it grow.',
+    b3: 'This shows how often you square it up, so you can see it grow.',
+    x1: 'Jumping shows your leg power, which drives your swing and your pitches.', x2: 'Push-ups build arm and chest strength for throwing and swinging.',
+    x3: 'A strong middle connects your legs to your arms in every swing.',
+    a1: 'Strong legs power your swing and your pitches.', a2: 'Push-ups build arm and chest strength for throwing and swinging.', a3: 'A strong middle helps you turn fast.',
+    z1: 'Strong legs power your swing and your pitches.', z2: 'Push-ups build arm and chest strength for throwing and swinging.', z3: 'A strong middle helps you turn fast.',
+    z4: 'It builds your shoulders, which protect your throwing arm.', z5: 'It builds your back and shoulders, the muscles behind the throw.',
+    z6: 'One leg at a time builds balance for striding and pitching.', z7: 'A strong middle connects your legs to your arms.',
+    z8: 'Landing soft and steady protects your knees and builds balance.', z9: 'A strong back keeps you standing tall in your swing and delivery.',
+    k1: 'Turning with control is what makes a swing fast and steady.', k4: 'Throwing a med ball trains the same hip turn as your swing.',
+    k4r: 'Holding steady builds a strong middle.', l1: 'Logging your numbers is how you earn credit and see yourself get better.'
+  };
+  // Demo videos, checked by hand: each one exists, allows playing inside other apps, and matches the drill.
+  // Several drills share a video when they teach the same movement.
+  const VIDEOS = {
+    fence: { id: '3RyLpYSzjsQ', title: 'The Fence Drill', by: 'Baseball Tutorials' },
+    bottom: { id: 'KAaVirs7UcM', title: 'Tee Drill: Bottom Hand', by: 'Silver Sluggers Academy' },
+    tophand: { id: '3USSmzO001k', title: 'Top Hand and Bottom Hand Drills', by: 'DNA Sports' },
+    bunt: { id: '0Dc0kW6touQ', title: 'The Pivot Bunt and Square Bunt', by: 'Schupak Sports' },
+    aim: { id: 'qwnvUICBWhQ', title: 'Accuracy Pitching Drills for Youth Pitchers', by: 'ARM Pitching Development' },
+    aim2: { id: '9tWZEBWuSco', title: 'Youth Pitching Drills for Accuracy, Ages 9-14', by: 'ARM Pitching Development' },
+    stridep: { id: 'LlyXy2W8jWs', title: 'How the Stride Affects Youth Pitching', by: 'Coach Dan Blewett' },
+    finishp: { id: 'lyTaFQyIRkY', title: '1 Knee Stand and Finish Drill', by: 'The Baseball Pro' },
+    head: { id: '6MikMHP854w', title: 'Drills to Keep Your Head Down', by: 'YouGoProBaseball' },
+    pepper: { id: 'U2lqU2ESp9Q', title: 'Pepper Practice', by: 'Mike Scott Baseball' },
+    hips: { id: 'QIJMNwIVQZ0', title: 'Hip and Shoulder Separation for Youth Hitters', by: 'Ron Sullivan' },
+    twostrike: { id: 'PTpq20VYyM8', title: 'The Two-Strike Approach', by: "DICK'S Sporting Goods" },
+    strideh: { id: 'BbxxaQpOjHg', title: 'Stride and Separation Tee', by: 'HyperFocus Helmet' },
+    footdown: { id: 'QcljtziBomU', title: 'Timing and Getting the Front Foot Down', by: 'Pat Harrison, Diamond Sports' },
+    frontleg: { id: 'noz-aYI7pXg', title: 'Front Leg Post Drill', by: 'YouGoProBaseball' },
+    balance: { id: '7o6GG3rFr88', title: 'Balance While Hitting', by: 'DNA Sports' },
+    liners: { id: 'GhMXltn9258', title: 'Drill for Hitting Line Drives', by: 'MegRem Softball' },
+    lowtee: { id: 'Ad3K8y1w6Fc', title: 'Low Tee Drill', by: 'Driveline Baseball' },
+    legbal: { id: 'bec3YTm25uY', title: 'Pitching Drill: Balance', by: 'BASE by Pros' },
+    field: { id: 'xoygxT47to0', title: 'Fielding a Ground Ball', by: 'Ripken Baseball' },
+    pushup: { id: 'DklfnNxXu9Y', title: 'Push-Up Technique for Kids', by: 'Health·WHYS' },
+    plank: { id: 'bfS0Cv_W_ck', title: 'Forearm Plank for Kids', by: 'Pediatric Physical Therapy Exercises' },
+    jump: { id: 'dVgtvAXeBQw', title: 'Standing Long Jump Basics', by: 'Athletics Coach' },
+    squat: { id: '-2eEYWqn2wk', title: 'Squat Technique', by: 'The Move Crew' }
+  };
+  const DRILL_VIDEO = { p5: 'fence', p4: 'bottom', p7: 'tophand', c10: 'bunt', q1: 'aim', m2: 'aim', q2: 'aim2', q3: 'stridep', q4: 'finishp', f5: 'head', c8: 'pepper',
+    f8: 'hips', s9: 'hips', f1: 'twostrike', t4: 'twostrike', f6: 'strideh', f7: 'footdown', t6: 'footdown', t9: 'footdown', f9: 'frontleg', f10: 'balance', s7: 'balance',
+    f2: 'liners', p2: 'liners', p6: 'liners', f3: 'lowtee', p3: 'lowtee', g2: 'legbal', g1: 'field', x2: 'pushup', a2: 'pushup', z2: 'pushup', x3: 'plank', z7: 'plank',
+    x1: 'jump', z8: 'jump', a1: 'squat', z1: 'squat' };
+  function videoFor(item) { const k = DRILL_VIDEO[item.id]; return k ? VIDEOS[k] : null; }
+  const BOSS_WHY = { speed: 'Beating your own top speed is how you get faster.', contact: 'Beating your own best shows your eye is getting better.', duel: 'Competing makes every swing count.' };
+  const WARM_WHY = { 'Warm up': WHY.w1, 'Mirror Me': WHY.w2, 'Base Path Warm-up': WHY.w3 };
+  function whyFor(item) { return item.id === 'boss' && item.boss ? BOSS_WHY[item.boss.dad ? 'duel' : item.boss.kind] : /^w\d+$/.test(item.id) ? WARM_WHY[item.title] || null : WHY[item.id] || null; }
   const BOSS_TIPS = { speed: 'Swing your fastest on all 5. Rest between swings.', contact: 'See the ball. Short, quick swing.', duel: 'Line drives score double. Stay level.' };
   // Warm-ups are renumbered per day (w0, w1...), so they are matched by name.
   const WARM_TIPS = { 'Warm up': TIPS.w1, 'Mirror Me': TIPS.w2, 'Base Path Warm-up': TIPS.w3 };
@@ -673,7 +753,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/

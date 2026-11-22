@@ -313,7 +313,8 @@ function viewToday() {
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
         b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
           h('button', { type: 'button', class: 'li', 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); } },
-            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null), h('span', { class: 'mark' })),
+            h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
+          VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
@@ -417,6 +418,23 @@ function confetti() {
     s.style.setProperty('--x', ((Math.random() - 0.5) * 160).toFixed(0) + 'px'); s.style.setProperty('--r', (Math.random() * 720 - 360).toFixed(0) + 'deg'); box.appendChild(s); }
   return box;
 }
+// Drill videos stay off until Dad has approved the list. The player is YouTube's privacy-enhanced embed inside a sandbox
+// without pop-ups, so tapping the YouTube logo or a title cannot open YouTube or any other site.
+const VIDEOS_ON = false;
+function renderVideo() {
+  const box = document.getElementById('video'), v = state.video;
+  if (!v) { box.replaceChildren(); return; }
+  const close = () => { state.video = null; renderVideo(); };
+  box.replaceChildren(h('div', { class: 'vid', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Video: ' + v.title, onclick: e => { if (e.target.classList.contains('vid')) close(); } },
+    h('div', { class: 'vbox' },
+      h('div', { class: 'vhead' }, h('div', null, h('b', null, state.videoFor || v.title), h('span', null, v.title + ' · ' + v.by)), h('button', { type: 'button', class: 'btn', id: 'vid-close', onclick: close }, 'Back to my drill')),
+      h('div', { class: 'vframe' }, h('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(v.id) + '?rel=0&modestbranding=1&playsinline=1&autoplay=1&iv_load_policy=3',
+        title: v.title, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: '', referrerpolicy: 'strict-origin-when-cross-origin',
+        sandbox: 'allow-scripts allow-same-origin allow-presentation' })),
+      h('p', { class: 'small mid' }, navigator.onLine === false ? 'Videos need the internet. Connect to Wi-Fi and try again.' : 'Watch it, then try it yourself.'))));
+  const b = document.getElementById('vid-close'); if (b) b.focus();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.video) { state.video = null; renderVideo(); } });
 function renderCheer() {
   const c = state.cheer;
   if (!c) { $cheer.replaceChildren(); return; }
