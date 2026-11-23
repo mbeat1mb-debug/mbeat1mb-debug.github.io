@@ -382,7 +382,7 @@ function tilesRow(p) {
   const S = L.season(state.entries, t), gm = S.games.find(x => x.monday === p.wk.monday), nb = nextBadge();
   const mixG = L.mixProgress(state.entries, t, p.pick.focus), mixN = mixG.filter(m => m.done).length, mixS = L.mixStreak(state.entries, t);
   const tiles = [
-    ['mix', '\u{1F3AE}', 'Arcade Mix', mixN === 3 ? 'Done \u2713' : mixN + ' of 3' + (mixS.n ? ' \u00b7 \u{1F525}' + mixS.n : ''), () => h('div', null, mixCard(), h('p', null, h('a', { href: '#arcade', class: 'btn line' }, 'Go to the Arcade')))],
+    gameLimit() === 0 ? null : ['mix', '\u{1F3AE}', 'Arcade Mix', mixN === 3 ? 'Done \u2713' : mixN + ' of 3' + (mixS.n ? ' \u00b7 \u{1F525}' + mixS.n : ''), () => h('div', null, mixCard(), h('p', null, h('a', { href: '#arcade', class: 'btn line' }, 'Go to the Arcade')))],
     ['chal', '\u{1F525}', 'Daily challenge', cDone ? 'Done ✓' : ds.n ? ds.n + (ds.n === 1 ? ' day' : ' days') + ' in a row' : 'Start a streak', challengeCard],
     (earned || next) ? ['prize', '\u{1F381}', earned ? 'Prize earned!' : next.text, earned ? 'Show Dad' : commas((next.level - 1) * L.XP.perLevel - g.xp) + ' XP to go', () => prizeCard()] : null,
     gm ? ['game', '⚾', (gm.title ? 'Title game' : 'This week') + ' vs ' + gm.opp, gm.status === 'W' ? 'Won ' + gm.us + '–' + gm.them : 'Day 1 + Day 2 wins it', seasonCard] : null,
@@ -1037,7 +1037,7 @@ function viewArcade() {
   const card = (id, icon, desc, play) => h('section', { class: 'sec game' }, h('div', { class: 'gicon', 'aria-hidden': 'true' }, icon), h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)), play || levels(id));
   return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Six baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
     !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
-    mixCard(),
+    lim !== 0 ? mixCard() : null,
     h('div', { class: 'two even' },
       card('derby', '\u26be', 'Swing at fastballs, changeups and curves. Time it to pull it, tap high or low to match the pitch. 10 outs. Fireworks on every home run.'),
       card('kking', '\ud83d\udd25', 'You\u2019re on the mound. Pick the pitch, aim for the corners, nail the timing ring. Fool hitters with a changeup. Count your strikeouts.'),

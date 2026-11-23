@@ -310,10 +310,12 @@ export function autoQuality(renderer, sun, refit) {
   const apply = () => { renderer.setPixelRatio([Math.min(2, dpr), Math.min(1.5, dpr), 1, 0.8][lvl]);
     sun.shadow.mapSize.set(lvl >= 1 ? 1024 : 2048, lvl >= 1 ? 1024 : 2048); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } sun.castShadow = lvl < 2; refit(); };
   apply();
-  let n = 0, t0 = 0, warm = 0;
+  let n = 0, t0 = 0, warm = 0, lastF = 0;
   return { get level() { return lvl; }, frame(now) {
     if (test || lvl >= 3) return;
-    if (warm < 45) { warm++; t0 = now; n = 0; return; }   // let the first second settle
+    if (warm < 45) { warm++; t0 = now; n = 0; lastF = now; return; }   // let the first second settle
+    const gap = now - lastF; lastF = now;
+    if (document.hidden || gap > 1000) { warm = 30; return; }   // a hidden tab or a pause (app switch) is not a slow device
     n++; const el = now - t0;
     if (el > 2500) { const fps = n * 1000 / el; n = 0; t0 = now;
       if (fps < 27) { lvl++; try { localStorage.setItem(KEY, lvl); } catch (e) {} apply(); warm = 15; } } } };
