@@ -35,11 +35,13 @@ while read label udid name; do
   sleep 25; xcrun simctl io "$udid" screenshot "out/${label}_during.png" || true
   wait_done "$label" 1200
   xcrun simctl io "$udid" screenshot "out/${label}_harness_done.png" || true
-  xcrun simctl openurl "$udid" "http://127.0.0.1:8080/d3probe.html?d3probe&dev=$label"
-  sleep 14; xcrun simctl io "$udid" screenshot "out/${label}_d3_a.png" || true
-  sleep 8; xcrun simctl io "$udid" screenshot "out/${label}_d3_b.png" || true
-  sleep 6; xcrun simctl io "$udid" screenshot "out/${label}_d3_c.png" || true
-  for i in $(seq 1 30); do grep -q "\"dev\": \"$label\", \"case\": \"d3done\"" out/results.jsonl && break; sleep 2; done
+  for g in start kking steal outfield; do
+    xcrun simctl openurl "$udid" "http://127.0.0.1:8080/d3probe.html?d3probe&dev=$label&game=$g"
+    sleep 14; xcrun simctl io "$udid" screenshot "out/${label}_${g}_a.png" || true
+    sleep 10; xcrun simctl io "$udid" screenshot "out/${label}_${g}_b.png" || true
+    sleep 8; xcrun simctl io "$udid" screenshot "out/${label}_${g}_c.png" || true
+    for i in $(seq 1 30); do grep -q "\"dev\": \"$label\", \"case\": \"d3done_$g\"" out/results.jsonl && break; sleep 2; done
+  done
   for r in today arcade; do
     xcrun simctl openurl "$udid" "http://127.0.0.1:8080/www/app.html?k=TESTCODE1234#$r"; sleep 10
     xcrun simctl io "$udid" screenshot "out/${label}_app_$r.png" || true

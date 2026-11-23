@@ -474,7 +474,24 @@ const HubGames = (() => {
   }
 
   /* ---------- 2. STRIKEOUT KING: Jaxson pitches. Pick the pitch, aim, hit the timing ring. ---------- */
-  function kking(level, done) {
+  // The other three games are 3D too (same file as Home Run Derby); the flat versions stay as the backup.
+  function play3d(name, title, sub, level, done, flat) {
+    const ui = open(title, sub);
+    ui.stage.classList.add('cvstage');
+    ui.stage.replaceChildren(el('div', { class: 'd3load' }, el('b', null, 'Loading Seed Spitters Park\u2026'), el('i', null)));
+    const backup = () => { if (!layer) return; close(true); onExit = done; flat(level, done); };
+    import('./derby3d.js').then(m => (m.ready || Promise.resolve()).then(() => m)).then(m => {
+      if (!layer) return;
+      try {
+        const g = m[name]({ stage: ui.stage, level, me: ME, Sound, still: still(), say: t => { ui.status.textContent = t; }, end: (score, lines) => finish(ui, score, lines, done) });
+        live = { stop: g.stop };
+      } catch (e) { backup(); }
+    }).catch(backup);
+  }
+  function kking(level, done) { play3d('kking', 'Strikeout King', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 ' + (level === 1 ? 2 : 3) + ' innings vs the Hornets', level, done, kking2d); }
+  function steal(level, done) { play3d('steal', 'Steal Second', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 8 tries, 3 outs and you\u2019re done', level, done, steal2d); }
+  function outfield(level, done) { play3d('outfield', 'Outfield Hero', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 10 fly balls in center field', level, done, outfield2d); }
+  function kking2d(level, done) {
     const INN = level === 1 ? 2 : 3;
     const ui = open('Strikeout King', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' · ' + INN + ' innings vs the Hornets');
     const E = Engine(ui), c = E.c;
@@ -633,7 +650,7 @@ const HubGames = (() => {
   }
 
   /* ---------- 3. STEAL SECOND: take a lead, read the pitcher, go on his first move home ---------- */
-  function steal(level, done) {
+  function steal2d(level, done) {
     const TRIES = 8;
     const ui = open('Steal Second', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' · ' + TRIES + ' tries, 3 outs and you’re done');
     const E = Engine(ui), c = E.c;
@@ -749,7 +766,7 @@ const HubGames = (() => {
   }
 
   /* ---------- 4. OUTFIELD HERO: run under fly balls, dive, then make the right throw ---------- */
-  function outfield(level, done) {
+  function outfield2d(level, done) {
     const N = 10;
     const ui = open('Outfield Hero', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' · ' + N + ' fly balls in center field');
     const E = Engine(ui), c = E.c;
