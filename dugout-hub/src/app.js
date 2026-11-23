@@ -313,8 +313,11 @@ function viewToday() {
   const p = plan(), slots = ['A', 'B', 'C'], F = L.FOCUS[p.pick.focus];
   // Until he taps a day himself, always show the first unfinished one (data can arrive after the first draw).
   if (!state.slotPicked || !state.slot || !p.week[state.slot]) state.slot = slots.find(s => !p.wk.done[s]) || 'A';
-  const ses = p.week[state.slot], tk = p.wk.monday + state.slot;
+  const tk = p.wk.monday + state.slot;
   const ticks = state.ticks[tk] || (state.ticks[tk] = {}), counts = state.counts[tk] || (state.counts[tk] = {});
+  // "Pick one" slots: his choices live with the ticks, keyed pick:<slot>
+  const picks = {}; for (const k in ticks) if (k.indexOf('pick:') === 0) picks[k.slice(5)] = ticks[k];
+  const ses = L.resolveSession(p.week[state.slot], picks);
   const items = ses.blocks.flatMap(b => b.items), doneN = items.filter(i => ticks[i.id]).length, isDone = !!p.wk.done[state.slot];
   const last = checks()[0]; let n = 0;
   const nextUp = items.find(i => !ticks[i.id]);
@@ -334,14 +337,20 @@ function viewToday() {
         p.week[s].title, h('small', null, p.week[s].sub), h('small', null, p.wk.done[s] ? 'Done ✓' : p.week[s].min + ' minutes')))),
       h('div', null, ses.blocks.map(b => [
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
-        b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
+        b.items.map(i => { n++; const on = !!ticks[i.id] || isDone;
+          if (i.choices && !i.slot) return h('div', { class: 'li pick', id: 'li-' + i.id, tabindex: '-1' }, h('span', { class: 'n' }, n),
+            h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, isDone ? 'Choices: ' + i.choices.map(c => c.title).join(', ') : 'You choose! Tap the one you want to do today.'),
+              isDone ? null : h('div', { class: 'picks', role: 'group', 'aria-label': i.title }, i.choices.map(c => h('button', { type: 'button', class: 'pickbtn', onclick: () => { ticks['pick:' + i.id] = c.id; saveTicks(); HubGames.Sound.tick && HubGames.Sound.tick(); render(); } },
+                h('b', null, c.title), h('span', null, c.text))))));
+          return [
           h('button', { type: 'button', class: 'li', id: 'li-' + i.id, 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); if (ticks[i.id]) { HubGames.Sound.later(HubGames.Sound.crack); toNext(items, ticks, i.id); } } },
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
           VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
-          !isDone ? extras(i, counts) : null]; })])),
+          !isDone ? extras(i, counts) : null,
+          i.slot && !isDone && !ticks[i.id] ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { delete ticks['pick:' + i.slot]; saveTicks(); render(); } }, '\u21bb Pick a different one')) : null]; })])),
       // Progress and Finish ride along at the bottom of the screen while he works.
       isDone ? h('p', { class: 'status ok' }, ses.title + ' is done for this week.')
         : h('div', { class: 'sessbar' },

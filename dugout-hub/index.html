@@ -276,6 +276,11 @@ body.gaming{overflow:hidden}
 .g-plate{position:absolute;left:50%;top:80%;width:70px;height:22px;transform:translate(-50%,-50%);background:#fff;clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%);box-shadow:0 0 0 3px rgba(255,255,255,.3)}
 .g-tally{font-size:18px}
 /* 3D Home Run Derby */
+.li.pick{cursor:default}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
+.pickbtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:10px 12px;min-height:64px;border:2px solid var(--sky);border-radius:12px;background:#fff;font:inherit;cursor:pointer}
+.pickbtn b{font-size:17px}.pickbtn span{font-size:13px;color:#555;line-height:1.3}
+.pickbtn:hover,.pickbtn:focus-visible{background:#fff4ea;outline:3px solid var(--sky-deep);outline-offset:1px}
 .mix .mixlist{list-style:none;padding:0;margin:8px 0;display:grid;gap:6px}
 .mix .mixlist li{display:flex;gap:10px;align-items:baseline;font-size:18px}
 .mix .mixlist li .mk{font-weight:800;width:20px;color:var(--sky-deep)}
@@ -745,6 +750,9 @@ const HubLogic = (() => {
     I('w2', 'Mirror Me', 'Dad does a move, you copy it fast: skips, side shuffles, high knees, arm circles. 2 minutes.'),
     I('w3', 'Base Path Warm-up', 'Jog to a cone and back 4 times: forward, side shuffle, backpedal, sprint.')
   ];
+  const FUN_C = [
+    I('z12', 'Frog Jumps', 'Squat low, jump forward like a frog. 8 jumps, 2 times.'),
+    I('z13', 'Line Hops', 'Hop over a line, front and back, as fast as you can for 20 seconds. 3 rounds.')];
   const BODY_C = [
     I('z1', 'Squats', '2 sets of {8}.', { r: { sq: 8 } }),
     I('z2', 'Push-ups', '2 sets of {5}.', { r: { pu: 5 } }),
@@ -890,6 +898,11 @@ const HubLogic = (() => {
   }
   // One cue per drill, in his words. Shown under the drill and used for "next time" tips after a low score.
   const TIPS = {
+    k2: 'Turn your shoulders, not just your arms.', k3: 'Hips stay still. Squeeze your belly.', k5: 'Slow. Low back stays on the floor.', k6: 'Swing your arms and land soft.', k7: 'Freeze on each landing for a second.', k8: 'Hips turn first, chest follows.',
+    a1j: 'Land soft on the balls of your feet.', a1w: 'Knees over ankles. Breathe.', a2i: 'Body straight like a board.', a2b: 'Back flat like a table.', a3p: 'Flat back. Squeeze your belly.', a3d: 'Move slow. Low back stays down.',
+    z10: 'Land soft.', z11: 'Body straight like a board.',
+    h1: 'Watch the ball all the way into your hand.', h2: 'Find the number as soon as the ball leaves the machine.', h3: 'Small taps. Watch the balloon, not the bat.', h4: 'Hands ready, eyes on the ball, not Dad.',
+    h5: 'Read it out of his hand, then call it.', h6: 'Soft hands. Keep the barrel flat.', h7: 'Catch it out front, then a quick flip.',
     c1: 'Watch the ball all the way to the bat. See it hit.', c2: 'Inside: get the bat out front. Outside: let it get deeper.',
     c3: 'Hit the middle of the ball, not the bottom.', c4: 'Hands go straight to the ball. No big loop.',
     c5: 'Stay through the front ball. Short and level.', c6: 'Decide early. See the color as soon as it leaves.',
@@ -933,6 +946,12 @@ const HubLogic = (() => {
   };
   // Why each drill matters, in his words. Shown under the tip so a drill is a reason, not just an order.
   const WHY = {
+    k2: 'Strong twisting muscles make a faster, steadier swing.', k3: 'A steady middle keeps your swing on plane.', k5: 'Teaches your core to stay tight while arms and legs move, like in a swing or pitch.',
+    k6: 'Jumping builds the leg power that drives hits and throws.', k7: 'Side-to-side power helps you push off the rubber and run the bases.', k8: 'Practices turning your hips fast without a ball.',
+    a1j: 'Fast legs make a fast swing.', a1w: 'Strong legs keep you balanced in your stance.', a2i: 'Builds the same push as push-ups, a little easier.', a2b: 'Strong shoulders and core in one move.', a3p: 'A strong middle helps you turn fast.', a3d: 'A strong middle helps you turn fast.',
+    z10: 'Fast legs make a fast swing.', z11: 'Builds the same push as push-ups, a little easier.',
+    h1: 'Tracking a ball into your hand is the same skill as tracking a pitch.', h2: 'Seeing the number means you are seeing the ball well, which helps you hit it.', h3: 'Trains your eyes and hands to work together on a moving target.',
+    h4: 'Makes your hands react faster to what your eyes see.', h5: 'Reading a ball early is how hitters pick up pitches.', h6: 'Builds soft hands and barrel control.', h7: 'Quicker glove-to-hand means quicker throws.',
     c1: 'Seeing the ball hit the bat is how you stop missing.', c2: 'Pitchers throw everywhere. This teaches you to hit every spot.',
     c3: 'Hitting the middle of the ball makes line drives, and line drives are hits.', c4: 'A short swing gets to the ball faster, so fast pitches stop beating you.',
     c5: 'It trains your bat to stay level through the ball instead of chopping.', c6: 'Good hitters decide fast. This makes your brain quicker.',
@@ -1133,6 +1152,30 @@ const HubLogic = (() => {
   const THEMES = [{ id: 'classic', name: 'Seed Spitters', level: 1 }, { id: 'night', name: 'Night Game', level: 3 }, { id: 'retro', name: 'Retro', level: 5 }, { id: 'gold', name: 'All-Star Gold', level: 7 }];
 
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
+  // A "pick one" slot: he chooses which drill to do. id is the slot; the chosen drill keeps its own id.
+  const CH = (id, name, list) => ({ id, title: name, text: 'Pick one', choices: list.filter(Boolean), min: Math.max.apply(null, list.filter(Boolean).map(d => d.min || 0)) });
+  // Hand-eye coordination: catching, tracking and tapping drills that need almost no gear.
+  const HAND_EYE = [
+    I('h1', 'Bounce and Catch', 'Tennis ball. Bounce it off the wall (underhand) and catch it with one hand. Switch hands every 5. How many in a row before a drop?', { min: 4, pts: 'Catches in a row', max: 40 }),
+    I('h2', 'Numbers on the Ball', 'Dad writes numbers 1 to 9 on mini balls with a marker. Machine, skinny bat. Yell the number before you swing. Right number = 1, solid hit +1. 10 pitches.', { min: 5, sw: 10, pts: 'Right number 1, solid +1', max: 20 }),
+    I('h3', 'Balloon Taps', 'Blow up a balloon. Keep it in the air with the skinny bat. 30 taps without it touching the floor. Then try top hand only.', { min: 3, pts: 'Taps in a row', max: 60 }),
+    I('h4', 'Drop Catch', 'Dad holds a ball at shoulder height and lets go without warning. Catch it before it hits the ground. 15 drops. Start with two hands, then one.', { min: 3, pts: 'Catch = 1', max: 15 }),
+    I('h5', 'Color Call Catch', 'Dad hides two different balls behind his back and tosses one. Yell which one it is before you catch it. 15 tosses.', { min: 3, pts: 'Right call and catch = 1', max: 15 }),
+    I('h6', 'Bat Bounce', 'Bounce a tennis ball up and down on the barrel of the skinny bat. Best of 3 tries.', { min: 3, pts: 'Best bounces in a row', max: 50 }),
+    I('h7', 'Glove Flip', 'Toss a tennis ball up a little and catch it in your glove, then flip it to your throwing hand. 20 tosses, faster each time.', { min: 3, pts: 'Clean flip = 1', max: 20 })
+  ];
+  const CORE = r => [
+    I('k1', 'Tank twists', 'Tidal Tank. 2 sets of ' + r(6) + ' each side. Keep the water quiet.', { min: 4 }),
+    I('k2', 'Russian twists', 'Sit, lean back a little, feet up if you can. Touch the floor each side. 2 sets of ' + r(8) + ' each side.', { min: 3 }),
+    I('k3', 'Plank shoulder taps', 'Push-up position. Tap each shoulder with the other hand without your hips rocking. 2 sets of ' + r(8) + '.', { min: 3 }),
+    I('k5', 'Dead bugs', 'On your back, arms and legs up. Reach one arm back and the other leg out, slowly. 2 sets of ' + r(6) + ' each side.', { min: 3 })];
+  const POWER = (r, armRest) => [
+    armRest ? null : I('k4', 'Med ball throws', 'Side throws into the net. 2 sets of ' + r(5) + ' each side.', { min: 4 }),
+    I('k4r', 'Tank carry', 'Hold the Tidal Tank in front. 2 walks of 20 steps.', { min: 3 }),
+    I('k6', 'Broad jumps', 'Jump forward as far as you can and stick the landing. 3 sets of 3.', { min: 3 }),
+    I('k7', 'Skater hops', 'Hop side to side like a speed skater, land on one foot and freeze. 2 sets of ' + r(6) + ' each side.', { min: 3 }),
+    I('k8', 'Hip turn snaps', 'Hold a towel or the skinny bat across your chest. Load, then turn your hips fast like a swing and stop. 2 sets of ' + r(6) + ' each side.', { min: 3 })];
+
   function buildWeek(focus, step, armRest, o) {
     o = o || {};
     const S = Math.max(1, Math.min(5, step || 1)), r = n => n + 2 * (S - 1), hold = 20 + 5 * (S - 1);
@@ -1154,14 +1197,15 @@ const HubLogic = (() => {
       I('b3', 'Contact test', 'Machine, skinny bat, 20 pitches. Count your solid hits.', { min: 4, count: 20, sw: 20 })];
     else {
       const lead = fixA ? [tag(fixA.drill, targets[0])] : [];
-      const rest = pickDrills(pool, 3 - lead.length, { level, recent, seed: seed + 'a', avoid: lead.map(d => d.title) });
-      a1 = lead.concat(rest);
+      const rest = pickDrills(pool, 4 - lead.length, { level, recent, seed: seed + 'a', avoid: lead.map(d => d.title) });
+      a1 = lead.concat(rest.slice(0, -2)).concat(rest.length >= 2 ? [CH('hc1', 'Your pick: hitting', rest.slice(-2))] : rest.slice(-2));
       a1.push(bossFor(o.entries || [], mon));
     }
     // Day 2: fix-it (second target if there is one), 1 more from the pool, mound or glove work.
-    const usedA = a1.map(d => d.title);
+    const usedA = a1.flatMap(d => d.choices ? d.choices.map(c => c.title) : [d.title]);
     const lead2 = focus !== 'baseline' && fixB && usedA.indexOf(fixB.drill.title) < 0 ? [tag(fixB.drill, targets[1] || targets[0])] : [];
-    const b1 = lead2.concat(pickDrills(pool, 2 - lead2.length, { level, recent: recent.concat(a1.map(d => d.id)), seed: seed + 'b', avoid: usedA.concat(lead2.map(d => d.title)) }));
+    const bp = pickDrills(pool, 3 - lead2.length, { level, recent: recent.concat(a1.flatMap(d => d.choices ? d.choices.map(c => c.id) : [d.id])), seed: seed + 'b', avoid: usedA.concat(lead2.map(d => d.title)) });
+    const b1 = lead2.concat(bp.length >= 2 ? bp.slice(0, -2).concat([CH('hc2', 'Your pick: hitting', bp.slice(-2))]) : bp);
     const mound = armRest
       ? { name: 'Glove work (arm rest, no throws)', items: [
           I('g1', 'Shadow Grounders', 'No ball. Dad points left, right or in. Shuffle, get low, field it with your glove, freeze. 12 reps.', { min: 3 }),
@@ -1177,27 +1221,41 @@ const HubLogic = (() => {
           I('x1', 'Long jump test', '3 tries from standing. Dad measures your best one.'),
           I('x2', 'Push-up test', 'As many as you can with a flat back. Stop when your form slips.'),
           I('x3', 'Plank test', 'Hold as long as you can with a flat back. Dad times it.')] }
-      : { name: 'Strength', min: 7, items: [
-          I('a1', 'Squats', '2 sets of ' + r(8) + '.', { sq: 2 * r(8) }),
-          I('a2', 'Push-ups', '2 sets of ' + r(5) + ' with a flat back.', { pu: 2 * r(5) }),
-          I('a3', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8) })] };
-    const bodyB = { name: 'Tidal Tank', min: 4, items: [
-      I('k1', 'Tank twists', 'Tidal Tank. 2 sets of ' + r(6) + ' each side. Keep the water quiet.'),
-      armRest ? I('k4r', 'Tank carry', 'Hold the Tidal Tank in front. 2 walks of 20 steps.')
-              : I('k4', 'Med ball throws', 'Side throws into the net. 2 sets of ' + r(5) + ' each side.')] };
+      : { name: 'Strength (you pick)', min: 7, items: [
+          CH('cs1', 'Your pick: legs', [I('a1', 'Squats', '2 sets of ' + r(8) + '.', { sq: 2 * r(8), min: 2 }), I('a1j', 'Jump squats', '2 sets of ' + r(5) + '. Land soft.', { sq: 2 * r(5), min: 2 }), I('a1w', 'Wall sit', '2 holds of ' + hold + ' seconds, back flat on the wall.', { min: 2 })]),
+          CH('cs2', 'Your pick: arms and chest', [I('a2', 'Push-ups', '2 sets of ' + r(5) + ' with a flat back.', { pu: 2 * r(5), min: 2 }), I('a2i', 'Couch push-ups', 'Hands on the couch edge. 2 sets of ' + r(8) + '.', { pu: 2 * r(8), min: 2 }), I('a2b', 'Bear crawl', 'Knees off the ground. 10 steps forward, 10 back. 2 times.', { min: 2 })]),
+          CH('cs3', 'Your pick: core', [I('a3', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8), min: 2 }), I('a3p', 'Plank', '2 holds of ' + hold + ' seconds with a flat back.', { min: 2 }), I('a3d', 'Dead bugs', '2 sets of ' + r(6) + ' each side, slow.', { min: 2 })])] };
+    // one pick of core or power work (2 of each to choose from), so Day 2 stays under 30 minutes
+    const cp = shuffle(CORE(r), seed + 'cp1').slice(0, 2).concat(shuffle(POWER(r, armRest).filter(Boolean), seed + 'cp2').slice(0, 2));
+    const bodyB = { name: 'Core power (you pick)', min: 4, items: [CH('cp1', 'Your pick: core or power', cp)] };
+    // arm rest: no tossing drills that use the throwing arm
+    const he = HAND_EYE.filter(d => !(armRest && (d.id === 'h1' || d.id === 'h7')));
+    const heB = { name: 'Hand-eye (you pick)', min: 4, items: [CH('he2', 'Your pick: hand-eye', shuffle(he, seed + 'he2').slice(0, 3))] };
+    const heC = { name: 'Hand-eye (you pick)', min: 4, items: [CH('he3', 'Your pick: hand-eye', shuffle(he.filter(d => d.id !== 'h2'), seed + 'he3').slice(0, 3))] };
     const fill = t => t.replace('{8}', r(8)).replace('{5}', r(5)).replace('{hold}', hold);
-    const cPick = shuffle(BODY_C.slice(3), seed + 'c').slice(0, 3);
-    const bodyC = { name: 'Bodyweight', min: 10, items: BODY_C.slice(0, 3).concat(cPick).map(d => {
-      const x = Object.assign({}, d, { text: fill(d.text) });
-      if (d.r) { if (d.r.sq) x.sq = 2 * r(d.r.sq); if (d.r.pu) x.pu = 2 * r(d.r.pu); if (d.r.su) x.su = 2 * r(d.r.su); delete x.r; }
-      return x; }) };
+    const mk = d => { const x = Object.assign({ min: 2 }, d, { text: fill(d.text) });
+      if (d.r) { if (d.r.sq) x.sq = 2 * r(d.r.sq); if (d.r.pu) x.pu = 2 * r(d.r.pu); if (d.r.su) x.su = 2 * r(d.r.su); delete x.r; } return x; };
+    const B = id => mk(BODY_C.concat(FUN_C).find(d => d.id === id)), fun = shuffle(['z5', 'z8', 'z12', 'z13'], seed + 'c');
+    const bodyC = { name: 'Bodyweight (you pick)', min: 8, items: [
+      CH('bc1', 'Your pick: legs', [B('z1'), B('z6'), I('z10', 'Jump squats', '2 sets of ' + r(5) + '. Land soft.', { sq: 2 * r(5), min: 2 })]),
+      CH('bc2', 'Your pick: arms', [B('z2'), I('z11', 'Couch push-ups', 'Hands on the couch edge. 2 sets of ' + r(8) + '.', { pu: 2 * r(8), min: 2 }), B('z4')]),
+      CH('bc3', 'Your pick: core', [B('z3'), B('z7'), B('z9')]),
+      CH('bc4', 'Your pick: fun move', fun.slice(0, 3).map(B))] };
     const hitA = { name: 'Hitting', min: sum(a1), items: a1 }, hitB = { name: 'Hitting', min: sum(b1), items: b1 };
     return {
       A: { title: 'Day 1', sub: focus === 'baseline' ? 'Test day' : 'Hitting + Boss Battle', min: 3 + hitA.min + bodyA.min + 2, blocks: [warm(0), hitA, bodyA, log] },
       // In test week only Day 1 runs the tests; Day 2 is a normal practice so he is not maxing out twice.
-      B: { title: 'Day 2', sub: armRest ? 'Hitting + glove work' : 'Hitting + pitching', min: 3 + mound.min + hitB.min + bodyB.min + 2, blocks: [warm(1), mound, hitB, bodyB, log] },
-      C: { title: 'Day 3', sub: 'Bodyweight only', min: 10, blocks: [bodyC] }
+      B: { title: 'Day 2', sub: armRest ? 'Hitting + glove work' : 'Hitting + pitching', min: 3 + mound.min + hitB.min + bodyB.min + heB.min + 2, blocks: [warm(1), mound, hitB, heB, bodyB, log] },
+      C: { title: 'Day 3', sub: 'Bodyweight + hand-eye', min: 12, blocks: [heC, bodyC] }
     };
+  }
+  // Swap each "pick one" slot for the drill he chose (or leave the slot to be picked).
+  function resolveSession(session, picks) {
+    picks = picks || {};
+    return Object.assign({}, session, { blocks: session.blocks.map(b => Object.assign({}, b, { items: b.items.map(i => {
+      if (!i.choices) return i;
+      const c = i.choices.find(x => x.id === picks[i.id]);
+      return c ? Object.assign({}, c, { slot: i.id, choices: i.choices, pickName: i.title }) : i; }) })) });
   }
   const drillIds = session => session.blocks.flatMap(b => b.items).map(i => i.id);
 
@@ -1336,7 +1394,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { MIX_GOALS, mixFor, mixProgress, mixStreak, LOCKER, gearFor, normPitch, GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { resolveSession, HAND_EYE, MIX_GOALS, mixFor, mixProgress, mixStreak, LOCKER, gearFor, normPitch, GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
@@ -3070,8 +3128,11 @@ function viewToday() {
   const p = plan(), slots = ['A', 'B', 'C'], F = L.FOCUS[p.pick.focus];
   // Until he taps a day himself, always show the first unfinished one (data can arrive after the first draw).
   if (!state.slotPicked || !state.slot || !p.week[state.slot]) state.slot = slots.find(s => !p.wk.done[s]) || 'A';
-  const ses = p.week[state.slot], tk = p.wk.monday + state.slot;
+  const tk = p.wk.monday + state.slot;
   const ticks = state.ticks[tk] || (state.ticks[tk] = {}), counts = state.counts[tk] || (state.counts[tk] = {});
+  // "Pick one" slots: his choices live with the ticks, keyed pick:<slot>
+  const picks = {}; for (const k in ticks) if (k.indexOf('pick:') === 0) picks[k.slice(5)] = ticks[k];
+  const ses = L.resolveSession(p.week[state.slot], picks);
   const items = ses.blocks.flatMap(b => b.items), doneN = items.filter(i => ticks[i.id]).length, isDone = !!p.wk.done[state.slot];
   const last = checks()[0]; let n = 0;
   const nextUp = items.find(i => !ticks[i.id]);
@@ -3091,14 +3152,20 @@ function viewToday() {
         p.week[s].title, h('small', null, p.week[s].sub), h('small', null, p.wk.done[s] ? 'Done ✓' : p.week[s].min + ' minutes')))),
       h('div', null, ses.blocks.map(b => [
         h('div', { class: 'inning' }, h('span', null, b.name), h('span', { class: 'num' }, b.min + ' min')),
-        b.items.map(i => { n++; const on = !!ticks[i.id] || isDone; return [
+        b.items.map(i => { n++; const on = !!ticks[i.id] || isDone;
+          if (i.choices && !i.slot) return h('div', { class: 'li pick', id: 'li-' + i.id, tabindex: '-1' }, h('span', { class: 'n' }, n),
+            h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, isDone ? 'Choices: ' + i.choices.map(c => c.title).join(', ') : 'You choose! Tap the one you want to do today.'),
+              isDone ? null : h('div', { class: 'picks', role: 'group', 'aria-label': i.title }, i.choices.map(c => h('button', { type: 'button', class: 'pickbtn', onclick: () => { ticks['pick:' + i.id] = c.id; saveTicks(); HubGames.Sound.tick && HubGames.Sound.tick(); render(); } },
+                h('b', null, c.title), h('span', null, c.text))))));
+          return [
           h('button', { type: 'button', class: 'li', id: 'li-' + i.id, 'aria-pressed': String(on), disabled: isDone, onclick: () => { ticks[i.id] = !ticks[i.id]; saveTicks(); render(); if (ticks[i.id]) { HubGames.Sound.later(HubGames.Sound.crack); toNext(items, ticks, i.id); } } },
             h('span', { class: 'n' }, n), h('span', null, h('span', { class: 't' }, i.title), h('span', { class: 'd' }, i.text), L.tipFor(i) ? h('span', { class: 'tip' }, 'Tip: ' + L.tipFor(i)) : null, L.whyFor(i) ? h('span', { class: 'why' }, 'Why: ' + L.whyFor(i)) : null), h('span', { class: 'mark' })),
           VIDEOS_ON && L.videoFor(i) ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { state.video = L.videoFor(i); state.videoFor = i.title; renderVideo(); } }, '▶ Watch how')) : null,
           i.count && !isDone ? h('div', { class: 'count' }, h('label', { for: 'cnt-' + i.id }, 'Solid hits'),
             h('input', { id: 'cnt-' + i.id, type: 'number', inputmode: 'numeric', min: '0', max: String(i.count), value: counts[i.id] == null ? '' : counts[i.id], oninput: e => { counts[i.id] = e.target.value; saveTicks(); } }),
             h('span', { class: 'mid' }, 'out of ' + i.count)) : null,
-          !isDone ? extras(i, counts) : null]; })])),
+          !isDone ? extras(i, counts) : null,
+          i.slot && !isDone && !ticks[i.id] ? h('div', { class: 'watch' }, h('button', { type: 'button', class: 'btn ghost small', onclick: () => { delete ticks['pick:' + i.slot]; saveTicks(); render(); } }, '\u21bb Pick a different one')) : null]; })])),
       // Progress and Finish ride along at the bottom of the screen while he works.
       isDone ? h('p', { class: 'status ok' }, ses.title + ' is done for this week.')
         : h('div', { class: 'sessbar' },
