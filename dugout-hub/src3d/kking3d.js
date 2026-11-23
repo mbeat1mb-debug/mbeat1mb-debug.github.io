@@ -1,5 +1,5 @@
 // Strikeout King in 3D: Jaxson pitches (left-handed) from the mound at Seed Spitters Park. Same rules as the flat version.
-import { THREE, world, GLB, rnd, pick, clamp, lerp, BASE, BASES, SPITTERS, HORNETS, UMP } from './park3d.js';
+import { THREE, world, GLB, rnd, pick, clamp, lerp, BASE, BASES, SPITTERS, HORNETS, UMP, gearLook } from './park3d.js';
 import { hudShell, safeSound } from './hud3d.js';
 
 export function kking(cfg) {
@@ -23,7 +23,7 @@ export function kking(cfg) {
 
   // people: Jaxson (Spitters, throws left) on the mound; Hornets hitters; Spitters defense
   const S = SPITTERS(me);
-  const J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S));
+  const GL = gearLook(me), J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}) }));
   J.root.position.set(0, 0.55, -BASE); J.root.rotation.y = Math.PI; scene.add(J.root);
   const bat = W.makeBat();
   const hitter = { R: W.human(Object.assign({ helmet: true }, HORNETS(12))), L: W.human(Object.assign({ mirror: true, helmet: true }, HORNETS(14))) };
@@ -185,7 +185,8 @@ export function kking(cfg) {
   function finishGame() {
     const sp = pitches ? Math.round(strikesThrown / pitches * 100) : 0;
     end(ks, [ks + ' strikeout' + (ks === 1 ? '' : 's') + '!', 'Pitches: ' + pitches + ' · Strikes: ' + strikesThrown + ' of ' + pitches + ' = ' + sp + '%', 'Runs: ' + runs + ' · Hits: ' + hits + ' · Walks: ' + walks,
-      runs >= 6 ? 'Coach came to get the ball. Throw more strikes next time!' : sp >= 55 ? 'Over 55% strikes: that’s the goal in real games too.' : 'Aim for 55% strikes or more, same as in real games.']);
+      runs >= 6 ? 'Coach came to get the ball. Throw more strikes next time!' : sp >= 55 ? 'Over 55% strikes: that’s the goal in real games too.' : 'Aim for 55% strikes or more, same as in real games.',
+      walks >= 3 ? 'Coach tip: ' + walks + ' walks. When you’re behind in the count, aim for the middle of the zone and trust your stuff.' : 'Coach tip: a changeup right after a fastball fools hitters the most.']);
   }
   if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get pt() { return pt; }, get phase() { return phase; }, get outs() { return outs; }, get ks() { return ks; }, get fps() { return W.fps; }, draw: () => W.renderer.render(scene, cam), scene, step: n => { for (let i = 0; i < n; i++) W.step(); }, go: () => $('d3-go').click(), J };
   say('Strikeout King at Seed Spitters Park. Press Play Ball.');

@@ -1,5 +1,5 @@
 // Outfield Hero in 3D: Jaxson in center field. Run under fly balls, dive, then make the right throw. Same rules as the flat version.
-import { THREE, world, rnd, pick, clamp, lerp, BASE, BASES, fence, SPITTERS, HORNETS } from './park3d.js';
+import { THREE, world, rnd, pick, clamp, lerp, BASE, BASES, fence, SPITTERS, HORNETS, gearLook } from './park3d.js';
 import { hudShell, safeSound } from './hud3d.js';
 
 export function outfield(cfg) {
@@ -24,7 +24,7 @@ export function outfield(cfg) {
   const { scene, cam, $ } = W;
   const S = SPITTERS(me);
 
-  const J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S)); J.root.position.copy(meP); scene.add(J.root);
+  const GL = gearLook(me), J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}) })); J.root.position.copy(meP); scene.add(J.root);
   // teammates (Spitters) and the Hornets batter + runners
   [[BASE + 6, -BASE - 10], [18, -2 * BASE + 4], [-18, -2 * BASE + 4], [-BASE - 6, -BASE - 10], [-100, -140], [100, -140], [0, -BASE]].forEach(([x, z]) => {
     const f = W.human(Object.assign({ lod: true, glove: true, cap: true }, S, { letters: null })); f.root.position.set(x, z === -BASE ? 0.55 : 0, z); f.face(0, 0); f.set('ready', 0); scene.add(f.root); });
@@ -146,7 +146,7 @@ export function outfield(cfg) {
     W.setShadowArea(meP.x, meP.z, 40);
   });
   J.set('ready', 0); J.face(0, 0); paint();
-  function finishGame() { end(pts, [pts + ' points!', 'Catches: ' + catches + ' of ' + N + (dives ? ' (' + dives + ' diving)' : '') + ' · Smart throws: ' + smart + ' of ' + N, 'Pro tip: before every pitch, know where you’ll throw if the ball comes to you.']); }
+  function finishGame() { end(pts, [pts + ' points!', 'Catches: ' + catches + ' of ' + N + (dives ? ' (' + dives + ' diving)' : '') + ' · Smart throws: ' + smart + ' of ' + N, catches < 5 ? 'Coach tip: start running the moment it’s hit. Watch the ball’s shadow, not just the ball.' : 'Pro tip: before every pitch, know where you’ll throw if the ball comes to you.']); }
   if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get phase() { return phase; }, get pts() { return pts; }, get n() { return n; }, get fps() { return W.fps; }, draw: () => W.renderer.render(scene, cam), scene, step: k => { for (let i = 0; i < k; i++) W.step(); }, go: () => $('d3-go').click(), throwTo, get sit() { return sit; } };
   say('Outfield Hero at Seed Spitters Park. Press Play Ball.');
   return { stop: W.stop };

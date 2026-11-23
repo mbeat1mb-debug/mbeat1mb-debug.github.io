@@ -1,5 +1,5 @@
 // Steal Second in 3D: Jaxson leads off first. Read the pitcher: GO on his first move home, BACK if he spins to first. Same rules as the flat version.
-import { THREE, world, rnd, clamp, lerp, BASE, BASES, SPITTERS, HORNETS } from './park3d.js';
+import { THREE, world, rnd, clamp, lerp, BASE, BASES, SPITTERS, HORNETS, gearLook } from './park3d.js';
 import { hudShell, safeSound } from './hud3d.js';
 
 export function steal(cfg) {
@@ -20,7 +20,7 @@ export function steal(cfg) {
   const S = SPITTERS(me), Hn = HORNETS(7);
 
   // Jaxson on first; Hornets pitcher (right-handed) in the stretch; first baseman holding him on; middle infielder covering second
-  const J = W.human(Object.assign({ helmet: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S)); scene.add(J.root);
+  const GL = gearLook(me), J = W.human(Object.assign({ helmet: true, skin: 0xf0c8a5, hair: 0x4a2e18, finish: GL.finish }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}, GL.helmet != null ? { helmet: GL.helmet } : {}) })); scene.add(J.root);
   const P1 = W.human(Object.assign({ glove: true }, Hn)); P1.root.position.set(0, 0.55, -BASE); P1.root.rotation.y = Math.PI; P1.set('pitch', 0); scene.add(P1.root);
   const F1 = W.human(Object.assign({ glove: true }, HORNETS(23))); F1.root.position.set(BASE + 1.5, 0, -BASE + 1.2); F1.face(0, -BASE); F1.set('ready', 0); scene.add(F1.root);
   const SS = W.human(Object.assign({ glove: true }, HORNETS(6))); const ssHome = new THREE.Vector3(-14, 0, -2 * BASE + 8); SS.root.position.copy(ssHome); SS.face(0, 0); SS.set('ready', 0); scene.add(SS.root);

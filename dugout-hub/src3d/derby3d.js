@@ -2,12 +2,13 @@
 // Loaded only when the game opens. Units are feet: home plate at the origin, center field toward -z.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GLB, ready } from './park3d.js';
+import { GLB, ready, autoQuality, applyPark, gearLook } from './park3d.js';
 export { ready };
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 export function start(cfg) {
   const { stage, level, me, Sound, still, end, say } = cfg;
+  const GL = gearLook(me);
   // Seed Spitters orange and green. Opponent: Hornets navy and gold.
   const ORANGE = 0xee7f24, GREEN = 0x1d6a3b, DKGREEN = 0x0f3d22, BLACK = 0x161616, DEEP = 0xd15d0a, BLUE = 0x1f3f7a, GOLD = 0xf2c230;
   const lefty = me.bats !== 'right', side = lefty ? 1 : -1;
@@ -300,7 +301,7 @@ export function start(cfg) {
       m.frustumCulled = false; m.castShadow = !o.lod; m.receiveShadow = false;
       const mm = m.material.clone(); m.material = mm; const k = mm.name;
       if (col[k] != null) mm.color.setHex(col[k]);
-      if (k === 'helmet') { mm.roughness = 0.22; mm.metalness = 0.1; }
+      if (k === 'helmet') { mm.roughness = o.finish ? o.finish.r : 0.22; mm.metalness = o.finish ? o.finish.m : 0.1; }
       const nm = m.name || (m.parent && m.parent.name) || '';
       if (o.lod && /^(eye|brow|lip|backnumber|chestscript)$/.test(k)) { m.visible = false; return; }
       if (/^Helmet/.test(nm)) m.visible = !!o.helmet; if (/^Cap/.test(nm)) m.visible = !o.helmet && o.cap !== false; if (/^Glove/.test(nm)) m.visible = !!o.glove;
@@ -338,10 +339,10 @@ export function start(cfg) {
 
   // Jaxson
   const bat = (() => { const pts = []; for (let i = 0; i <= 16; i++) { const y = i / 16 * 2.45, r = i < 2 ? 0.07 : y < 1.0 ? 0.055 : Math.min(0.13, 0.055 + (y - 1.0) * 0.06); pts.push(new THREE.Vector2(i === 16 ? 0.0 : r, y)); }
-    pts.unshift(new THREE.Vector2(0, -0.02)); const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 16), toon(0xd9a65e, { roughness: 0.45 })); m.castShadow = true;
+    pts.unshift(new THREE.Vector2(0, -0.02)); const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 16), toon(GL.bat || 0xd9a65e, { roughness: GL.bat === 0xd4af37 ? 0.3 : 0.45, metalness: GL.bat === 0xd4af37 ? 0.6 : 0 })); m.castShadow = true;
     const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.6, 12), toon(BLACK)); tape.position.y = 0.4; m.add(tape); return m; })();
   const OPPC = { jersey: 0xd6d4cc, sleeve: BLUE, pants: 0xd8d6cf, socks: BLUE, belt: BLUE, cap: BLUE, helmet: BLUE };
-  const J = GLB ? human({ mirror: lefty, helmet: true, skin: 0xf0c8a5, hair: 0x4a2e18, colors: { jersey: ORANGE, sleeve: GREEN, pants: 0xf4f2ec, socks: GREEN, belt: GREEN, helmet: GREEN },
+  const J = GLB ? human({ mirror: lefty, helmet: true, skin: 0xf0c8a5, hair: 0x4a2e18, finish: GL.finish, colors: Object.assign({ jersey: ORANGE, sleeve: GREEN, pants: 0xf4f2ec, socks: GREEN, belt: GREEN, helmet: GL.helmet != null ? GL.helmet : GREEN }, GL.shoes != null ? { shoes: GL.shoes } : {}),
     letters: { bg: '#ee7f24', fg: '#1d6a3b', edge: '#ffffff', num: me.num, name: me.name.toUpperCase().slice(0, 10), script: 'Spitters' } }) : player({ shirt: ORANGE, shirtCss: '#ee7f24', sleeve: ORANGE, under: GREEN, longSleeve: true, trim: GREEN, piping: true, pants: 0xf4f2ec, legStripe: GREEN, belt: GREEN, socks: GREEN, helmet: GREEN, helmetStripe: ORANGE,
     num: me.num, name: me.name.toUpperCase().slice(0, 10), numCss: '#1d6a3b', numEdge: '#ffffff', script: 'Spitters', eyeBlack: true, gloves: ORANGE, skin: 0xf0c8a5 });
   J.root.position.set(side * 2.7, 0, 0.2); J.root.rotation.y = J.h ? 0 : side * Math.PI / 2; scene.add(J.root);
@@ -376,6 +377,7 @@ export function start(cfg) {
     const f = GLB ? human({ lod: true, glove: true, colors: OPPC }) : player(Object.assign({ lod: true }, OPP)); f.root.position.set(x, 0, z); f.root.lookAt(0, 0, 0); f.home = new THREE.Vector3(x, 0, z); f.root.rotation.y += Math.PI; setPose(f, READY); scene.add(f.root); return f; });
   const catcher = GLB ? human({ helmet: true, glove: true, colors: Object.assign({}, OPPC, { helmet: 0x1a1a1a }) }) : player(Object.assign({}, OPP, { helmet: 0x1a1a1a, cap: 0x1a1a1a })); catcher.root.position.set(0, 0, 3.2); catcher.root.rotation.y = 0; catcher.root.scale.setScalar(catcher.h ? 0.92 : 0.9); setPose(catcher, CROUCH); scene.add(catcher.root);
   const ump = GLB ? human({ size: 1.22, skin: 0xd49a72, colors: { jersey: 0x22252b, sleeve: 0x22252b, pants: 0x6a6f78, cap: 0x111111, socks: 0x111111, belt: 0x111111 } }) : player({ shirt: 0x22252b, under: 0x22252b, pants: 0x6a6f78, cap: 0x111111, socks: 0x111111, longSleeve: true }); ump.root.position.set(-side * (GLB ? 2.3 : 0.7), 0, GLB ? 7.6 : 6.9); ump.root.rotation.y = GLB ? -side * 0.18 : 0; setPose(ump, { y: -0.95, torso: [0.5, 0, 0], shL: [-0.5, 0, -0.2], elL: [-1.2, 0, 0], shR: [-0.5, 0, 0.2], elR: [-1.2, 0, 0], hipL: [-0.6, 0, -0.3], knL: [1, 0, 0], hipR: [-0.6, 0, 0.3], knR: [1, 0, 0] }); scene.add(ump.root);
+  applyPark(scene, renderer, GL.park);
   setPose(J, BP.stance); setBat(BP.stance);
   setPose(P1, PK[0].p); if (ump.h) ump.set('ump', 0); if (P1.h) playKeys(P1, PK, 0);
 
@@ -433,6 +435,7 @@ export function start(cfg) {
 
   const jobs = []; const later = (sec, fn) => jobs.push({ at: T + sec, fn });
   function newPitch() {
+    if (P && !P.strike) balls++;
     const kind = pick(KINDS), mph = Math.round((kind === 'fast' ? rnd(47, 56) : kind === 'change' ? rnd(38, 43) : rnd(40, 46)) + (level === 3 ? 5 : 0));
     const strike = Math.random() < (level === 1 ? 0.88 : 0.78);
     let x = rnd(-0.55, 0.55), h = rnd(1.8, 3.1);
@@ -454,8 +457,10 @@ export function start(cfg) {
     const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, cam); const hitP = new THREE.Vector3(); ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), hitP);
     let aimH = clamp(hitP ? hitP.y : 2.5, 0.6, 4.4); if (level === 1 && P) aimH = P.h + gauss() * 0.15;
     sw = { t: 0, h: aimH }; cursor.position.set(clamp(hitP ? hitP.x : 0, -2, 2), aimH, 0.1); cursor.material.opacity = 0.9; cursor.scale.setScalar(1);
-    if (phase === 'wind') { result('whiff', 'Way too early!'); return; }
+    if (phase === 'wind') { early++; result('whiff', 'Way too early!'); return; }
+    if (!P.strike) chases++;
     const e = (P.t - P.T) * 1000 / SLOW * 1.2, v = aimH - P.h, a = Math.abs(e);
+    if (a > WIN * 1.6) { if (e < 0) early++; else late++; }
     if (a > WIN * 1.6 || Math.abs(v) > 0.95) { sw.miss = true; result('whiff', a > WIN * 1.6 ? (e < 0 ? 'Swung too early!' : 'Swung too late!') : (v > 0 ? 'Swung over it!' : 'Swung under it!')); return; }
     let q = 1 - 0.7 * Math.pow(Math.min(1, a / (WIN * 1.6)), 1.5) - 0.55 * Math.pow(Math.min(1, Math.abs(v) / 0.95), 1.3);
     if (!P.strike) q -= 0.25;
@@ -528,7 +533,7 @@ export function start(cfg) {
   }
   // Where the ball would have landed with no stands in the way.
   function carry(p0, v0) { const p = p0.clone(), v = v0.clone(), h = 1 / 120; for (let i = 0; i < 2000 && p.y > 0; i++) { const sp = v.length(), k = 0.0012; v.x -= k * sp * v.x * h; v.z -= k * sp * v.z * h; v.y -= (32.2 + k * sp * v.y) * h; p.addScaledVector(v, h); } return Math.round(Math.hypot(p.x, p.z)); }
-  let hits = 0, doubles = 0;
+  let hits = 0, doubles = 0, balls = 0, takes = 0, chases = 0, early = 0, late = 0;
   function result(kind, text, sub) {
     if (phase !== 'flight') { phase = 'after'; pt = 0; }
     if (kind === 'hr') {
@@ -557,7 +562,7 @@ export function start(cfg) {
 
   /* ---------- sizing ---------- */
   const fit = () => { const r = wrap.getBoundingClientRect(); if (!r.width) return; renderer.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; cam.fov = cam.aspect < 0.8 ? 56 : cam.aspect < 1.2 ? 48 : 40; cam.updateProjectionMatrix(); };
-  const ro = new ResizeObserver(fit); ro.observe(wrap); fit();
+  const ro = new ResizeObserver(fit); ro.observe(wrap); const AQ = autoQuality(renderer, sun, fit);
 
   /* ---------- main loop ---------- */
   let last = performance.now(), raf = 0, alive = true, T = 0, fpsAcc = 0, fpsN = 0, fpsNow = 0; const FIXED = /d3test|d3rec/.test(location.search) ? 1 / 30 : 0;
@@ -566,7 +571,7 @@ export function start(cfg) {
   function frame() { if (!alive) return; if (!MANUAL) raf = requestAnimationFrame(frame); tick(); }
   function tick() {
     if (window.__d3auto && phase === 'pitch' && P && !sw && P.t >= P.T * 0.99) { const p = tmp.set(0, P.h, 0).project(cam), r = cv.getBoundingClientRect(); swing(r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height); }
-    const now = performance.now(), rdt = FIXED || Math.min(0.05, (now - last) / 1000), dt = rdt * timeScale; last = now; T += rdt; pt += dt; fpsAcc += rdt; fpsN++; if (fpsAcc > 1) { fpsNow = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
+    const now = performance.now(); AQ.frame(now); const now_ = now, rdt = FIXED || Math.min(0.05, (now - last) / 1000), dt = rdt * timeScale; last = now; T += rdt; pt += dt; fpsAcc += rdt; fpsN++; if (fpsAcc > 1) { fpsNow = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     crowd.update(T, rdt); updateFw(rdt); callFrame(); for (let i = jobs.length - 1; i >= 0; i--) if (T >= jobs[i].at) { const j = jobs[i]; jobs.splice(i, 1); j.fn(); }
     // fielders idle
     if (!GLB) fielders.forEach((f, i) => { f.root.position.y = Math.abs(Math.sin(T * 2 + i)) * 0.05; });
@@ -582,7 +587,7 @@ export function start(cfg) {
       ballAt(p, ball.position); ball.rotation.x += dt * 30;
       if (level === 1 && p > 0.45 && p < 1) { aimRing.position.set(P.x, P.h, 0.05); aimRing.material.opacity = 0.85 * Math.min(1, (p - 0.45) * 4); } else aimRing.material.opacity = 0;
       if (!catcher.h) catcher.parts.shL.rotation.x = lerp(catcher.parts.shL.rotation.x, -1.2 - (P.h - 2.5) * 0.4, 0.15);
-      if (p > 1.08 && !sw) { ball.visible = false; Sound.pop(); aimRing.material.opacity = 0; showSpot(); result(P.strike ? 'look' : 'ball', P.strike ? 'Strike looking!' : ''); }
+      if (p > 1.08 && !sw) { if (!P.strike) takes++; ball.visible = false; Sound.pop(); aimRing.material.opacity = 0; showSpot(); result(P.strike ? 'look' : 'ball', P.strike ? 'Strike looking!' : ''); }
       else if (p > 1.08 && sw && sw.miss && ball.visible) { ball.visible = false; Sound.pop(); showSpot(); }
     }
     // swing animation
@@ -645,8 +650,14 @@ export function start(cfg) {
   frame();
 
   function finishGame() {
-    end(hr, [hr + ' home run' + (hr === 1 ? '' : 's') + '!', 'Longest: ' + (longest || 0) + ' ft · Other hits: ' + hits + (doubles ? ' (' + doubles + ' for extra bases)' : ''),
-      bestStreak >= 2 ? 'Best streak: ' + bestStreak + ' in a row' : 'Tip: early swings get pulled, late swings go the other way.'].concat(hr >= 8 ? ['Derby champion!'] : []));
+    if (P && !P.strike) balls++;
+    const tip = chases >= 3 ? 'Coach tip: you chased ' + chases + ' balls. Only swing at strikes. A ball you take can\u2019t get you out.'
+      : early > late + 1 ? 'Coach tip: you were early ' + early + ' times. Let the ball travel a little longer before you swing.'
+      : late > early + 1 ? 'Coach tip: you were late ' + late + ' times. Start your load when the pitcher\u2019s arm goes back.'
+      : 'Coach tip: early swings get pulled, late swings go the other way. Use it!';
+    end(hr, [hr + ' home run' + (hr === 1 ? '' : 's') + '!', 'Longest: ' + (longest || 0) + ' ft \u00b7 Other hits: ' + hits + (doubles ? ' (' + doubles + ' for extra bases)' : ''),
+      'Good eye: took ' + takes + ' of ' + balls + ' balls' + (chases ? ' \u00b7 chased ' + chases : ' \u00b7 no chases!'),
+      bestStreak >= 2 ? 'Best streak: ' + bestStreak + ' in a row' : null, tip].filter(Boolean).concat(hr >= 8 ? ['Derby champion!'] : []));
   }
   function stop() { alive = false; cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('keydown', onKey);
     scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } });

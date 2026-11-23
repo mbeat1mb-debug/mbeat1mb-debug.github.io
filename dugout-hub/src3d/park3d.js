@@ -4,12 +4,13 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 export { THREE };
 
 // Ballplayers: one rigged kid (MakeHuman CC0 body) with real motion-capture swing, pitch and run (CMU mocap, free for all uses).
 export let GLB = null;
 export const ready = /nohuman/.test(location.search) ? Promise.resolve() : Promise.race([
-  new GLTFLoader().loadAsync(new URL('./player.glb', import.meta.url).href).then(g => { GLB = g; }),
+  new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL('./player.glb', import.meta.url).href).then(g => { GLB = g; }),
   new Promise(r => setTimeout(r, 20000))]).catch(() => {});
 
 export const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
@@ -218,7 +219,7 @@ export function world(cfg) {
       m.frustumCulled = false; m.castShadow = !o.lod; m.receiveShadow = false;
       const mm = m.material.clone(); m.material = mm; const k = mm.name;
       if (col[k] != null) mm.color.setHex(col[k]);
-      if (k === 'helmet') { mm.roughness = 0.22; mm.metalness = 0.1; }
+      if (k === 'helmet') { mm.roughness = o.finish ? o.finish.r : 0.22; mm.metalness = o.finish ? o.finish.m : 0.1; }
       const nm = m.name || (m.parent && m.parent.name) || '';
       if (o.lod && /^(eye|brow|lip|backnumber|chestscript)$/.test(k)) { m.visible = false; return; }
       if (/^Helmet/.test(nm)) m.visible = !!o.helmet; if (/^Cap/.test(nm)) m.visible = !o.helmet && o.cap !== false; if (/^Glove/.test(nm)) m.visible = !!o.glove;
@@ -238,8 +239,8 @@ export function world(cfg) {
     return { h: true, root, turn, inner, parts, set, face, mir, get clip() { return cur; } };
   }
   // the bat, gripped in both hands and fixed to the top hand
-  const makeBat = () => { const pts = []; for (let i = 0; i <= 16; i++) { const y = i / 16 * 2.45, r = i < 2 ? 0.07 : y < 1.0 ? 0.055 : Math.min(0.13, 0.055 + (y - 1.0) * 0.06); pts.push(new THREE.Vector2(i === 16 ? 0.0 : r, y)); }
-    pts.unshift(new THREE.Vector2(0, -0.02)); const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 16), toon(0xd9a65e, { roughness: 0.45 })); m.castShadow = true;
+  const makeBat = (color) => { const pts = []; for (let i = 0; i <= 16; i++) { const y = i / 16 * 2.45, r = i < 2 ? 0.07 : y < 1.0 ? 0.055 : Math.min(0.13, 0.055 + (y - 1.0) * 0.06); pts.push(new THREE.Vector2(i === 16 ? 0.0 : r, y)); }
+    pts.unshift(new THREE.Vector2(0, -0.02)); const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 16), toon(color || 0xd9a65e, { roughness: color === 0xd4af37 ? 0.3 : 0.45, metalness: color === 0xd4af37 ? 0.6 : 0 })); m.castShadow = true;
     const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.6, 12), toon(0x161616)); tape.position.y = 0.4; m.add(tape); scene.add(m); return m; };
   const tmpG = new THREE.Vector3(), AX1 = new THREE.Vector3(1, 0, 0), UPV = new THREE.Vector3(0, 1, 0);
   const placeBat = (p, bat) => { p.root.updateMatrixWorld(true); const kn = b => { const ch = b.children.find(c => c.isBone); return (ch || b).getWorldPosition(tmpG); };
@@ -271,7 +272,7 @@ export function world(cfg) {
 
   // sizing
   const fit = () => { const r = wrap.getBoundingClientRect(); if (!r.width) return; renderer.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; if (cfg.fov) cam.fov = cfg.fov(cam.aspect); cam.updateProjectionMatrix(); };
-  const ro = new ResizeObserver(fit); ro.observe(wrap); fit();
+  const ro = new ResizeObserver(fit); ro.observe(wrap); const AQ = autoQuality(renderer, sun, fit);
 
   // main loop: tick(dt, T); test hooks: ?d3test fixed steps, ?d3rec manual frames
   const FIXED = /d3test|d3rec/.test(location.search) ? 1 / 30 : 0, MANUAL = /d3rec/.test(location.search), FAST = /d3fast/.test(location.search); let nFast = 0;
@@ -280,7 +281,7 @@ export function world(cfg) {
   function step() {
     const now = performance.now(), dt = FIXED || Math.min(0.05, (now - last) / 1000); last = now; T += dt; fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     crowd.update(T, dt); for (let i = jobs.length - 1; i >= 0; i--) if (T >= jobs[i].at) { const j = jobs[i]; jobs.splice(i, 1); j.fn(); }
-    onTick(dt, T); callFrame(); if (!FAST || (++nFast % 12) === 0) renderer.render(scene, cam);
+    AQ.frame(now); onTick(dt, T); callFrame(); if (!FAST || (++nFast % 12) === 0) renderer.render(scene, cam);
   }
   function frame() { if (!alive) return; if (!MANUAL) raf = requestAnimationFrame(frame); step(); }
   const run = fn => { onTick = fn; frame(); };
@@ -289,6 +290,7 @@ export function world(cfg) {
     scene.traverse(o => { if (o.geometry && !o.isSkinnedMesh) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.map && m.map.userData && m.map.userData.canvas) m.map.dispose(); m.dispose(); }); } });
     renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) {} }
 
+  applyPark(scene, renderer, (me.gear && me.gear.park && me.gear.park.id) || null);
   return { THREE, wrap, hud, $, renderer, cv, scene, cam, canvasTex, toon, crowd, drawBoard, human, makeBat, placeBat, standInBox, handPos, gloveHand, ball, ballShadow, ring,
     callout, toScreen, toPlane, setShadowArea, later, run, stop, step, cleanups, CAL, get T() { return T; }, get fps() { return fps; } };
 }
@@ -299,3 +301,45 @@ export const SPITTERS = me => ({ colors: { jersey: ORANGE, sleeve: GREEN, pants:
 export const HORNETS = num => ({ colors: { jersey: 0xd6d4cc, sleeve: BLUE, pants: 0xd8d6cf, socks: BLUE, belt: BLUE, cap: BLUE, helmet: BLUE },
   letters: num ? { bg: '#d6d4cc', fg: '#1f3f7a', edge: '#f2c230', num: String(num), name: 'HORNETS', script: 'Hornets' } : null });
 export const UMP = { size: 1.22, skin: 0xd49a72, colors: { jersey: 0x22252b, sleeve: 0x22252b, pants: 0x6a6f78, cap: 0x111111, socks: 0x111111, belt: 0x111111 } };
+
+// Auto quality: if the device can't hold about 28 frames a second, step down (sharpness, then shadows). The level is remembered for next time.
+export function autoQuality(renderer, sun, refit) {
+  const KEY = 'dh3dq', dpr = window.devicePixelRatio || 1, test = /d3test|d3rec|d3fast/.test(location.search);
+  let lvl = 0; try { lvl = Math.min(3, +(localStorage.getItem(KEY) || 0)); } catch (e) {}
+  if (test) lvl = 0;
+  const apply = () => { renderer.setPixelRatio([Math.min(2, dpr), Math.min(1.5, dpr), 1, 0.8][lvl]);
+    sun.shadow.mapSize.set(lvl >= 1 ? 1024 : 2048, lvl >= 1 ? 1024 : 2048); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } sun.castShadow = lvl < 2; refit(); };
+  apply();
+  let n = 0, t0 = 0, warm = 0;
+  return { get level() { return lvl; }, frame(now) {
+    if (test || lvl >= 3) return;
+    if (warm < 45) { warm++; t0 = now; n = 0; return; }   // let the first second settle
+    n++; const el = now - t0;
+    if (el > 2500) { const fps = n * 1000 / el; n = 0; t0 = now;
+      if (fps < 27) { lvl++; try { localStorage.setItem(KEY, lvl); } catch (e) {} apply(); warm = 15; } } } };
+}
+
+// Ballpark look from the Locker: night (default), day game, or sunset. Works on any of the 3D scenes after they're built.
+export function applyPark(scene, renderer, id) {
+  if (!id || id === 'night') return;
+  const day = id === 'day';
+  const c = document.createElement('canvas'); c.width = 16; c.height = 512; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512);
+  if (day) { gr.addColorStop(0, '#2f6fc4'); gr.addColorStop(0.4, '#6fa8e6'); gr.addColorStop(0.5, '#cfe6fb'); gr.addColorStop(0.53, '#9aa7b5'); gr.addColorStop(1, '#4a4a4a'); }
+  else { gr.addColorStop(0, '#1b1b4a'); gr.addColorStop(0.36, '#5a3a78'); gr.addColorStop(0.46, '#e0705a'); gr.addColorStop(0.5, '#ffb35c'); gr.addColorStop(0.53, '#3a2a2a'); gr.addColorStop(1, '#141010'); }
+  g.fillStyle = gr; g.fillRect(0, 0, 16, 512); const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  scene.fog.color.set(day ? 0xbcd6f0 : 0x6a4a5a);
+  scene.environmentIntensity = day ? 0.7 : 0.45;
+  scene.traverse(o => {
+    if (o.isMesh && o.geometry && o.geometry.parameters && o.geometry.parameters.radius === 2200) { o.material.map = tex; o.material.needsUpdate = true; }
+    if (o.isPoints && o.material.size === 3) o.visible = !day;
+    if (o.isSprite && o.scale.x === 130) o.visible = !day;
+    if (o.isHemisphereLight) { o.intensity = day ? 1.5 : 1.1; if (!day) o.color.set(0xffd9c0); }
+    if (o.isDirectionalLight && o.castShadow) { o.intensity = day ? 3.2 : 2.4; o.color.set(day ? 0xffffff : 0xffb070); }
+  });
+  renderer.toneMappingExposure = day ? 1.0 : 1.05;
+}
+// Jaxson's Locker gear as player options (cleats, helmet finish)
+export function gearLook(me) {
+  const g = (me && me.gear) || {};
+  return { shoes: g.cleats && g.cleats.c, helmet: g.helmet && g.helmet.c, finish: g.helmet ? { r: g.helmet.r, m: g.helmet.m } : null, bat: g.bat && g.bat.c, park: g.park && g.park.id };
+}
