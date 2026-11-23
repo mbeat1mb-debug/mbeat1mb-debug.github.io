@@ -1,0 +1,10 @@
++ for f in 'out/files/*'
+++ basename 'out/files/*'
+++ stat -f%z 'out/files/*'
+stat: out/files/*: stat: No such file or directory
++ echo '== *  bytes'
+== *  bytes
++ ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,nb_frames:format=duration,format_name -of compact 'out/files/*'
++ head -4
+out/files/*: No such file or directory
++ case "$f" in

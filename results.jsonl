@@ -1,0 +1,196 @@
+{"dev": "ipad-sim", "case": "d3model", "data": {"game": "kking", "ms": 174}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 2, "fps": 40, "phase": "intro", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 4, "fps": 8, "phase": "ring", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 6, "fps": 13, "phase": "wind", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 8, "fps": 11, "phase": "call", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 10, "fps": 14, "phase": "call", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 12, "fps": 15, "phase": "wind", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 14, "fps": 8, "phase": "throw", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 16, "fps": 11, "phase": "call", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 18, "fps": 18, "phase": "call", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 20, "fps": 20, "phase": "throw", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 22, "fps": 20, "phase": "call", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 24, "fps": 19, "phase": "wind", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 26, "fps": 24, "phase": "call", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 28, "fps": 19, "phase": "pick", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 30, "fps": 22, "phase": "throw", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 32, "fps": 21, "phase": "call", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 34, "fps": 3, "phase": "call", "outs": 1}}
+{"dev": "ipad-sim", "case": "d3model", "data": {"game": "steal", "ms": 441}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 2, "fps": 30, "phase": "intro", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 4, "fps": 14, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 6, "fps": 21, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 8, "fps": 19, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 10, "fps": 20, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 12, "fps": 24, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 14, "fps": 23, "phase": "result", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 16, "fps": 24, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 18, "fps": 24, "phase": "gap", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 20, "fps": 25, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 22, "fps": 24, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 24, "fps": 23, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 26, "fps": 25, "phase": "result", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 28, "fps": 24, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 30, "fps": 23, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 32, "fps": 26, "phase": "move", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 34, "fps": 23, "phase": "result", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 36, "fps": 24, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 38, "fps": 21, "phase": "set", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3done_steal", "data": {}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 40, "fps": 22, "phase": "gap", "outs": 0}}
+{"dev": "ipad-sim", "case": "d3end", "data": {"s": 8, "l": ["8 stolen bases!", "Outs: 0 \u00b7 Average jump: 204 ms", "Real base stealers go on the pitcher\u2019s first move home, not when the ball is thrown."]}}
+{"dev": "ipad-sim", "case": "d3model", "data": {"game": "outfield", "ms": 133}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 2, "fps": 32, "phase": "intro"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 4, "fps": 16, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 6, "fps": 26, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 8, "fps": 26, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 10, "fps": 27, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 12, "fps": 26, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 14, "fps": 27, "phase": "throw"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 16, "fps": 23, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 18, "fps": 26, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 20, "fps": 26, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 22, "fps": 25, "phase": "throw"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 24, "fps": 21, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 26, "fps": 24, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 28, "fps": 28, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 30, "fps": 25, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 32, "fps": 25, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 34, "fps": 29, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 36, "fps": 29, "phase": "fly"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 38, "fps": 26, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 40, "fps": 23, "phase": "thrown"}}
+{"dev": "ipad-sim", "case": "d3done_outfield", "data": {}}
+{"dev": "ipad-sim", "case": "d3model", "data": {"game": "pitchrec", "ms": 457}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 2, "fps": 22, "phase": "intro"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 4, "fps": 15, "phase": "wind"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 6, "fps": 22, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 8, "fps": 22, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 10, "fps": 22, "phase": "pitch"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 12, "fps": 21, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 14, "fps": 23, "phase": "wind"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 16, "fps": 20, "phase": "pitch"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 18, "fps": 21, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 20, "fps": 17, "phase": "wind"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 22, "fps": 17, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 24, "fps": 20, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 26, "fps": 19, "phase": "pitch"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 28, "fps": 16, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 30, "fps": 23, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 32, "fps": 24, "phase": "pitch"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 34, "fps": 21, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 36, "fps": 23, "phase": "wind"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 38, "fps": 26, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 40, "fps": 25, "phase": "result"}}
+{"dev": "ipad-sim", "case": "d3done_pitchrec", "data": {}}
+{"dev": "ipad-sim", "case": "d3end", "data": {"s": 27, "l": ["27 points!", "Right calls: 9 of 10 \u00b7 You read it 33% of the way in (lower is better)", "The fastball fooled you most. Fastball: tight backspin, the seams blur, and it gets on you fast."]}}
+{"dev": "iphone-sim", "case": "d3model", "data": {"game": "start", "ms": 187}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 2, "fps": 60, "phase": "intro", "hr": 0, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 4, "fps": 9, "phase": "wind", "hr": 0, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 6, "fps": 21, "phase": "pitch", "hr": 0, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 8, "fps": 21, "phase": "flight", "hr": 0, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 10, "fps": 17, "phase": "flight", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 12, "fps": 16, "phase": "flight", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 14, "fps": 2, "phase": "flight", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 16, "fps": 16, "phase": "after", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 18, "fps": 7, "phase": "gap", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 20, "fps": 17, "phase": "pitch", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 22, "fps": 17, "phase": "flight", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 24, "fps": 20, "phase": "flight", "hr": 1, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 26, "fps": 16, "phase": "flight", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 28, "fps": 18, "phase": "flight", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 30, "fps": 16, "phase": "gap", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 32, "fps": 16, "phase": "pitch", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 34, "fps": 17, "phase": "flight", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 36, "fps": 15, "phase": "flight", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 38, "fps": 15, "phase": "flight", "hr": 2, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "start", "sk": 143, "t": 40, "fps": 15, "phase": "flight", "hr": 3, "outs": 0}}
+{"dev": "iphone-sim", "case": "d3done_start", "data": {}}
+{"dev": "iphone-sim", "case": "d3model", "data": {"game": "kking", "ms": 206}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 2, "fps": 13, "phase": "intro", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 4, "fps": 13, "phase": "ring", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 6, "fps": 25, "phase": "call", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 8, "fps": 32, "phase": "ring", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 10, "fps": 34, "phase": "throw", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 12, "fps": 30, "phase": "call", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 14, "fps": 28, "phase": "throw", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 16, "fps": 18, "phase": "call", "outs": 1}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 18, "fps": 25, "phase": "wind", "outs": 1}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 20, "fps": 26, "phase": "call", "outs": 1}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 22, "fps": 18, "phase": "ring", "outs": 1}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 24, "fps": 22, "phase": "throw", "outs": 1}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 26, "fps": 21, "phase": "call", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 28, "fps": 20, "phase": "wind", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 30, "fps": 20, "phase": "call", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 32, "fps": 12, "phase": "call", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 34, "fps": 20, "phase": "wind", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 36, "fps": 20, "phase": "call", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 38, "fps": 23, "phase": "ring", "outs": 2}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "kking", "sk": 195, "t": 40, "fps": 27, "phase": "call", "outs": 3}}
+{"dev": "iphone-sim", "case": "d3done_kking", "data": {}}
+{"dev": "iphone-sim", "case": "d3model", "data": {"game": "steal", "ms": 399}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 2, "fps": 18, "phase": "intro", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 4, "fps": 15, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 6, "fps": 21, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 8, "fps": 22, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 10, "fps": 25, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 12, "fps": 24, "phase": "result", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 14, "fps": 23, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 16, "fps": 19, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 18, "fps": 27, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 20, "fps": 26, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 22, "fps": 28, "phase": "result", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 24, "fps": 27, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 26, "fps": 22, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 28, "fps": 23, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 30, "fps": 23, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 32, "fps": 19, "phase": "result", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 34, "fps": 17, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 36, "fps": 18, "phase": "set", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 38, "fps": 19, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "steal", "sk": 143, "t": 40, "fps": 26, "phase": "move", "outs": 0}}
+{"dev": "iphone-sim", "case": "d3done_steal", "data": {}}
+{"dev": "iphone-sim", "case": "d3model", "data": {"game": "outfield", "ms": 391}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 2, "fps": 29, "phase": "intro"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 4, "fps": 26, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 6, "fps": 32, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 8, "fps": 22, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 10, "fps": 23, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 12, "fps": 26, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 14, "fps": 29, "phase": "throw"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 16, "fps": 27, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 18, "fps": 21, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 20, "fps": 24, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 22, "fps": 25, "phase": "throw"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 24, "fps": 27, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 26, "fps": 30, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 28, "fps": 28, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 30, "fps": 28, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 32, "fps": 30, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 34, "fps": 30, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 36, "fps": 33, "phase": "throw"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 38, "fps": 32, "phase": "thrown"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "outfield", "sk": 169, "t": 40, "fps": 31, "phase": "fly"}}
+{"dev": "iphone-sim", "case": "d3done_outfield", "data": {}}
+{"dev": "iphone-sim", "case": "d3model", "data": {"game": "pitchrec", "ms": 222}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 2, "fps": 25, "phase": "intro"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 4, "fps": 17, "phase": "wind"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 6, "fps": 23, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 8, "fps": 25, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 10, "fps": 25, "phase": "pitch"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 12, "fps": 24, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 14, "fps": 20, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 16, "fps": 18, "phase": "pitch"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 18, "fps": 16, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 20, "fps": 20, "phase": "wind"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 22, "fps": 24, "phase": "pitch"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 24, "fps": 17, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 26, "fps": 17, "phase": "wind"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 28, "fps": 18, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 30, "fps": 19, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 32, "fps": 19, "phase": "wind"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 34, "fps": 20, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 36, "fps": 17, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 38, "fps": 20, "phase": "pitch"}}
+{"dev": "iphone-sim", "case": "d3stat", "data": {"game": "pitchrec", "sk": 143, "t": 40, "fps": 21, "phase": "result"}}
+{"dev": "iphone-sim", "case": "d3done_pitchrec", "data": {}}

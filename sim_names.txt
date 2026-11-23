@@ -1,0 +1,2 @@
+ipad-sim = iPad_(A16)
+iphone-sim = iPhone_16_Pro
