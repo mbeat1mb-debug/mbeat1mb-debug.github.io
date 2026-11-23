@@ -691,6 +691,11 @@ const HubLogic = (() => {
       I('c7', 'Oppo Gate', 'Tape a big square on the left half of the net. 10 tee swings set a little outside. Hit the square = 2 points.', { min: 3, sw: 10, pts: 'In the square = 2', max: 20 }),
       I('c8', 'Pepper With Dad', 'Dad soft-tosses mini balls from 15 feet. Tap them back to him on the ground with a short swing. 15 tosses. Clean tap = 1 point.', { min: 3, sw: 15, pts: 'Clean tap = 1', max: 15 }),
       I('c9', 'Three Strikes, You\'re Out', 'Skinny bat on the machine. Keep hitting until you miss 3 times. Every solid hit = 1 point. Can you get 10?', { min: 4, sw: 15, pts: 'Solid hit = 1', max: 30, lvl: 2 }),
+      I('c11', 'Top Half, Bottom Half', 'Machine, skinny bat. Right before each pitch Dad calls "top" (hit a hard grounder) or "bottom" (hit a line drive). 10 pitches. Right result = 1.', { min: 4, sw: 10, pts: 'Right result = 1', max: 10, lvl: 2 }),
+      I('c12', 'Front Toss Mini Balls', 'Dad sits behind the screen 12 feet away and tosses mini balls. Skinny bat. 20 tosses. Solid hit = 1.', { min: 4, sw: 20, pts: 'Solid hit = 1', max: 20 }),
+      I('c13', 'Rapid Fire Tee', 'Dad reloads the tee as fast as he can. 10 swings in 45 seconds. Solid contact = 1. Stay balanced, not rushed.', { min: 3, sw: 10, pts: 'Solid = 1', max: 10 }),
+      I('c14', 'Hit the Towel', 'Hang a towel on the net as a target. 15 machine pitches. Hit the towel = 2, just next to it = 1.', { min: 5, sw: 15, pts: 'Towel 2, close 1', max: 30, lvl: 2 }),
+      I('c15', 'Machine Ladder', 'Machine starts slow. Every 3 solid hits in a row, Dad speeds it up one notch. Points = the highest notch you hit.', { min: 5, sw: 15, pts: 'Points = top notch', max: 10, lvl: 2 }),
       I('c10', 'Bunt, Then Swing', 'Machine. Bunt the first 3 pitches down, then swing away at 7. Good bunt = 1, solid swing = 1.', { min: 4, sw: 10, pts: 'Good bunt 1, solid 1', max: 10 })
     ],
     speed: [
@@ -703,6 +708,11 @@ const HubLogic = (() => {
       I('s7', 'Heavy Bat Holds', 'SKLZ end-loaded bat on the tee. 4 swings, freeze at the finish for 3 seconds each.', { min: 2, heavy: 4, sw: 4 }),
       I('s8', 'Whoosh Swings', 'Flip the practice bat over and hold the skinny end. Swing hard so the whoosh is loud out in front, not behind you. 10 swings.', { min: 2, sw: 10 }),
       I('s9', 'Hips First', 'No ball. Step, turn your back hip hard, then let the bat come. 8 swings. Then 5 tee swings the same way.', { min: 3, sw: 13 }),
+      I('s11', 'Overspeed Swings', 'Sensor on. 5 max swings with the SKLZ unloaded bat, then 5 with the game bat. Points = your best game-bat speed.', { min: 3, sw: 10, pts: 'Points = top mph', max: 90 }),
+      I('s12', 'Heavy, Then Hit', 'Radar up. 2 CamWood tee swings, then 3 game-bat tee swings. 3 rounds. Any ball over your average exit speed = 1 point.', { min: 5, heavy: 6, sw: 15, pts: 'Over average = 1', max: 9 }),
+      I('s13', 'Bat Speed Bingo', 'Sensor on, tee. Targets: your average, average +2, average +4, a new best. Hit all four in 12 swings for bingo. Each target = 1 point.', { min: 4, sw: 12, pts: 'Each target = 1', max: 4, lvl: 2 }),
+      I('s14', 'Launch Pad', 'Tee a little out front. 10 full-effort swings into the net with the radar on. Count balls over your average exit speed.', { min: 3, sw: 10, pts: 'Over average = 1', max: 10 }),
+      I('s15', 'Hop Into the Swing', 'Skater hop into your stance, land, then explode into a swing. 5 with no ball, then 5 off the tee. Sensor on.', { min: 3, sw: 10, lvl: 2 }),
       I('s10', 'Max Effort Five', 'Sensor on, practice bat, tee. 5 swings, rest 20 seconds between. Any swing within 2 mph of your best = 1 point.', { min: 3, sw: 5, pts: 'Within 2 mph of best = 1', max: 5, lvl: 2 })
     ],
     path: [
@@ -715,6 +725,11 @@ const HubLogic = (() => {
       I('p7', 'Top Hand Only', 'CamWood one-arm trainer, top hand. 5 slow tee swings. Then 5 with both hands on the practice bat.', { min: 3, heavy: 5, sw: 10 }),
       I('p8', 'Where\'s the Tee?', 'Dad moves the tee: out front = pull it, deep = hit it the other way. 10 swings. Right direction = 1 point.', { min: 3, sw: 10, pts: 'Right direction = 1', max: 10 }),
       I('p9', 'Up the Middle', 'Skinny bat, machine. 10 pitches. Back up the middle = 2, solid anywhere else = 1.', { min: 3, sw: 10, pts: 'Middle 2, solid 1', max: 20, lvl: 2 }),
+      I('p11', 'Inside Tee', 'Tee on the inside corner, a little out front. Keep your hands inside the ball. 10 swings. Line drive to the pull side = 1.', { min: 3, sw: 10, pts: 'Pull-side liner = 1', max: 10 }),
+      I('p12', 'Long Through the Ball', 'Put a cone 6 feet past the tee toward the net. Swing so your barrel finishes pointing at the cone. 10 swings. Dad scores each good finish = 1.', { min: 3, sw: 10, pts: 'Good finish = 1', max: 10 }),
+      I('p13', 'Low Strikes', 'Aim the machine low in the zone. Skinny bat. 10 pitches. Line drive = 2, hard grounder = 1, pop-up = 0.', { min: 4, sw: 10, pts: 'Liner 2, hard grounder 1', max: 20, lvl: 2 }),
+      I('p14', 'Deep Tee, Other Way', 'Tee set deep, back toward the catcher. Let the ball get deep and hit it the other way. 10 swings. Opposite-field line drive = 2.', { min: 3, sw: 10, pts: 'Oppo liner = 2', max: 20 }),
+      I('p15', 'Slow-Motion Mirror', 'Find a mirror or dark window. 5 slow-motion swings checking that your hands stay inside, then 5 full tee swings the same way.', { min: 3, sw: 10 }),
       I('p10', 'Knob to the Ball', 'Tee. Short swings where the knob of the bat leads to the ball, then the barrel whips through. 8 swings.', { min: 3, sw: 8 })
     ],
     timing: [
@@ -727,6 +742,11 @@ const HubLogic = (() => {
       I('t7', 'Call the Count', 'Before each machine pitch Dad calls a count. 3-0: only swing at a perfect strike. 0-2: protect the plate. 10 pitches. Right choice = 1 point.', { min: 4, sw: 10, pts: 'Right choice = 1', max: 10 }),
       I('t8', 'Slow, Fast, Slow', 'Machine. 5 slow, 5 fast, 5 slow. Stay on time when it changes. Solid hits count.', { min: 5, count: 15, sw: 15 }),
       I('t9', 'Early Load', 'Machine. Be loaded and ready before the ball comes out. Dad scores each on-time load = 1 point. 10 pitches.', { min: 3, sw: 10, pts: 'On-time load = 1', max: 10, lvl: 2 }),
+      I('t11', 'One, Two, Three', 'Tee, then machine. Load on Dad\'s "one," stride on "two," swing on "three." 5 tee swings, then 5 pitches using the same rhythm.', { min: 3, sw: 10 }),
+      I('t12', 'Let It Travel', 'Machine, skinny bat. Let the ball get deep and hit it to the opposite field. 10 pitches. Oppo contact = 1.', { min: 4, sw: 10, pts: 'Oppo contact = 1', max: 10 }),
+      I('t13', 'Hold It', 'Front toss. Dad sometimes pauses before he tosses. Stay loaded and don\'t jump. 12 tosses. On time and balanced = 1.', { min: 4, sw: 12, pts: 'On time = 1', max: 12 }),
+      I('t14', 'Move Closer', 'Move the machine 5 feet closer for 5 pitches (it feels faster), then back for 5. Solid hit = 1.', { min: 4, sw: 10, pts: 'Solid = 1', max: 10, lvl: 2 }),
+      I('t15', 'Sit Fastball', 'Machine on its fastest setting. Only swing at strikes in your favorite spot. 10 pitches. Smart take or solid hit = 1.', { min: 4, sw: 10, pts: 'Smart take or solid = 1', max: 10, lvl: 2 }),
       I('t10', 'Hit It Where It\'s Pitched', 'Machine, skinny bat. Inside pitch = pull it, outside = other way. 10 pitches. Right direction = 1 point.', { min: 4, sw: 10, pts: 'Right direction = 1', max: 10 })
     ]
   };
@@ -898,6 +918,11 @@ const HubLogic = (() => {
   }
   // One cue per drill, in his words. Shown under the drill and used for "next time" tips after a low score.
   const TIPS = {
+    fd1: 'Glove down early, then give with the ball.', fd2: 'Get low with your butt down, not your head.', fd3: 'Turn and run first, look for the ball second.', fd4: 'Catch it near your chest so the transfer is short.',
+    fd5: 'Stay low and keep the glove open to the ball.', fd6: 'Hop toward Dad, then throw. Easy effort.', fd7: 'Call it loud, then get under it early.',
+    sp1: 'Quick, light steps. Pump your arms.', sp2: 'Crossover step first, don\'t stand up.', sp3: 'Stay on the balls of your feet.', sp4: 'Run through the cone, don\'t slow down before it.',
+    sp5: 'Lean in like a race car on the turn.', sp6: 'Low and ready. Don\'t guess.', lw1: 'Light feet, eyes up.', lw2: 'Stay low, don\'t cross your feet.', lw3: 'Soft, quick hops.',
+    cd1: 'Hold still. No bouncing.', cd2: 'Slow breaths in each pose.', cd3: 'Slow breaths into your belly.',
     k2: 'Turn your shoulders, not just your arms.', k3: 'Hips stay still. Squeeze your belly.', k5: 'Slow. Low back stays on the floor.', k6: 'Swing your arms and land soft.', k7: 'Freeze on each landing for a second.', k8: 'Hips turn first, chest follows.',
     a1j: 'Land soft on the balls of your feet.', a1w: 'Knees over ankles. Breathe.', a2i: 'Body straight like a board.', a2b: 'Back flat like a table.', a3p: 'Flat back. Squeeze your belly.', a3d: 'Move slow. Low back stays down.',
     z10: 'Land soft.', z11: 'Body straight like a board.',
@@ -946,6 +971,13 @@ const HubLogic = (() => {
   };
   // Why each drill matters, in his words. Shown under the tip so a drill is a reason, not just an order.
   const WHY = {
+    fd1: 'Soft hands turn bad hops into outs.', fd2: 'Reading and moving to the ball is half of every ground ball.', fd3: 'The drop step is how outfielders get to balls over their head.',
+    fd4: 'A quick transfer gets the ball out of your hand sooner, which gets more outs.', fd5: 'Most balls aren\'t hit right at you. This covers both sides.', fd6: 'The crow hop adds power to your throw without straining your arm.',
+    fd7: 'Calling the ball and getting under it early makes pop-ups automatic.',
+    sp1: 'Fast feet make you quicker on the bases and in the field.', sp2: 'Trains the exact first step that wins a steal.', sp3: 'Builds rhythm and quick feet.', sp4: 'Beating out grounders starts with running hard through the bag.',
+    sp5: 'A good turn at first can turn a single into a double.', sp6: 'Reacting fast on the bases keeps you from getting picked off.',
+    lw1: 'Wakes up your feet and gets your body warm.', lw2: 'Side-to-side quickness for fielding and leads.', lw3: 'Gets your legs springy before you swing.',
+    cd1: 'Cooling down helps your muscles recover for next time.', cd2: 'Stretching keeps you loose so you can turn and throw freely.', cd3: 'Slowing down your breathing helps your body recover.',
     k2: 'Strong twisting muscles make a faster, steadier swing.', k3: 'A steady middle keeps your swing on plane.', k5: 'Teaches your core to stay tight while arms and legs move, like in a swing or pitch.',
     k6: 'Jumping builds the leg power that drives hits and throws.', k7: 'Side-to-side power helps you push off the rubber and run the bases.', k8: 'Practices turning your hips fast without a ball.',
     a1j: 'Fast legs make a fast swing.', a1w: 'Strong legs keep you balanced in your stance.', a2i: 'Builds the same push as push-ups, a little easier.', a2b: 'Strong shoulders and core in one move.', a3p: 'A strong middle helps you turn fast.', a3d: 'A strong middle helps you turn fast.',
@@ -1176,14 +1208,47 @@ const HubLogic = (() => {
     I('k7', 'Skater hops', 'Hop side to side like a speed skater, land on one foot and freeze. 2 sets of ' + r(6) + ' each side.', { min: 3 }),
     I('k8', 'Hip turn snaps', 'Hold a towel or the skinny bat across your chest. Load, then turn your hips fast like a swing and stop. 2 sets of ' + r(6) + ' each side.', { min: 3 })];
 
+  // Fielding: ground balls, fly balls and quick hands. throw: uses his throwing arm (left out during arm rest and on mound day).
+  const FIELDING = [
+    I('fd1', 'Short Hops', 'Dad bounces tennis balls at you from 10 feet. Glove out front, soft hands, give with the ball. 15 balls. Clean pick = 1.', { min: 4, pts: 'Clean pick = 1', max: 15 }),
+    I('fd2', 'Ready, Read, Field', 'Get in ready position. Dad rolls grounders left, right and right at you. Shuffle, get low, field it out front. 12 balls. Clean = 1.', { min: 4, pts: 'Clean = 1', max: 12 }),
+    I('fd3', 'Drop Step Fly Balls', 'Dad tosses fly balls over your left or right shoulder. Drop step, turn and run, then catch it. 10 balls. Catch = 1.', { min: 4, pts: 'Catch = 1', max: 10 }),
+    I('fd4', 'Quick Hands Transfer', 'Dad soft-tosses to your glove. Catch, get the ball into your throwing hand fast and show it. 15 tosses. Clean transfer = 1.', { min: 3, pts: 'Clean transfer = 1', max: 15 }),
+    I('fd5', 'Backhand, Forehand', 'Dad rolls balls to your glove side and your backhand side. Stay low and field it with the glove open. 12 balls. Clean = 1.', { min: 4, pts: 'Clean = 1', max: 12, lvl: 2 }),
+    I('fd6', 'Crow Hop Throws', 'Field a slow roller, crow hop, and throw to Dad\'s chest from about 40 feet. 10 throws, easy to medium effort. Chest-high = 1.', { min: 4, pts: 'Chest-high = 1', max: 10, throw: true }),
+    I('fd7', 'Tennis Ball Pop-ups', 'Dad throws high pop-ups with a tennis ball. Call it ("I got it!"), get under it, catch it above your head. 10 balls. Catch = 1.', { min: 3, pts: 'Catch = 1', max: 10 })
+  ];
+  // Speed and baserunning, mostly on the agility ladder.
+  const SPEED = [
+    I('sp1', 'Ladder Speed Run', 'Agility ladder: one foot in each box, then two feet in each box, then sideways. 2 times each. Dad times the two-feet run. Beat your best.', { min: 4, pts: 'Seconds (lower is better)' }),
+    I('sp2', 'Ladder to Steal', 'Side shuffle down the ladder (two in, two out), then a crossover step and sprint 15 feet like you\'re stealing second. 6 reps.', { min: 4 }),
+    I('sp3', 'Icky Shuffle Race', 'Ladder icky shuffle: in, in, out, down the whole ladder. 4 runs. Dad times them. Beat your best.', { min: 3, pts: 'Seconds (lower is better)' }),
+    I('sp4', 'Home to First', 'Sprint the length of a base path (or your longest straight line) and run through a cone like it\'s first base. 4 sprints, full rest between. Dad times them.', { min: 4, pts: 'Seconds (lower is better)' }),
+    I('sp5', 'Round the Bag', 'Cone = first base. Curve out a little, touch the inside corner of the cone with either foot, and sprint 10 more steps toward second. 4 reps.', { min: 3 }),
+    I('sp6', 'Go on the Clap', 'Take a lead off a towel. Dad claps = sprint 15 feet. Dad says "back" = get back to the towel fast. 8 reps. Right move = 1.', { min: 3, pts: 'Right move = 1', max: 8 })
+  ];
+  const LADDER_WARM = [
+    I('lw1', 'Ladder: Quick Feet', 'Agility ladder: one foot in each box down, two feet in each box back. 3 times. Then 10 arm circles each way.', { min: 3 }),
+    I('lw2', 'Ladder: Side Steps', 'Side step down the ladder, two feet in each box, both directions, 3 times. Then 10 leg swings each leg.', { min: 3 }),
+    I('lw3', 'Ladder: Hopscotch', 'Hopscotch down the ladder (in, out, in, out) and back, 3 times. Then 10 easy swings with no ball.', { min: 3 })
+  ];
+  const COOL = [
+    I('cd1', 'Stretch Circuit', '1 minute of easy walking, then hold 15 seconds each: hamstrings, quads, calves, chest in a doorway, arm across your chest.', { min: 2 }),
+    I('cd2', 'Animal Yoga', 'Hold 20 seconds each: cat-cow, cobra, child\'s pose, down dog, butterfly.', { min: 2 }),
+    I('cd3', 'Breathe and Roll', 'Lie on your back with knees up. 5 slow belly breaths. Hug your knees and rock 10 times. Finish with easy arm circles.', { min: 2 })
+  ];
+
   function buildWeek(focus, step, armRest, o) {
     o = o || {};
     const S = Math.max(1, Math.min(5, step || 1)), r = n => n + 2 * (S - 1), hold = 20 + 5 * (S - 1);
     const mon = o.monday || '2000-01-03', level = o.level || 1, recent = o.recent || [], targets = o.targets || [];
     const seed = mon + focus;
     const warmPick = shuffle(WARMUPS, seed + 'w');
-    const warm = k => ({ name: 'Warm-up', min: 3, items: [Object.assign({}, warmPick[k % warmPick.length], { id: 'w' + k })] });
-    const log = { name: 'Wrap up', min: 2, items: [I('l1', 'Tell Dad your numbers', 'Points, hits and speeds. He logs them so you get credit.')] };
+    const warm = k => ({ name: 'Warm-up (you pick)', min: 3, items: [CH('wu' + k, 'Your pick: warm-up', shuffle(LADDER_WARM, seed + 'lw' + k).slice(0, 2).concat([Object.assign({}, warmPick[k % warmPick.length], { id: 'w' + k })]))] });
+    const log = { name: 'Wrap up', min: 1, items: [I('l1', 'Tell Dad your numbers', 'Points, hits and speeds. He logs them so you get credit.')] };
+    const cool = k => ({ name: 'Cool-down (you pick)', min: 2, items: [CH('cd' + k, 'Your pick: cool-down', shuffle(COOL, seed + 'cd' + k))] });
+    const field = (k, noThrow) => { const pool = FIELDING.filter(d => (d.lvl || 1) <= level && !(noThrow && d.throw));
+      return { name: 'Fielding (you pick)', min: 4, items: [CH('fl' + k, 'Your pick: fielding', shuffle(pool, seed + 'fl' + k).slice(0, 3))] }; };
     const sum = items => items.reduce((s, i) => s + (i.min || 0), 0);
     const pool = DRILLS[focus === 'baseline' ? 'contact' : focus] || DRILLS.contact;
     const fixA = targets[0] && FIXES[targets[0].id], fixB = targets[1] && FIXES[targets[1].id] || fixA;
@@ -1204,7 +1269,8 @@ const HubLogic = (() => {
     // Day 2: fix-it (second target if there is one), 1 more from the pool, mound or glove work.
     const usedA = a1.flatMap(d => d.choices ? d.choices.map(c => c.title) : [d.title]);
     const lead2 = focus !== 'baseline' && fixB && usedA.indexOf(fixB.drill.title) < 0 ? [tag(fixB.drill, targets[1] || targets[0])] : [];
-    const bp = pickDrills(pool, 3 - lead2.length, { level, recent: recent.concat(a1.flatMap(d => d.choices ? d.choices.map(c => c.id) : [d.id])), seed: seed + 'b', avoid: usedA.concat(lead2.map(d => d.title)) });
+    // Day 2 is the longest day (mound + fielding + hand-eye), so its hitting drills are the 5-minute-or-shorter ones
+    const bp = pickDrills(pool.filter(d => (d.min || 0) <= 5), 3 - lead2.length, { level, recent: recent.concat(a1.flatMap(d => d.choices ? d.choices.map(c => c.id) : [d.id])), seed: seed + 'b', avoid: usedA.concat(lead2.map(d => d.title)) });
     const b1 = lead2.concat(bp.length >= 2 ? bp.slice(0, -2).concat([CH('hc2', 'Your pick: hitting', bp.slice(-2))]) : bp);
     const mound = armRest
       ? { name: 'Glove work (arm rest, no throws)', items: [
@@ -1221,13 +1287,11 @@ const HubLogic = (() => {
           I('x1', 'Long jump test', '3 tries from standing. Dad measures your best one.'),
           I('x2', 'Push-up test', 'As many as you can with a flat back. Stop when your form slips.'),
           I('x3', 'Plank test', 'Hold as long as you can with a flat back. Dad times it.')] }
-      : { name: 'Strength (you pick)', min: 7, items: [
+      : { name: 'Strength (you pick)', min: 4, items: [
           CH('cs1', 'Your pick: legs', [I('a1', 'Squats', '2 sets of ' + r(8) + '.', { sq: 2 * r(8), min: 2 }), I('a1j', 'Jump squats', '2 sets of ' + r(5) + '. Land soft.', { sq: 2 * r(5), min: 2 }), I('a1w', 'Wall sit', '2 holds of ' + hold + ' seconds, back flat on the wall.', { min: 2 })]),
-          CH('cs2', 'Your pick: arms and chest', [I('a2', 'Push-ups', '2 sets of ' + r(5) + ' with a flat back.', { pu: 2 * r(5), min: 2 }), I('a2i', 'Couch push-ups', 'Hands on the couch edge. 2 sets of ' + r(8) + '.', { pu: 2 * r(8), min: 2 }), I('a2b', 'Bear crawl', 'Knees off the ground. 10 steps forward, 10 back. 2 times.', { min: 2 })]),
-          CH('cs3', 'Your pick: core', [I('a3', 'Sit-ups', '2 sets of ' + r(8) + '.', { su: 2 * r(8), min: 2 }), I('a3p', 'Plank', '2 holds of ' + hold + ' seconds with a flat back.', { min: 2 }), I('a3d', 'Dead bugs', '2 sets of ' + r(6) + ' each side, slow.', { min: 2 })])] };
+          CH('cs2', 'Your pick: arms or core', [I('a2', 'Push-ups', '2 sets of ' + r(5) + ' with a flat back.', { pu: 2 * r(5), min: 2 }), I('a3p', 'Plank', '2 holds of ' + hold + ' seconds with a flat back.', { min: 2 }), I('a3d', 'Dead bugs', '2 sets of ' + r(6) + ' each side, slow.', { min: 2 })])] };
     // one pick of core or power work (2 of each to choose from), so Day 2 stays under 30 minutes
     const cp = shuffle(CORE(r), seed + 'cp1').slice(0, 2).concat(shuffle(POWER(r, armRest).filter(Boolean), seed + 'cp2').slice(0, 2));
-    const bodyB = { name: 'Core power (you pick)', min: 4, items: [CH('cp1', 'Your pick: core or power', cp)] };
     // arm rest: no tossing drills that use the throwing arm
     const he = HAND_EYE.filter(d => !(armRest && (d.id === 'h1' || d.id === 'h7')));
     const heB = { name: 'Hand-eye (you pick)', min: 4, items: [CH('he2', 'Your pick: hand-eye', shuffle(he, seed + 'he2').slice(0, 3))] };
@@ -1236,18 +1300,35 @@ const HubLogic = (() => {
     const mk = d => { const x = Object.assign({ min: 2 }, d, { text: fill(d.text) });
       if (d.r) { if (d.r.sq) x.sq = 2 * r(d.r.sq); if (d.r.pu) x.pu = 2 * r(d.r.pu); if (d.r.su) x.su = 2 * r(d.r.su); delete x.r; } return x; };
     const B = id => mk(BODY_C.concat(FUN_C).find(d => d.id === id)), fun = shuffle(['z5', 'z8', 'z12', 'z13'], seed + 'c');
-    const bodyC = { name: 'Bodyweight (you pick)', min: 8, items: [
-      CH('bc1', 'Your pick: legs', [B('z1'), B('z6'), I('z10', 'Jump squats', '2 sets of ' + r(5) + '. Land soft.', { sq: 2 * r(5), min: 2 })]),
-      CH('bc2', 'Your pick: arms', [B('z2'), I('z11', 'Couch push-ups', 'Hands on the couch edge. 2 sets of ' + r(8) + '.', { pu: 2 * r(8), min: 2 }), B('z4')]),
-      CH('bc3', 'Your pick: core', [B('z3'), B('z7'), B('z9')]),
-      CH('bc4', 'Your pick: fun move', fun.slice(0, 3).map(B))] };
+    const bodyC = { name: 'Strength (you pick)', min: 4, items: [
+      CH('cp1', 'Your pick: core or power', cp),
+      CH('bc1', 'Your pick: legs or arms', [B('z1'), B('z6'), I('z10', 'Jump squats', '2 sets of ' + r(5) + '. Land soft.', { sq: 2 * r(5), min: 2 }), B('z2'), I('z11', 'Couch push-ups', 'Hands on the couch edge. 2 sets of ' + r(8) + '.', { pu: 2 * r(8), min: 2 })].filter((d, n) => n !== shuffle([0, 1, 2], seed + 'bc')[0]))] };
+    const speedC = { name: 'Speed and agility (you pick)', min: 4, items: [CH('sp', 'Your pick: speed and baserunning', shuffle(shuffle(SPEED.filter(d => /Ladder|Icky/.test(d.title)), seed + 'spl').slice(0, 1).concat(shuffle(SPEED.filter(d => !/Ladder|Icky/.test(d.title)), seed + 'spo').slice(0, 2)), seed + 'sp'))] };
     const hitA = { name: 'Hitting', min: sum(a1), items: a1 }, hitB = { name: 'Hitting', min: sum(b1), items: b1 };
-    return {
-      A: { title: 'Day 1', sub: focus === 'baseline' ? 'Test day' : 'Hitting + Boss Battle', min: 3 + hitA.min + bodyA.min + 2, blocks: [warm(0), hitA, bodyA, log] },
-      // In test week only Day 1 runs the tests; Day 2 is a normal practice so he is not maxing out twice.
-      B: { title: 'Day 2', sub: armRest ? 'Hitting + glove work' : 'Hitting + pitching', min: 3 + mound.min + hitB.min + bodyB.min + heB.min + 2, blocks: [warm(1), mound, hitB, heB, bodyB, log] },
-      C: { title: 'Day 3', sub: 'Bodyweight + hand-eye', min: 12, blocks: [heC, bodyC] }
+    // Keep a day inside his time window: trim the longest options out of "pick one" slots until it fits.
+    const fit = (day, max) => {
+      const total = () => day.blocks.reduce((t, b) => t + b.min, 0);
+      for (let guard = 0; guard < 12 && total() > max; guard++) {
+        let best = null; day.blocks.forEach(b => b.items.forEach(i => { if (i.choices && i.choices.length > 2 && (!best || i.min > best.i.min)) best = { b, i }; }));
+        if (!best) break;
+        const longest = Math.max.apply(null, best.i.choices.map(c => c.min || 0)), keep = best.i.choices.filter(c => (c.min || 0) < longest);
+        if (keep.length < 2) { const sorted = best.i.choices.slice().sort((x, y) => (x.min || 0) - (y.min || 0)); best.i.choices = sorted.slice(0, best.i.choices.length - 1); } else best.i.choices = keep;
+        const old = best.i.min; best.i.min = Math.max.apply(null, best.i.choices.map(c => c.min || 0)); best.b.min -= old - best.i.min;
+      }
+      // still long: drop the extra hitting pick (the day keeps its other hitting drills)
+      const hit = day.blocks.find(b => b.name === 'Hitting');
+      if (total() > max && hit && hit.items.filter(i => !i.choices).length >= 1) { const c = hit.items.find(i => i.choices); if (c) { hit.items = hit.items.filter(i => i !== c); hit.min -= c.min; } }
+      day.min = total(); return day;
     };
+    const week = {
+      A: { title: 'Day 1', sub: focus === 'baseline' ? 'Test day' : 'Hitting + fielding', min: 3 + hitA.min + 4 + bodyA.min + 2 + 1, blocks: [warm(0), hitA, field(1, armRest), bodyA, cool(1), log] },
+      // In test week only Day 1 runs the tests; Day 2 is a normal practice so he is not maxing out twice.
+      B: armRest ? { title: 'Day 2', sub: 'Hitting + glove work', min: 3 + mound.min + hitB.min + heB.min + 2 + 1, blocks: [warm(1), mound, hitB, heB, cool(2), log] }
+        : { title: 'Day 2', sub: 'Pitching + fielding', min: 3 + mound.min + hitB.min + 4 + heB.min + 2 + 1, blocks: [warm(1), mound, field(2, true), hitB, heB, cool(2), log] },
+      C: { title: 'Day 3', sub: 'Speed + hand-eye', min: 4 + 4 + 4 + 2, blocks: [speedC, heC, bodyC, cool(3)] }
+    };
+    fit(week.A, 30); fit(week.B, 30); fit(week.C, 15);
+    return week;
   }
   // Swap each "pick one" slot for the drill he chose (or leave the slot to be picked).
   function resolveSession(session, picks) {
