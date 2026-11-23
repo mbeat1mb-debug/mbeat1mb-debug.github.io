@@ -80,7 +80,7 @@
 const dev = new URLSearchParams(location.search).get('dev') || 'x', game = new URLSearchParams(location.search).get('game') || 'start';
 const post = (c, o) => fetch('/__result?dev=' + dev + '&case=' + c, { method: 'POST', body: JSON.stringify(o) }).catch(() => {});
 window.onerror = m => post('d3error', { game, m: String(m) });
-const noop = () => {}, Sound = { unlock: noop, whoosh: noop, crack: noop, pop: noop, cheer: noop, boom: noop, organ: noop, blip: noop, ooh: noop, say: noop };
+const noop = () => {}, Sound = { unlock: noop, whoosh: noop, crack: noop, pop: noop, cheer: noop, boom: noop, organ: noop, blip: noop, ooh: noop, say: noop, slide: noop, tick: noop };
 let frames = 0; const count = () => { frames++; requestAnimationFrame(count); }; requestAnimationFrame(count);
 try {
   const m = await import('./derby3d.js');

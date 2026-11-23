@@ -13,8 +13,8 @@ wait_done() { # $1 device label, $2 seconds
   echo "TIMEOUT waiting for $1"; return 1; }
 
 # 1) Mac Safari (same video engine family as iPad Safari)
-open -a Safari "http://127.0.0.1:8080/harness.html?dev=mac-safari"
-wait_done mac-safari 900; screencapture -x out/mac_safari.png || true
+[ -f tests/SKIP_HARNESS ] || open -a Safari "http://127.0.0.1:8080/harness.html?dev=mac-safari"
+[ -f tests/SKIP_HARNESS ] || wait_done mac-safari 900; screencapture -x out/mac_safari.png || true
 osascript -e 'quit app "Safari"' || true
 
 # 2) iPad and iPhone simulators running real Mobile Safari
@@ -31,9 +31,11 @@ while read label udid name; do
   xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b >/dev/null
   echo "$label = $name" >> out/sim_names.txt
   sleep 5
+  if [ ! -f tests/SKIP_HARNESS ]; then
   xcrun simctl openurl "$udid" "http://127.0.0.1:8080/harness.html?dev=$label"
   sleep 25; xcrun simctl io "$udid" screenshot "out/${label}_during.png" || true
   wait_done "$label" 1200
+  fi
   xcrun simctl io "$udid" screenshot "out/${label}_harness_done.png" || true
   for g in start kking steal outfield; do
     xcrun simctl openurl "$udid" "http://127.0.0.1:8080/d3probe.html?d3probe&dev=$label&game=$g"
