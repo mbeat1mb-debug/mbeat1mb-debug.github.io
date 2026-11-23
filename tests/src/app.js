@@ -371,7 +371,9 @@ function tilesRow(p) {
   const t = p.t, c = L.challengeFor(t, p.arm.cleared), cDone = L.challengeDone(state.entries, t, c), ds = L.dayStreak(state.entries, t);
   const g = L.game(state.entries), pz = (state.settings.prizes || []).slice().sort((a, b) => a.level - b.level), earned = pz.find(z => g.level >= z.level && !z.given), next = pz.find(z => z.level > g.level);
   const S = L.season(state.entries, t), gm = S.games.find(x => x.monday === p.wk.monday), nb = nextBadge();
+  const mixG = L.mixProgress(state.entries, t, p.pick.focus), mixN = mixG.filter(m => m.done).length, mixS = L.mixStreak(state.entries, t);
   const tiles = [
+    ['mix', '\u{1F3AE}', 'Arcade Mix', mixN === 3 ? 'Done \u2713' : mixN + ' of 3' + (mixS.n ? ' \u00b7 \u{1F525}' + mixS.n : ''), () => h('div', null, mixCard(), h('p', null, h('a', { href: '#arcade', class: 'btn line' }, 'Go to the Arcade')))],
     ['chal', '\u{1F525}', 'Daily challenge', cDone ? 'Done ✓' : ds.n ? ds.n + (ds.n === 1 ? ' day' : ' days') + ' in a row' : 'Start a streak', challengeCard],
     (earned || next) ? ['prize', '\u{1F381}', earned ? 'Prize earned!' : next.text, earned ? 'Show Dad' : commas((next.level - 1) * L.XP.perLevel - g.xp) + ' XP to go', () => prizeCard()] : null,
     gm ? ['game', '⚾', (gm.title ? 'Title game' : 'This week') + ' vs ' + gm.opp, gm.status === 'W' ? 'Won ' + gm.us + '–' + gm.them : 'Day 1 + Day 2 wins it', seasonCard] : null,
@@ -997,6 +999,26 @@ function renderNote() {
       h('button', { type: 'button', class: 'btn big', id: 'note-ok', onclick: ok }, 'Thanks, Dad!'))));
   const b = document.getElementById('note-ok'); if (b) b.focus();
 }
+function mixCard() {
+  const t = today(), p = plan(), goals = L.mixProgress(state.entries, t, p.pick.focus), ms = L.mixStreak(state.entries, t), done = state.entries.some(e => e.kind === 'mix' && e.date === t);
+  const gameName = g => L.GAMES[g].name;
+  return h('section', { class: 'sec mix' + (done ? ' done' : '') },
+    h('h2', null, '\u{1F3AE} Today\u2019s Arcade Mix'),
+    h('p', { class: 'small mid' }, done ? 'Done! +' + L.XP.mix + ' XP. Come back tomorrow to keep the streak.' : 'Finish all 3 today: +' + L.XP.mix + ' XP. Every 7 days in a row: +' + L.XP.mixWeek + ' bonus XP.'),
+    h('ul', { class: 'mixlist' }, goals.map(m => h('li', { class: m.done ? 'ok' : '' }, h('span', { class: 'mk', 'aria-hidden': 'true' }, m.done ? '\u2713' : '\u25CB'),
+      h('span', null, m.text, m.focus ? h('em', null, ' This week\u2019s focus: ' + L.FOCUS[p.pick.focus].name) : null),
+      h('span', { class: 'sr' }, m.done ? ' (done)' : ' (not yet)')))),
+    h('p', { class: 'say' }, h('b', null, ms.n ? '\u{1F525} ' + ms.n + (ms.n === 1 ? ' day' : ' days') + ' in a row' : 'Start a streak today'), ms.n && !ms.today ? ' \u00b7 finish today to keep it going' : ''));
+}
+function lockerSec() {
+  const lvl = L.game(state.entries).level, mine = L.gearFor(state.settings, lvl);
+  const pickIt = (k, id) => saveSettings(Object.assign({}, state.settings, { gear: Object.assign({}, state.settings.gear || {}, { [k]: id }) }));
+  return h('section', { class: 'sec locker' }, h('h2', null, '\u{1F9E2} Locker'), h('p', { class: 'small mid' }, 'Gear you earn by leveling up. It shows up in the 3D games. You\u2019re Level ' + lvl + '.'),
+    Object.keys(L.LOCKER).map(k => h('div', { class: 'lockrow' }, h('h3', null, L.LOCKER[k].name),
+      h('div', { class: 'row', role: 'radiogroup', 'aria-label': L.LOCKER[k].name }, L.LOCKER[k].items.map(x => { const open = lvl >= x.level, on = mine[k].id === x.id;
+        return h('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'gearpick' + (on ? ' on' : ''), disabled: !open, onclick: () => { if (!on) pickIt(k, x.id); } },
+          x.c != null ? h('i', { class: 'sw', style: 'background:#' + x.c.toString(16).padStart(6, '0'), 'aria-hidden': 'true' }) : null, h('b', null, x.name), h('span', null, open ? (on ? 'Using' : 'Tap to use') : '\u{1F512} Level ' + x.level)); })))));
+}
 function viewArcade() {
   const t = today(), played = state.entries.filter(e => e.kind === 'arcade' && e.date === t).length, lim = gameLimit(), left = lim >= 99 ? Infinity : Math.max(0, lim - played);
   const gb = L.gameBests(state.entries).best, sOn = HubGames.Sound.on();
@@ -1004,21 +1026,24 @@ function viewArcade() {
   const can = lim !== 0 && left > 0;
   const levels = id => h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame(id, l[0]) }, l[1])));
   const card = (id, icon, desc, play) => h('section', { class: 'sec game' }, h('div', { class: 'gicon', 'aria-hidden': 'true' }, icon), h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)), play || levels(id));
-  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Five baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
+  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Six baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
     !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
+    mixCard(),
     h('div', { class: 'two even' },
       card('derby', '\u26be', 'Swing at fastballs, changeups and curves. Time it to pull it, tap high or low to match the pitch. 10 outs. Fireworks on every home run.'),
       card('kking', '\ud83d\udd25', 'You\u2019re on the mound. Pick the pitch, aim for the corners, nail the timing ring. Fool hitters with a changeup. Count your strikeouts.'),
       card('steal', '\ud83d\udca8', 'Take your lead off first, read the pitcher, and go on his first move home. Go too early or lead too far and you\u2019re picked off.'),
+      card('pitchrec', '\ud83d\udc40', 'Stand in the box and call the pitch before it gets to you: fastball, changeup or curve. Big leaguers know it by halfway. Trains your eyes for real at-bats.'),
       card('outfield', '\ud83e\udde4', 'Run down fly balls in center field, dive for the close ones, then make the smart throw with runners on base.'),
       card('brain', '\ud83e\udde0', 'Every question is an at-bat. Easy = single, medium = double, hard = home run. Score runs before you make 3 outs.',
         h('div', null, h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame('brain', 1) }, 'Play')))),
+    lockerSec(),
     h('section', { class: 'sec' }, h('h2', null, 'Sounds'), h('p', null, 'Bat cracks, crowd cheers, the organ and the umpire. The iPad\u2019s silent switch turns them off too.'),
       h('div', null, h('button', { type: 'button', class: 'btn line', 'aria-pressed': String(sOn), onclick: () => { HubGames.Sound.set(!sOn); if (!sOn) HubGames.Sound.crack(); render(); } }, sOn ? 'Sounds are on. Turn off' : 'Sounds are off. Turn on'))),
     h('p', { class: 'small mid' }, 'First ' + L.XP.gamePlaysPaid + ' games each day: +' + L.XP.gamePlay + ' XP each. New best score: +' + L.XP.gameBest + ' XP. Training is still the fastest way to level up.'));
 }
 function startGame(id, level) {
-  HubGames.play(id, { level, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left' } }, async (score, again) => {
+  HubGames.play(id, { level, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
     if (score == null) { render(); return; }
     const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
     if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id !== 'brain' ? { level } : {})))) { render(); return; }
@@ -1026,6 +1051,8 @@ function startGame(id, level) {
     const msgs = [];
     if (isBest) { msgs.push('New best! +' + L.XP.gameBest + ' XP'); HubGames.Sound.cheer(); }
     if (!chalBefore && L.challengeDone(state.entries, t, c)) { if (await addEntry({ kind: 'challenge', date: t, cid: c.id })) msgs.push('Daily challenge done! +' + L.XP.challenge + ' XP'); }
+    if (!state.entries.some(e => e.kind === 'mix' && e.date === t) && L.mixProgress(state.entries, t, plan().pick.focus).every(m => m.done)) {
+      if (await addEntry({ kind: 'mix', date: t })) { const ms = L.mixStreak(state.entries, t).n; msgs.push('Arcade Mix done! +' + L.XP.mix + ' XP \u{1F525} ' + ms + (ms === 1 ? ' day' : ' days') + ' in a row' + (ms % 7 === 0 ? ' \u00b7 7-day bonus +' + L.XP.mixWeek + ' XP!' : '')); HubGames.Sound.cheer(); } }
     const g = L.game(state.entries); if (g.xp > g0.xp) msgs.push('+' + (g.xp - g0.xp) + ' XP total');
     if (g.level > g0.level) msgs.push('Level up! Level ' + g.level);
     toast(msgs.length ? msgs.join(' · ') : 'Score saved.'); render();
@@ -1154,7 +1181,7 @@ function viewLog() {
     e.kind === 'velo' ? 'Pitch speed' + (e.where === 'game' ? ' (game)' : '') + ': ' + [L.isNum(e.avg) ? 'average ' + fix(e.avg) : null, L.isNum(e.max) ? 'fastest ' + fix(e.max) : null].filter(Boolean).join(', ') + ' mph' :
     e.kind === 'review' ? 'Swing reader call marked ' + (e.agree ? 'right' : 'wrong') :
     e.kind === 'arcade' ? 'Arcade: ' + ((L.GAMES[e.game] || {}).name || e.game) + ', ' + e.score + ((L.GAMES[e.game] || {}).unit || '') :
-    e.kind === 'challenge' ? 'Daily challenge done' :
+    e.kind === 'challenge' ? 'Daily challenge done' : e.kind === 'mix' ? 'Arcade Mix done' :
     e.kind === 'upload' ? 'Uploaded ' + (e.type || 'file') + ': ' + str(e.title, 60) :
     e.kind === 'note' ? 'Message to ' + who() + ': ' + (e.sticker ? e.sticker + ' ' : '') + e.text :
     e.kind === 'gcsnap' ? 'GameChanger totals imported' + (e.file ? ' (' + e.file + ')' : '') :

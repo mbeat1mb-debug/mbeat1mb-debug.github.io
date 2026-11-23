@@ -37,7 +37,7 @@ while read label udid name; do
   wait_done "$label" 1200
   fi
   xcrun simctl io "$udid" screenshot "out/${label}_harness_done.png" || true
-  for g in start kking steal outfield; do
+  for g in start kking steal outfield pitchrec; do
     xcrun simctl openurl "$udid" "http://127.0.0.1:8080/d3probe.html?d3probe&dev=$label&game=$g"
     sleep 14; xcrun simctl io "$udid" screenshot "out/${label}_${g}_a.png" || true
     sleep 10; xcrun simctl io "$udid" screenshot "out/${label}_${g}_b.png" || true

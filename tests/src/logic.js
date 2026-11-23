@@ -152,11 +152,11 @@ const HubLogic = (() => {
     return t;
   }
 
-  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gamePlaysPaid: 3, gameBest: 10 };
+  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gamePlaysPaid: 3, gameBest: 10, mix: 30, mixWeek: 50 };
   // Arcade games. lower: a smaller score is better (reaction time in ms).
   // The five Arcade games. Older games stay listed (retired) so past best scores and XP still count.
   const GAMES = { derby: { name: 'Home Run Derby', unit: ' HR', lower: false }, kking: { name: 'Strikeout King', unit: ' K', lower: false },
-    steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false },
+    steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false }, pitchrec: { name: 'Pitch Reader', unit: ' pts', lower: false },
     trivia: { name: 'Baseball Trivia (old)', unit: ' of 10', lower: false, retired: true }, reaction: { name: 'Color Call (old)', unit: ' ms', lower: true, retired: true },
     zone: { name: 'Strike Zone Memory (old)', unit: ' of 10', lower: false, retired: true } };
   // Best score per game, and how many times he beat his own best (the first score does not count).
@@ -181,6 +181,10 @@ const HubLogic = (() => {
     for (const e of entries) if (e.kind === 'arcade') played[e.date] = (played[e.date] || 0) + 1;
     for (const d in played) xp += Math.min(played[d], XP.gamePlaysPaid) * XP.gamePlay;
     xp += gameBests(entries).total * XP.gameBest;
+    // Arcade Mix: each finished day, plus a bonus for every 7 days in a row.
+    const mixDays = [...new Set(entries.filter(e => e.kind === 'mix').map(e => e.date))].sort();
+    xp += mixDays.length * XP.mix;
+    for (let i = 0, run = 0; i < mixDays.length; i++) { run = i && diffDays(mixDays[i], mixDays[i - 1]) === 1 ? run + 1 : 1; if (run % 7 === 0) xp += XP.mixWeek; }
     const level = Math.floor(xp / XP.perLevel) + 1;
     const into = xp % XP.perLevel, base = Math.min(3, Math.floor(into / XP.perLevel * 4));
     return { xp, bosses, level, title: TITLES[Math.min(level, TITLES.length) - 1], into, need: XP.perLevel, breaks, frac: into / XP.perLevel,
@@ -662,6 +666,35 @@ const HubLogic = (() => {
   // Card tiers and unlockable themes, by level.
   const TIERS = [[1, 'Bronze'], [3, 'Silver'], [5, 'Gold'], [7, 'All-Star']];
   const tierFor = level => TIERS.filter(t => level >= t[0]).pop()[1];
+  // ---------- Arcade Mix: 3 quick goals a day, one of them picked for this week's focus ----------
+  const MIX_GOALS = { derby: [3, 'Hit {n} home runs in Home Run Derby'], kking: [3, 'Strike out {n} hitters in Strikeout King'], steal: [4, 'Steal {n} bases in Steal Second'],
+    outfield: [700, 'Score {n} points in Outfield Hero'], pitchrec: [15, 'Score {n} points in Pitch Reader'], brain: [3, 'Score {n} runs in Baseball Brain'] };
+  const FOCUS_GAME = { baseline: 'derby', contact: 'derby', speed: 'derby', path: 'derby', timing: 'pitchrec' };
+  function mixFor(date, focus) {
+    const first = FOCUS_GAME[focus] || 'derby', rest = shuffle(Object.keys(MIX_GOALS).filter(g => g !== first), 'mix' + date).slice(0, 2);
+    return [first].concat(rest).map((g, i) => ({ game: g, need: MIX_GOALS[g][0], text: MIX_GOALS[g][1].replace('{n}', MIX_GOALS[g][0]), focus: i === 0 }));
+  }
+  function mixProgress(entries, date, focus) {
+    return mixFor(date, focus).map(m => Object.assign(m, { done: entries.some(e => e.kind === 'arcade' && e.date === date && e.game === m.game && isNum(e.score) && e.score >= m.need) }));
+  }
+  function mixStreak(entries, today) {
+    const days = new Set(entries.filter(e => e.kind === 'mix').map(e => e.date));
+    let d = days.has(today) ? today : addDays(today, -1), n = 0; while (days.has(d)) { n++; d = addDays(d, -1); }
+    return { n, today: days.has(today) };
+  }
+  // ---------- Locker: gear he earns by leveling up, used in the 3D games ----------
+  const LOCKER = {
+    bat: { name: 'Bat', items: [{ id: 'wood', name: 'Natural wood', level: 1, c: 0xd9a65e }, { id: 'black', name: 'Black', level: 2, c: 0x1e1e1e }, { id: 'orange', name: 'Spitters orange', level: 4, c: 0xee7f24 }, { id: 'gold', name: 'Gold', level: 6, c: 0xd4af37 }] },
+    cleats: { name: 'Cleats', items: [{ id: 'black', name: 'Black', level: 1, c: 0x121212 }, { id: 'white', name: 'White', level: 2, c: 0xf0f0f0 }, { id: 'orange', name: 'Orange', level: 3, c: 0xee7f24 }, { id: 'green', name: 'Green', level: 5, c: 0x1d6a3b }] },
+    helmet: { name: 'Helmet', items: [{ id: 'gloss', name: 'Green gloss', level: 1, c: 0x1d6a3b, r: 0.22, m: 0.1 }, { id: 'matte', name: 'Green matte', level: 3, c: 0x1d6a3b, r: 0.75, m: 0 }, { id: 'black', name: 'Black gloss', level: 5, c: 0x141414, r: 0.2, m: 0.15 }, { id: 'chrome', name: 'Orange chrome', level: 8, c: 0xee7f24, r: 0.12, m: 0.85 }] },
+    park: { name: 'Ballpark', items: [{ id: 'night', name: 'Night game', level: 1 }, { id: 'day', name: 'Day game', level: 4 }, { id: 'sunset', name: 'Sunset', level: 6 }] }
+  };
+  // what he has picked, falling back to the first item if a pick is not unlocked
+  function gearFor(settings, level) {
+    const g = (settings && settings.gear) || {}, out = {};
+    for (const k in LOCKER) { const it = LOCKER[k].items, pick = it.find(x => x.id === g[k] && x.level <= level); out[k] = pick || it[0]; }
+    return out;
+  }
   const THEMES = [{ id: 'classic', name: 'Seed Spitters', level: 1 }, { id: 'night', name: 'Night Game', level: 3 }, { id: 'retro', name: 'Retro', level: 5 }, { id: 'gold', name: 'All-Star Gold', level: 7 }];
 
   const MOUND_MAX = 20;   // 20 pitches or fewer needs 0 rest days under Pitch Smart, so a practice never blocks the next day.
@@ -868,7 +901,7 @@ const HubLogic = (() => {
     return out;
   }
 
-  return { normPitch, GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
+  return { MIX_GOALS, mixFor, mixProgress, mixStreak, LOCKER, gearFor, normPitch, GAMES, gameBests, season, champMonths, OPPONENTS, CHALLENGES, challengeFor, challengeDone, dayStreak, longestDayStreak, TIERS, tierFor, THEMES, VIDEOS, DRILL_VIDEO, videoFor, WHY, whyFor, TIPS, tipFor, scoreTips, PFIXES, PR, pitchDiagnose, bodyNotes, parse, iso, addDays, diffDays, mondayOf, avg, isNum, byDate, pctVsGame, fitStatus, restDays, fmtInnings, outsFromInnings, armStatus, stats,
     decideFocus, diagnose, bossFor, bossWon, recentDrills, drillIds, DRILLS, FIXES, MOUND_MAX, weekInfo, streak, longestStreak, records, totals, game, badges, retest, buildWeek, hitting, sessionReps, tune, fixRun, weekRecap, recapText, fmtHeight, parseCSV, parseGC, gcDelta, HEAVY_CAP, FOCUS, RULES, XP, TITLES };
 })();
 /*LOGIC-END*/
