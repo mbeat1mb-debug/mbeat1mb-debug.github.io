@@ -1035,13 +1035,14 @@ function viewArcade() {
   const can = lim !== 0 && left > 0;
   const levels = id => h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame(id, l[0]) }, l[1])));
   const card = (id, icon, desc, play) => h('section', { class: 'sec game' }, h('div', { class: 'gicon', 'aria-hidden': 'true' }, icon), h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)), play || levels(id));
-  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Six baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
+  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Seven baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
     !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
     lim !== 0 ? mixCard() : null,
     h('div', { class: 'two even' },
       card('derby', '\u26be', 'Swing at fastballs, changeups and curves. Time it to pull it, tap high or low to match the pitch. 10 outs. Fireworks on every home run.'),
       card('kking', '\ud83d\udd25', 'You\u2019re on the mound. Pick the pitch, aim for the corners, nail the timing ring. Fool hitters with a changeup. Count your strikeouts.'),
       card('steal', '\ud83d\udca8', 'Take your lead off first, read the pitcher, and go on his first move home. Go too early or lead too far and you\u2019re picked off.'),
+      card('streak', '\ud83c\udf4c', 'How many hits can you get before 3 outs? Every base hit rains bananas. Every home run sets off fireworks. 3 strikes is an out.'),
       card('pitchrec', '\ud83d\udc40', 'Stand in the box and call the pitch before it gets to you: fastball, changeup or curve. Big leaguers know it by halfway. Trains your eyes for real at-bats.'),
       card('outfield', '\ud83e\udde4', 'Run down fly balls in center field, dive for the close ones, then make the smart throw with runners on base.'),
       card('brain', '\ud83e\udde0', 'Every question is an at-bat. Easy = single, medium = double, hard = home run. Score runs before you make 3 outs.',

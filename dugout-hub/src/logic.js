@@ -156,7 +156,7 @@ const HubLogic = (() => {
   // Arcade games. lower: a smaller score is better (reaction time in ms).
   // The five Arcade games. Older games stay listed (retired) so past best scores and XP still count.
   const GAMES = { derby: { name: 'Home Run Derby', unit: ' HR', lower: false }, kking: { name: 'Strikeout King', unit: ' K', lower: false },
-    steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false }, pitchrec: { name: 'Pitch Reader', unit: ' pts', lower: false },
+    steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false }, pitchrec: { name: 'Pitch Reader', unit: ' pts', lower: false }, streak: { name: 'Hit Streak', unit: ' hits', lower: false },
     trivia: { name: 'Baseball Trivia (old)', unit: ' of 10', lower: false, retired: true }, reaction: { name: 'Color Call (old)', unit: ' ms', lower: true, retired: true },
     zone: { name: 'Strike Zone Memory (old)', unit: ' of 10', lower: false, retired: true } };
   // Best score per game, and how many times he beat his own best (the first score does not count).
@@ -714,7 +714,7 @@ const HubLogic = (() => {
   const tierFor = level => TIERS.filter(t => level >= t[0]).pop()[1];
   // ---------- Arcade Mix: 3 quick goals a day, one of them picked for this week's focus ----------
   const MIX_GOALS = { derby: [3, 'Hit {n} home runs in Home Run Derby'], kking: [3, 'Strike out {n} hitters in Strikeout King'], steal: [4, 'Steal {n} bases in Steal Second'],
-    outfield: [700, 'Score {n} points in Outfield Hero'], pitchrec: [15, 'Score {n} points in Pitch Reader'], brain: [3, 'Score {n} runs in Baseball Brain'] };
+    outfield: [700, 'Score {n} points in Outfield Hero'], pitchrec: [15, 'Score {n} points in Pitch Reader'], streak: [4, 'Get {n} hits in Hit Streak'], brain: [3, 'Score {n} runs in Baseball Brain'] };
   const FOCUS_GAME = { baseline: 'derby', contact: 'derby', speed: 'derby', path: 'derby', timing: 'pitchrec' };
   function mixFor(date, focus) {
     const first = FOCUS_GAME[focus] || 'derby', rest = shuffle(Object.keys(MIX_GOALS).filter(g => g !== first), 'mix' + date).slice(0, 2);

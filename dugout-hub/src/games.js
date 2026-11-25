@@ -491,8 +491,9 @@ const HubGames = (() => {
   function kking(level, done) { play3d('kking', 'Strikeout King', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 ' + (level === 1 ? 2 : 3) + ' innings vs the Hornets', level, done, kking2d); }
   function steal(level, done) { play3d('steal', 'Steal Second', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 8 tries, 3 outs and you\u2019re done', level, done, steal2d); }
   function outfield(level, done) { play3d('outfield', 'Outfield Hero', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 10 fly balls in center field', level, done, outfield2d); }
+  function streak(level, done) { play3d('streak', 'Hit Streak', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 3 outs \u00b7 every hit counts', level, done, pitchrec2d); }
   function pitchrec(level, done) { play3d('pitchrec', 'Pitch Reader', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' \u00b7 10 pitches', level, done, pitchrec2d); }
-  function pitchrec2d(level, done) { const ui = open('Pitch Reader', ''); ui.stage.replaceChildren(el('div', { class: 'd3load' }, el('b', null, 'Pitch Reader needs 3D graphics, and this device can\u2019t show them. Tap Quit to go back.'))); }
+  function pitchrec2d(level, done) { const ui = open('Arcade', ''); ui.stage.replaceChildren(el('div', { class: 'd3load' }, el('b', null, 'This game needs 3D graphics, and this device can\u2019t show them. Tap Quit to go back.'))); }
   function kking2d(level, done) {
     const INN = level === 1 ? 2 : 3;
     const ui = open('Strikeout King', ['', 'Rookie', 'Pro', 'All-Star'][level] + ' · ' + INN + ' innings vs the Hornets');
@@ -943,7 +944,7 @@ const HubGames = (() => {
     onExit = done; opts = opts || {};
     if (opts.me) ME = Object.assign({}, ME, opts.me);
     const lv = clamp(opts.level || 1, 1, 3);
-    if (id === 'derby') derby(lv, done); else if (id === 'kking') kking(lv, done); else if (id === 'steal') steal(lv, done); else if (id === 'outfield') outfield(lv, done); else if (id === 'pitchrec') pitchrec(lv, done); else if (id === 'brain') brain(done);
+    if (id === 'derby') derby(lv, done); else if (id === 'kking') kking(lv, done); else if (id === 'steal') steal(lv, done); else if (id === 'outfield') outfield(lv, done); else if (id === 'pitchrec') pitchrec(lv, done); else if (id === 'streak') streak(lv, done); else if (id === 'brain') brain(done);
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && layer) close(); });
   return { play, close, Sound, TRIVIA };
