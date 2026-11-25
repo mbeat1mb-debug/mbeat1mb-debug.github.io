@@ -1049,7 +1049,7 @@ function viewArcade() {
     lockerSec(),
     h('section', { class: 'sec' }, h('h2', null, 'Sounds'), h('p', null, 'Bat cracks, crowd cheers, the organ and the umpire. The iPad\u2019s silent switch turns them off too.'),
       h('div', null, h('button', { type: 'button', class: 'btn line', 'aria-pressed': String(sOn), onclick: () => { HubGames.Sound.set(!sOn); if (!sOn) HubGames.Sound.crack(); render(); } }, sOn ? 'Sounds are on. Turn off' : 'Sounds are off. Turn on'))),
-    h('p', { class: 'small mid' }, 'First ' + L.XP.gamePlaysPaid + ' games each day: +' + L.XP.gamePlay + ' XP each. New best score: +' + L.XP.gameBest + ' XP. Training is still the fastest way to level up.'));
+    h('p', { class: 'small mid' }, 'Every game you finish: +' + L.XP.gamePlay + ' XP. New best score: +' + L.XP.gameBest + ' XP. A training day is worth up to 100 XP.'));
 }
 function startGame(id, level) {
   HubGames.play(id, { level, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
@@ -1456,7 +1456,7 @@ function viewGear() {
             const lv = parseInt(state.form.pz_lvl, 10), tx = (state.form.pz_text || '').trim();
             if (!(lv >= 2 && lv <= 50)) return toast('Pick a level from 2 to 50.'); if (!tx) return toast('Type the prize.');
             d.prizes = (d.prizes || []).concat([{ level: lv, text: tx.slice(0, 60), given: false }]); state.form.pz_lvl = ''; state.form.pz_text = ''; render(); } }, 'Add prize'))),
-        h('p', { class: 'small mid' }, 'He sees the next prize and how close he is on his Today page. Arcade games give a little XP (5 each for the first 3 a day), so the limit keeps training the main way to level up.'),
+        h('p', { class: 'small mid' }, 'He sees the next prize and how close he is on his Today page. Every Arcade game gives 5 XP (no daily cap). A training day gives up to 100.'),
         h('div', null, h('button', { type: 'button', class: 'btn', onclick: () => { const n = JSON.parse(JSON.stringify(d)); n.pinHash = state.settings.pinHash || null; state.gearDraft = null; saveSettings(n); } }, 'Save prizes and Arcade'))),
       h('section', { class: 'sec' }, h('h2', null, 'This device'),
         h('p', null, 'This device is signed in with the family code. Sign it out if it is lost or no longer used for the hub.'),

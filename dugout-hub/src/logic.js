@@ -152,7 +152,7 @@ const HubLogic = (() => {
     return t;
   }
 
-  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gamePlaysPaid: 3, gameBest: 10, mix: 30, mixWeek: 50 };
+  const XP = { A: 100, B: 100, C: 50, record: 25, boss: 50, perLevel: 300, challenge: 20, gamePlay: 5, gameBest: 10, mix: 30, mixWeek: 50 };
   // Arcade games. lower: a smaller score is better (reaction time in ms).
   // The five Arcade games. Older games stay listed (retired) so past best scores and XP still count.
   const GAMES = { derby: { name: 'Home Run Derby', unit: ' HR', lower: false }, kking: { name: 'Strikeout King', unit: ' K', lower: false },
@@ -179,7 +179,7 @@ const HubLogic = (() => {
     const chal = new Set(entries.filter(e => e.kind === 'challenge').map(e => e.date)), played = {};
     xp += chal.size * XP.challenge;
     for (const e of entries) if (e.kind === 'arcade') played[e.date] = (played[e.date] || 0) + 1;
-    for (const d in played) xp += Math.min(played[d], XP.gamePlaysPaid) * XP.gamePlay;
+    for (const d in played) xp += played[d] * XP.gamePlay;   // every saved game counts, no daily cap
     xp += gameBests(entries).total * XP.gameBest;
     // Arcade Mix: each finished day, plus a bonus for every 7 days in a row.
     const mixDays = [...new Set(entries.filter(e => e.kind === 'mix').map(e => e.date))].sort();
