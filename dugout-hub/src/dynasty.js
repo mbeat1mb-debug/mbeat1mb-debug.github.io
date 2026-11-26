@@ -63,7 +63,7 @@ const HubDynasty = (() => {
   }
   // a teammate's look and ratings (old saves get them filled in)
   function mate(x) { if (x.me) return x; if (x.con == null) { x.con = Math.round(clamp(38 + x.b * 55 + rnd(-6, 6), 35, 90)); x.pow = Math.round(clamp(32 + x.b * 50 + rnd(-10, 10), 30, 90)); x.spd2 = Math.round(clamp((x.spd || 0.5) * 100, 30, 90)); x.skin = Math.floor(rnd(0, 6)); x.hair = Math.floor(rnd(0, 6)); x.bats = chance(0.3) ? 'L' : 'R'; } return x; }
-  function fixUp(d) { if (!d.opts) d.opts = { bat: 'team', field: 'on' };
+  function fixUp(d) { if (!d.opts) d.opts = { bat: 'team', field: 'on' }; if (!d.opts.inn) d.opts.inn = 7;
     const p = d.player; if (p && p.a && p.a.vis == null) { p.a.vis = p.a.con; p.a.clu = 52; p.a.rea = p.a.fld; p.a.acc = p.a.arm; }
     if (p && !p.xp) { p.xp = {}; p.lvl = 1; p.lxp = 0; p.perks = { owned: [], on: [] }; } if (d.tier == null) d.tier = 0; if (d.roster) d.roster.lineup.forEach(mate); if (d.live && d.live.g) { d.live.g.us = d.roster; if (!d.live.g.box) d.live.g.box = {}; } return d; }
   // round robin: everyone plays everyone twice (10 rounds, 3 games each)
@@ -75,7 +75,7 @@ const HubDynasty = (() => {
   function newDynasty(p) {
     const teams = TEAMS.map(t => Object.assign({}, t, { o: t.o + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.03)), p: t.p + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.03)) }));
     if (!p.xp) { p.xp = {}; p.lvl = 1; p.lxp = 0; p.perks = { owned: [], on: [] }; }
-    const d = { v: 2, tier: 0, opts: { bat: 'team', field: 'on' }, player: p, season: 1, teams, rounds: schedule(teams.map(t => t.id)), week: 0, po: null, stats: blank(), career: blank(), seasons: [], trophies: [], live: null, log: [] };
+    const d = { v: 2, tier: 0, opts: { bat: 'team', field: 'on', inn: 7 }, player: p, season: 1, teams, rounds: schedule(teams.map(t => t.id)), week: 0, po: null, stats: blank(), career: blank(), seasons: [], trophies: [], live: null, log: [] };
     d.roster = roster(team(d, 'SPI'), p);
     return d;
   }
@@ -113,7 +113,7 @@ const HubDynasty = (() => {
   function newGame(d, g, playoff) {
     const usHome = g.home === 'SPI', opp = team(d, usHome ? g.away : g.home), them = roster(opp);
     return { home: g.home, away: g.away, usHome, opp: opp.id, playoff: playoff || null, inn: 1, top: true, outs: 0, bases: [null, null, null], score: { h: 0, a: 0 }, line: { h: [], a: [], hh: 0, ah: 0, he: 0, ae: 0 },
-      us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null };
+      len: (d.opts && d.opts.inn) || 7, us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null };
   }
   const battingUs = G => (G.top && !G.usHome) || (!G.top && G.usHome);
   const side = G => G.top ? 'a' : 'h';
@@ -169,13 +169,14 @@ const HubDynasty = (() => {
   }
   function endCheck(G) {
     const homeUp = !G.top;
-    if (homeUp && G.inn >= 7 && G.score.h > G.score.a) { G.over = true; say(G, (G.usHome ? 'WALK-OFF! The Spitters win it!' : 'Walk-off. They win it.'), G.usHome, G.usHome); return; }
+    const LEN = G.len || 7;
+    if (homeUp && G.inn >= LEN && G.score.h > G.score.a) { G.over = true; say(G, (G.usHome ? 'WALK-OFF! The Spitters win it!' : 'Walk-off. They win it.'), G.usHome, G.usHome); return; }
     if (G.outs >= 3) {
       if (G.line[side(G)][G.inn - 1] == null) G.line[side(G)][G.inn - 1] = 0;
       G.outs = 0; G.bases = [null, null, null]; G.stealTried = false;
-      if (G.top) { if (G.inn >= 7 && G.score.h > G.score.a) { G.over = true; G.line.h[G.inn - 1] = 'X'; return; } G.top = false; }
-      else { if (G.inn >= 7 && G.score.h !== G.score.a) { G.over = true; return; } if (G.inn >= 15) { G.over = true; return; } G.inn++; G.top = true; }
-      say(G, (G.top ? 'Top ' : 'Bottom ') + G.inn + (G.inn > 7 ? ' · extra innings!' : ''), false, false);
+      if (G.top) { if (G.inn >= LEN && G.score.h > G.score.a) { G.over = true; G.line.h[G.inn - 1] = 'X'; return; } G.top = false; }
+      else { if (G.inn >= LEN && G.score.h !== G.score.a) { G.over = true; return; } if (G.inn >= 15) { G.over = true; return; } G.inn++; G.top = true; }
+      say(G, (G.top ? 'Top ' : 'Bottom ') + G.inn + (G.inn > (G.len || 7) ? ' · extra innings!' : ''), false, false);
     }
   }
   // sim plays until it's his turn to bat (or the game ends)
@@ -360,7 +361,7 @@ const HubDynasty = (() => {
       if (nx) { const opp = team(d, nx.g.home === 'SPI' ? nx.g.away : nx.g.home), home = nx.g.home === 'SPI', orec = SIM.record(d, opp.id);
         nextCard = E('section', { class: 'dynnext' }, E('p', { class: 'dynkick' }, nx.playoff ? (nx.playoff === 'final' ? '🏆 CHAMPIONSHIP GAME' : 'PLAYOFFS · SEMIFINAL') : 'GAME ' + (d.week + 1) + ' OF ' + d.rounds.length),
           E('div', { class: 'dynvs' }, chip(team(d, 'SPI'), rec), E('span', { class: 'dynat' }, home ? 'vs' : '@'), chip(opp, orec)),
-          E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · 7 innings · you bat ' + ord(p.slot + 1)),
+          E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · ' + ((d.opts && d.opts.inn) || 7) + ' innings · you bat ' + ord(p.slot + 1)),
           E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.newGame(d, nx.g, nx.playoff); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
           E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.newGame(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'));
       } else nextCard = seasonOver();
@@ -379,7 +380,7 @@ const HubDynasty = (() => {
             E('section', { class: 'dynbox' }, E('h2', null, 'Your season'), E('div', { class: 'dynstats' },
               [['AVG', fmt3(SIM.avg(s))], ['HR', s.hr], ['RBI', s.rbi], ['H', s.h], ['R', s.r], ['BB', s.bb], ['OPS', fmt3(SIM.obp(s) + SIM.slg(s))], ['WEB GEMS', s.gem]].map(([k, v]) => E('div', null, E('b', null, v), E('span', null, k))))),
             E('section', { class: 'dynbox' }, E('h2', null, 'Game settings'),
-              setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']])),
+              setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']]), setRow('Game length', 'inn', [[3, '3 innings'], [5, '5 innings'], [7, '7 innings']])),
             E('section', { class: 'dynbox' }, E('h2', null, 'Standings'), standTable(st)),
             d.trophies.length || d.seasons.length ? E('section', { class: 'dynbox' }, E('h2', null, 'Trophy case'), E('ul', { class: 'dyntro' }, d.trophies.map(t => E('li', null, (t.kind === 'champ' ? '🏆 ' : '🏅 ') + t.text)), d.seasons.map(x => E('li', { class: 'mid' }, 'Season ' + x.season + (x.tier != null ? ' (' + TIERS[x.tier].short + ')' : '') + ': ' + x.rec.w + '–' + x.rec.l + ' · hit ' + fmt3(SIM.avg(x.stats)) + ', ' + x.stats.hr + ' HR')))) : null,
             E('button', { type: 'button', class: 'dynlink', onclick: () => { if (confirmReset()) { d = null; save(); create(); } } }, 'Start a new career'))));
@@ -433,7 +434,7 @@ const HubDynasty = (() => {
     /* ---------- the game ---------- */
     function setupMine() { const a = SIM.eff(d.player, false); G.fieldOn = d.opts.field !== 'off'; G.mePos = d.player.pos; G.myFld = a.fld / 100; G.myArm = a.arm / 100; G.mySpd = a.spd / 100; }
     function lineScore() {
-      const A = team(d, G.away), Hm = team(d, G.home), n = Math.max(7, G.inn);
+      const A = team(d, G.away), Hm = team(d, G.home), n = Math.max(G.len || 7, G.inn);
       const cells = (k) => { const out = []; for (let i = 0; i < n; i++) { const v = G.line[k][i]; out.push(E('td', { class: (G.inn === i + 1 && ((k === 'a') === G.top) && !G.over) ? 'now' : '' }, v == null ? '' : v)); } return out; };
       return E('table', { class: 'dynline' }, E('thead', null, E('tr', null, E('th', null, ''), Array.from({ length: n }, (_, i) => E('th', null, i + 1)), E('th', { class: 'rhe' }, 'R'), E('th', { class: 'rhe' }, 'H'), E('th', { class: 'rhe' }, 'E'))),
         E('tbody', null, [[A, 'a'], [Hm, 'h']].map(([t, k]) => E('tr', { class: t.id === 'SPI' ? 'me' : '' }, E('td', null, E('i', { class: 'dot', style: 'background:' + t.c1 }), t.id), cells(k), E('td', { class: 'rhe big' }, G.score[k]), E('td', { class: 'rhe' }, G.line[k + 'h']), E('td', { class: 'rhe' }, G.line[k + 'e'])))));
@@ -562,7 +563,7 @@ const HubDynasty = (() => {
       if (first) { if (r.won) { H.Sound.cheer && H.Sound.cheer(); } else { H.Sound.ooh && H.Sound.ooh(); } }
       if (first) { try { H.record(SIM.ovr(d.player.a)); } catch (e) {} }
       show(E('div', { class: 'dynpost ' + (r.won ? 'win' : 'loss') },
-        E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > 7 ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
+        E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > (G.len || 7) ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
         E('div', { class: 'dynfscore' }, E('div', null, E('i', { class: 'dot', style: 'background:' + A.c1 }), A.name, E('b', null, G.score.a)), E('div', null, E('i', { class: 'dot', style: 'background:' + Hm.c1 }), Hm.name, E('b', null, G.score.h))),
         lineScore(),
         E('section', { class: 'dynbox' }, E('h2', null, r.potg ? '⭐ PLAYER OF THE GAME' : 'Your game'), E('p', { class: 'dynmyline' }, line || 'No at-bats'),

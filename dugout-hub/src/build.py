@@ -16,4 +16,9 @@ if os.path.exists(d3):
     assert h.count("import('./derby3d.js')")>=1
     h=h.replace("import('./derby3d.js')", "import('./derby3d.js?v=%s')" % v)
 open(sys.argv[1],'w').write(h)
+# offline helper, stamped with this build so the iPad picks up each new version
+sw=os.path.join(os.path.dirname(os.path.abspath(__file__)),'sw.js')
+if os.path.exists(sw):
+    swv=open(sw).read().replace('__VERSION__', hashlib.md5(h.encode()).hexdigest()[:10]).replace('__D3__', v if os.path.exists(d3) else '')
+    open(os.path.join(os.path.dirname(os.path.abspath(sys.argv[1])),'sw.js'),'w').write(swv)
 print('built', sys.argv[1], len(h.encode())//1024, 'KB')

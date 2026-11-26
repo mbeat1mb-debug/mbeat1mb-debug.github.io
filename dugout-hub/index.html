@@ -2880,7 +2880,7 @@ const HubDynasty = (() => {
   }
   // a teammate's look and ratings (old saves get them filled in)
   function mate(x) { if (x.me) return x; if (x.con == null) { x.con = Math.round(clamp(38 + x.b * 55 + rnd(-6, 6), 35, 90)); x.pow = Math.round(clamp(32 + x.b * 50 + rnd(-10, 10), 30, 90)); x.spd2 = Math.round(clamp((x.spd || 0.5) * 100, 30, 90)); x.skin = Math.floor(rnd(0, 6)); x.hair = Math.floor(rnd(0, 6)); x.bats = chance(0.3) ? 'L' : 'R'; } return x; }
-  function fixUp(d) { if (!d.opts) d.opts = { bat: 'team', field: 'on' };
+  function fixUp(d) { if (!d.opts) d.opts = { bat: 'team', field: 'on' }; if (!d.opts.inn) d.opts.inn = 7;
     const p = d.player; if (p && p.a && p.a.vis == null) { p.a.vis = p.a.con; p.a.clu = 52; p.a.rea = p.a.fld; p.a.acc = p.a.arm; }
     if (p && !p.xp) { p.xp = {}; p.lvl = 1; p.lxp = 0; p.perks = { owned: [], on: [] }; } if (d.tier == null) d.tier = 0; if (d.roster) d.roster.lineup.forEach(mate); if (d.live && d.live.g) { d.live.g.us = d.roster; if (!d.live.g.box) d.live.g.box = {}; } return d; }
   // round robin: everyone plays everyone twice (10 rounds, 3 games each)
@@ -2892,7 +2892,7 @@ const HubDynasty = (() => {
   function newDynasty(p) {
     const teams = TEAMS.map(t => Object.assign({}, t, { o: t.o + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.03)), p: t.p + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.03)) }));
     if (!p.xp) { p.xp = {}; p.lvl = 1; p.lxp = 0; p.perks = { owned: [], on: [] }; }
-    const d = { v: 2, tier: 0, opts: { bat: 'team', field: 'on' }, player: p, season: 1, teams, rounds: schedule(teams.map(t => t.id)), week: 0, po: null, stats: blank(), career: blank(), seasons: [], trophies: [], live: null, log: [] };
+    const d = { v: 2, tier: 0, opts: { bat: 'team', field: 'on', inn: 7 }, player: p, season: 1, teams, rounds: schedule(teams.map(t => t.id)), week: 0, po: null, stats: blank(), career: blank(), seasons: [], trophies: [], live: null, log: [] };
     d.roster = roster(team(d, 'SPI'), p);
     return d;
   }
@@ -2930,7 +2930,7 @@ const HubDynasty = (() => {
   function newGame(d, g, playoff) {
     const usHome = g.home === 'SPI', opp = team(d, usHome ? g.away : g.home), them = roster(opp);
     return { home: g.home, away: g.away, usHome, opp: opp.id, playoff: playoff || null, inn: 1, top: true, outs: 0, bases: [null, null, null], score: { h: 0, a: 0 }, line: { h: [], a: [], hh: 0, ah: 0, he: 0, ae: 0 },
-      us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null };
+      len: (d.opts && d.opts.inn) || 7, us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null };
   }
   const battingUs = G => (G.top && !G.usHome) || (!G.top && G.usHome);
   const side = G => G.top ? 'a' : 'h';
@@ -2986,13 +2986,14 @@ const HubDynasty = (() => {
   }
   function endCheck(G) {
     const homeUp = !G.top;
-    if (homeUp && G.inn >= 7 && G.score.h > G.score.a) { G.over = true; say(G, (G.usHome ? 'WALK-OFF! The Spitters win it!' : 'Walk-off. They win it.'), G.usHome, G.usHome); return; }
+    const LEN = G.len || 7;
+    if (homeUp && G.inn >= LEN && G.score.h > G.score.a) { G.over = true; say(G, (G.usHome ? 'WALK-OFF! The Spitters win it!' : 'Walk-off. They win it.'), G.usHome, G.usHome); return; }
     if (G.outs >= 3) {
       if (G.line[side(G)][G.inn - 1] == null) G.line[side(G)][G.inn - 1] = 0;
       G.outs = 0; G.bases = [null, null, null]; G.stealTried = false;
-      if (G.top) { if (G.inn >= 7 && G.score.h > G.score.a) { G.over = true; G.line.h[G.inn - 1] = 'X'; return; } G.top = false; }
-      else { if (G.inn >= 7 && G.score.h !== G.score.a) { G.over = true; return; } if (G.inn >= 15) { G.over = true; return; } G.inn++; G.top = true; }
-      say(G, (G.top ? 'Top ' : 'Bottom ') + G.inn + (G.inn > 7 ? ' · extra innings!' : ''), false, false);
+      if (G.top) { if (G.inn >= LEN && G.score.h > G.score.a) { G.over = true; G.line.h[G.inn - 1] = 'X'; return; } G.top = false; }
+      else { if (G.inn >= LEN && G.score.h !== G.score.a) { G.over = true; return; } if (G.inn >= 15) { G.over = true; return; } G.inn++; G.top = true; }
+      say(G, (G.top ? 'Top ' : 'Bottom ') + G.inn + (G.inn > (G.len || 7) ? ' · extra innings!' : ''), false, false);
     }
   }
   // sim plays until it's his turn to bat (or the game ends)
@@ -3177,7 +3178,7 @@ const HubDynasty = (() => {
       if (nx) { const opp = team(d, nx.g.home === 'SPI' ? nx.g.away : nx.g.home), home = nx.g.home === 'SPI', orec = SIM.record(d, opp.id);
         nextCard = E('section', { class: 'dynnext' }, E('p', { class: 'dynkick' }, nx.playoff ? (nx.playoff === 'final' ? '🏆 CHAMPIONSHIP GAME' : 'PLAYOFFS · SEMIFINAL') : 'GAME ' + (d.week + 1) + ' OF ' + d.rounds.length),
           E('div', { class: 'dynvs' }, chip(team(d, 'SPI'), rec), E('span', { class: 'dynat' }, home ? 'vs' : '@'), chip(opp, orec)),
-          E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · 7 innings · you bat ' + ord(p.slot + 1)),
+          E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · ' + ((d.opts && d.opts.inn) || 7) + ' innings · you bat ' + ord(p.slot + 1)),
           E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.newGame(d, nx.g, nx.playoff); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
           E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.newGame(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'));
       } else nextCard = seasonOver();
@@ -3196,7 +3197,7 @@ const HubDynasty = (() => {
             E('section', { class: 'dynbox' }, E('h2', null, 'Your season'), E('div', { class: 'dynstats' },
               [['AVG', fmt3(SIM.avg(s))], ['HR', s.hr], ['RBI', s.rbi], ['H', s.h], ['R', s.r], ['BB', s.bb], ['OPS', fmt3(SIM.obp(s) + SIM.slg(s))], ['WEB GEMS', s.gem]].map(([k, v]) => E('div', null, E('b', null, v), E('span', null, k))))),
             E('section', { class: 'dynbox' }, E('h2', null, 'Game settings'),
-              setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']])),
+              setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']]), setRow('Game length', 'inn', [[3, '3 innings'], [5, '5 innings'], [7, '7 innings']])),
             E('section', { class: 'dynbox' }, E('h2', null, 'Standings'), standTable(st)),
             d.trophies.length || d.seasons.length ? E('section', { class: 'dynbox' }, E('h2', null, 'Trophy case'), E('ul', { class: 'dyntro' }, d.trophies.map(t => E('li', null, (t.kind === 'champ' ? '🏆 ' : '🏅 ') + t.text)), d.seasons.map(x => E('li', { class: 'mid' }, 'Season ' + x.season + (x.tier != null ? ' (' + TIERS[x.tier].short + ')' : '') + ': ' + x.rec.w + '–' + x.rec.l + ' · hit ' + fmt3(SIM.avg(x.stats)) + ', ' + x.stats.hr + ' HR')))) : null,
             E('button', { type: 'button', class: 'dynlink', onclick: () => { if (confirmReset()) { d = null; save(); create(); } } }, 'Start a new career'))));
@@ -3250,7 +3251,7 @@ const HubDynasty = (() => {
     /* ---------- the game ---------- */
     function setupMine() { const a = SIM.eff(d.player, false); G.fieldOn = d.opts.field !== 'off'; G.mePos = d.player.pos; G.myFld = a.fld / 100; G.myArm = a.arm / 100; G.mySpd = a.spd / 100; }
     function lineScore() {
-      const A = team(d, G.away), Hm = team(d, G.home), n = Math.max(7, G.inn);
+      const A = team(d, G.away), Hm = team(d, G.home), n = Math.max(G.len || 7, G.inn);
       const cells = (k) => { const out = []; for (let i = 0; i < n; i++) { const v = G.line[k][i]; out.push(E('td', { class: (G.inn === i + 1 && ((k === 'a') === G.top) && !G.over) ? 'now' : '' }, v == null ? '' : v)); } return out; };
       return E('table', { class: 'dynline' }, E('thead', null, E('tr', null, E('th', null, ''), Array.from({ length: n }, (_, i) => E('th', null, i + 1)), E('th', { class: 'rhe' }, 'R'), E('th', { class: 'rhe' }, 'H'), E('th', { class: 'rhe' }, 'E'))),
         E('tbody', null, [[A, 'a'], [Hm, 'h']].map(([t, k]) => E('tr', { class: t.id === 'SPI' ? 'me' : '' }, E('td', null, E('i', { class: 'dot', style: 'background:' + t.c1 }), t.id), cells(k), E('td', { class: 'rhe big' }, G.score[k]), E('td', { class: 'rhe' }, G.line[k + 'h']), E('td', { class: 'rhe' }, G.line[k + 'e'])))));
@@ -3379,7 +3380,7 @@ const HubDynasty = (() => {
       if (first) { if (r.won) { H.Sound.cheer && H.Sound.cheer(); } else { H.Sound.ooh && H.Sound.ooh(); } }
       if (first) { try { H.record(SIM.ovr(d.player.a)); } catch (e) {} }
       show(E('div', { class: 'dynpost ' + (r.won ? 'win' : 'loss') },
-        E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > 7 ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
+        E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > (G.len || 7) ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
         E('div', { class: 'dynfscore' }, E('div', null, E('i', { class: 'dot', style: 'background:' + A.c1 }), A.name, E('b', null, G.score.a)), E('div', null, E('i', { class: 'dot', style: 'background:' + Hm.c1 }), Hm.name, E('b', null, G.score.h))),
         lineScore(),
         E('section', { class: 'dynbox' }, E('h2', null, r.potg ? '⭐ PLAYER OF THE GAME' : 'Your game'), E('p', { class: 'dynmyline' }, line || 'No at-bats'),
@@ -3780,6 +3781,18 @@ function dbMsg(e) {
   if (c === 'rejected') return 'That entry was not valid, so it was not saved.';
   return 'The hub could not be reached, so nothing was saved. Try again in a minute.';
 }
+const SNAP = 'dugout-snap', OUTBOX = 'dugout-outbox';
+function saveSnap() { try { localStorage.setItem(SNAP, JSON.stringify({ entries: state.entries.slice(0, 800), settings: state.settings, ts: Date.now() })); } catch (e) {} }
+function readSnap() { try { return JSON.parse(localStorage.getItem(SNAP) || 'null'); } catch (e) { return null; } }
+const outbox = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); } catch (e) { return []; } };
+const setOutbox = q => { try { localStorage.setItem(OUTBOX, JSON.stringify(q)); } catch (e) {} };
+let flushing = false;
+async function flushOutbox() {   // send scores saved while there was no signal
+  if (flushing) return; const q = outbox(); if (!q.length) return; flushing = true;
+  try { for (const e of q.slice()) { const row = await api('add', { ts: e.ts, data: Object.assign({}, e, { id: undefined, pending: undefined }), media: null });
+      state.entries = state.entries.map(x => x.id === e.id ? Object.assign({}, x, { id: row.id, pending: false }) : x); setOutbox(outbox().filter(x => x.id !== e.id)); } }
+  catch (err) {} flushing = false; saveSnap(); softRender();
+}
 async function addEntry(obj) {
   const e = Object.assign({ ts: Date.now() }, obj), media = Array.isArray(e.thumbs) ? { thumbs: e.thumbs } : null;
   delete e.thumbs; delete e.id;
@@ -3790,9 +3803,14 @@ async function addEntry(obj) {
     state.entries = [Object.assign({}, e, { id: row.id })].concat(state.entries);
     if (media) state.media[row.id] = media.thumbs;
     return true;
-  } catch (err) { toast(dbMsg(err)); return false; }
+  } catch (err) {
+    // no signal: keep it on this iPad and send it later (photos and videos still need the internet)
+    if (err && err.code === 'offline' && !media) { const local = Object.assign({}, e, { id: 'local-' + e.ts, pending: true }); setOutbox(outbox().concat([local])); state.entries = [local].concat(state.entries); saveSnap();
+      toast('Saved on this iPad. It will send when you are back online.'); return true; }
+    toast(dbMsg(err)); return false; }
 }
 async function delEntry(id) {
+  if (String(id).startsWith('local-')) { setOutbox(outbox().filter(x => x.id !== id)); state.entries = state.entries.filter(e => e.id !== id); saveSnap(); return; }
   try { await api('del', { id }); state.entries = state.entries.filter(e => e.id !== id); delete state.media[id]; }
   catch (err) { toast(dbMsg(err)); }
 }
@@ -3829,6 +3847,11 @@ async function load() {
     }
     state.cut = d.total > state.entries.length;
     state.dbState = 'live';
+    const waiting = outbox(); if (waiting.length) state.entries = waiting.concat(state.entries);
+    saveSnap(); flushOutbox();
+    // his Road to the Show career saved while offline goes up now
+    let dirty = false; try { dirty = localStorage.getItem('dugout-settings-dirty') === '1'; } catch (e) {}
+    if (dirty) { const dd = dynLoad(); if (dd) state.settings = Object.assign({}, state.settings, { dynasty: dd }); api('settings', { data: state.settings }).then(() => { try { localStorage.removeItem('dugout-settings-dirty'); } catch (e) {} }).catch(() => {}); }
   } catch (err) {
     if (err.code === 'denied') { state.needKey = true; state.keyMsg = 'This device needs the family code again.'; }
     else state.dbState = state.entries.length ? 'stale' : 'none';
@@ -3847,6 +3870,10 @@ async function tryKey(k, typed) {
     storeKey(familyKey); state.needKey = false; state.keyBusy = false; state.dbState = 'connecting';
     render(); await load(); startPolling();
   } catch (err) {
+    const snap = err.code !== 'denied' && !typed ? readSnap() : null;
+    if (snap && familyKey) {   // no signal: open the hub with what this iPad saved last time
+      state.keyBusy = false; state.needKey = false; state.entries = snap.entries || []; state.settings = mergeSettings(snap.settings || {}); state.dbState = 'stale';
+      render(); startPolling(); return; }
     state.keyBusy = false; state.needKey = true; state.keyNet = err.code !== 'denied';
     state.keyMsg = err.code === 'denied' ? (typed ? 'That code did not open the hub. Check it and try again.' : 'This device needs the family code.')
       : err.code === 'offline' ? 'No internet connection. Connect, then try again.' : 'The hub could not be reached. Try again in a minute.';
@@ -3874,7 +3901,9 @@ function viewSetup() {
       h('p', { class: 'small mid' }, 'The code is on the setup message. Opening the hub from the setup link fills it in for you.')));
 }
 
+function offlineReady() { if (!('serviceWorker' in navigator) || /nosw/.test(location.search)) return; try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 async function boot() {
+  offlineReady();
   route();
   familyKey = readKey();
   if (!familyKey) { state.needKey = true; render(); return; }
@@ -3884,7 +3913,7 @@ async function boot() {
 /* ---------- shared bits ---------- */
 function banner() {
   const m = { none: 'The hub could not be reached. Check the internet connection; it tries again every minute.',
-    stale: 'Showing what was loaded last. The hub could not be reached just now.',
+    stale: 'No signal right now. Showing what this iPad saved last. Games and scores you finish will send when you are back online.',
     slow: 'Still reaching the saved data. What you see may be out of date.' }[state.dbState];
   if (!m && state.cut) return h('p', { class: 'note' }, 'Only the newest 20,000 entries are loaded, so some old totals may read low. Tell Claude to raise the limit.');
   return m ? h('p', { class: 'note' }, m) : null;
@@ -4711,7 +4740,7 @@ let dynSaving = null;
 function dynSave(d) { const v = d ? Object.assign(JSON.parse(JSON.stringify(d)), { saved: Date.now() }) : null;
   try { if (v) localStorage.setItem(DYN_KEY, JSON.stringify(v)); else localStorage.removeItem(DYN_KEY); } catch (e) {}
   state.settings = Object.assign({}, state.settings, { dynasty: v });
-  clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).catch(() => {}); }, 1200); }
+  clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).then(() => { try { localStorage.removeItem('dugout-settings-dirty'); } catch (e) {} }).catch(() => { try { localStorage.setItem('dugout-settings-dirty', '1'); } catch (e) {} }); }, 1200); }
 function dynRecord(score) { addEntry({ kind: 'arcade', date: today(), game: 'dynasty', score }).then(() => render()).catch(() => {}); }
 function startGame(id, level) {
   HubGames.play(id, { level, loadDyn: dynLoad, saveDyn: dynSave, record: dynRecord, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {

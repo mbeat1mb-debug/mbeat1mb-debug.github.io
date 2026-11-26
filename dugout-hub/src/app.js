@@ -133,6 +133,18 @@ function dbMsg(e) {
   if (c === 'rejected') return 'That entry was not valid, so it was not saved.';
   return 'The hub could not be reached, so nothing was saved. Try again in a minute.';
 }
+const SNAP = 'dugout-snap', OUTBOX = 'dugout-outbox';
+function saveSnap() { try { localStorage.setItem(SNAP, JSON.stringify({ entries: state.entries.slice(0, 800), settings: state.settings, ts: Date.now() })); } catch (e) {} }
+function readSnap() { try { return JSON.parse(localStorage.getItem(SNAP) || 'null'); } catch (e) { return null; } }
+const outbox = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); } catch (e) { return []; } };
+const setOutbox = q => { try { localStorage.setItem(OUTBOX, JSON.stringify(q)); } catch (e) {} };
+let flushing = false;
+async function flushOutbox() {   // send scores saved while there was no signal
+  if (flushing) return; const q = outbox(); if (!q.length) return; flushing = true;
+  try { for (const e of q.slice()) { const row = await api('add', { ts: e.ts, data: Object.assign({}, e, { id: undefined, pending: undefined }), media: null });
+      state.entries = state.entries.map(x => x.id === e.id ? Object.assign({}, x, { id: row.id, pending: false }) : x); setOutbox(outbox().filter(x => x.id !== e.id)); } }
+  catch (err) {} flushing = false; saveSnap(); softRender();
+}
 async function addEntry(obj) {
   const e = Object.assign({ ts: Date.now() }, obj), media = Array.isArray(e.thumbs) ? { thumbs: e.thumbs } : null;
   delete e.thumbs; delete e.id;
@@ -143,9 +155,14 @@ async function addEntry(obj) {
     state.entries = [Object.assign({}, e, { id: row.id })].concat(state.entries);
     if (media) state.media[row.id] = media.thumbs;
     return true;
-  } catch (err) { toast(dbMsg(err)); return false; }
+  } catch (err) {
+    // no signal: keep it on this iPad and send it later (photos and videos still need the internet)
+    if (err && err.code === 'offline' && !media) { const local = Object.assign({}, e, { id: 'local-' + e.ts, pending: true }); setOutbox(outbox().concat([local])); state.entries = [local].concat(state.entries); saveSnap();
+      toast('Saved on this iPad. It will send when you are back online.'); return true; }
+    toast(dbMsg(err)); return false; }
 }
 async function delEntry(id) {
+  if (String(id).startsWith('local-')) { setOutbox(outbox().filter(x => x.id !== id)); state.entries = state.entries.filter(e => e.id !== id); saveSnap(); return; }
   try { await api('del', { id }); state.entries = state.entries.filter(e => e.id !== id); delete state.media[id]; }
   catch (err) { toast(dbMsg(err)); }
 }
@@ -182,6 +199,11 @@ async function load() {
     }
     state.cut = d.total > state.entries.length;
     state.dbState = 'live';
+    const waiting = outbox(); if (waiting.length) state.entries = waiting.concat(state.entries);
+    saveSnap(); flushOutbox();
+    // his Road to the Show career saved while offline goes up now
+    let dirty = false; try { dirty = localStorage.getItem('dugout-settings-dirty') === '1'; } catch (e) {}
+    if (dirty) { const dd = dynLoad(); if (dd) state.settings = Object.assign({}, state.settings, { dynasty: dd }); api('settings', { data: state.settings }).then(() => { try { localStorage.removeItem('dugout-settings-dirty'); } catch (e) {} }).catch(() => {}); }
   } catch (err) {
     if (err.code === 'denied') { state.needKey = true; state.keyMsg = 'This device needs the family code again.'; }
     else state.dbState = state.entries.length ? 'stale' : 'none';
@@ -200,6 +222,10 @@ async function tryKey(k, typed) {
     storeKey(familyKey); state.needKey = false; state.keyBusy = false; state.dbState = 'connecting';
     render(); await load(); startPolling();
   } catch (err) {
+    const snap = err.code !== 'denied' && !typed ? readSnap() : null;
+    if (snap && familyKey) {   // no signal: open the hub with what this iPad saved last time
+      state.keyBusy = false; state.needKey = false; state.entries = snap.entries || []; state.settings = mergeSettings(snap.settings || {}); state.dbState = 'stale';
+      render(); startPolling(); return; }
     state.keyBusy = false; state.needKey = true; state.keyNet = err.code !== 'denied';
     state.keyMsg = err.code === 'denied' ? (typed ? 'That code did not open the hub. Check it and try again.' : 'This device needs the family code.')
       : err.code === 'offline' ? 'No internet connection. Connect, then try again.' : 'The hub could not be reached. Try again in a minute.';
@@ -227,7 +253,9 @@ function viewSetup() {
       h('p', { class: 'small mid' }, 'The code is on the setup message. Opening the hub from the setup link fills it in for you.')));
 }
 
+function offlineReady() { if (!('serviceWorker' in navigator) || /nosw/.test(location.search)) return; try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 async function boot() {
+  offlineReady();
   route();
   familyKey = readKey();
   if (!familyKey) { state.needKey = true; render(); return; }
@@ -237,7 +265,7 @@ async function boot() {
 /* ---------- shared bits ---------- */
 function banner() {
   const m = { none: 'The hub could not be reached. Check the internet connection; it tries again every minute.',
-    stale: 'Showing what was loaded last. The hub could not be reached just now.',
+    stale: 'No signal right now. Showing what this iPad saved last. Games and scores you finish will send when you are back online.',
     slow: 'Still reaching the saved data. What you see may be out of date.' }[state.dbState];
   if (!m && state.cut) return h('p', { class: 'note' }, 'Only the newest 20,000 entries are loaded, so some old totals may read low. Tell Claude to raise the limit.');
   return m ? h('p', { class: 'note' }, m) : null;
@@ -1064,7 +1092,7 @@ let dynSaving = null;
 function dynSave(d) { const v = d ? Object.assign(JSON.parse(JSON.stringify(d)), { saved: Date.now() }) : null;
   try { if (v) localStorage.setItem(DYN_KEY, JSON.stringify(v)); else localStorage.removeItem(DYN_KEY); } catch (e) {}
   state.settings = Object.assign({}, state.settings, { dynasty: v });
-  clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).catch(() => {}); }, 1200); }
+  clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).then(() => { try { localStorage.removeItem('dugout-settings-dirty'); } catch (e) {} }).catch(() => { try { localStorage.setItem('dugout-settings-dirty', '1'); } catch (e) {} }); }, 1200); }
 function dynRecord(score) { addEntry({ kind: 'arcade', date: today(), game: 'dynasty', score }).then(() => render()).catch(() => {}); }
 function startGame(id, level) {
   HubGames.play(id, { level, loadDyn: dynLoad, saveDyn: dynSave, record: dynRecord, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
