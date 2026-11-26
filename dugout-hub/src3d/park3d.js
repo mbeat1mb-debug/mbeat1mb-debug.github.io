@@ -280,6 +280,14 @@ export function world(cfg) {
   const fit = () => { const r = wrap.getBoundingClientRect(); if (!r.width) return; renderer.setSize(r.width, r.height, false); cam.aspect = r.width / r.height; if (cfg.fov) cam.fov = cfg.fov(cam.aspect); cam.updateProjectionMatrix(); };
   const ro = new ResizeObserver(fit); ro.observe(wrap); const AQ = autoQuality(renderer, sun, fit);
 
+  // a short glowing trail behind the ball so it's easy to follow on a small screen
+  const trailState = { on: true }, trail = [], tLast = new THREE.Vector3(1e9, 0, 0); let tHead = 0;
+  for (let i = 0; i < 14; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xfff6d8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); sp.visible = false; sp.userData.a = 0; scene.add(sp); trail.push(sp); }
+  function updateTrail(dt) {
+    if (trailState.on && ball.visible) { if (ball.position.distanceTo(tLast) > 0.7) { const sp = trail[tHead]; sp.position.copy(ball.position); sp.userData.a = 1; tHead = (tHead + 1) % trail.length; tLast.copy(ball.position); } }
+    else tLast.set(1e9, 0, 0);
+    for (const sp of trail) { const a = sp.userData.a; if (a > 0) { sp.userData.a = Math.max(0, a - dt * 2.4); sp.material.opacity = sp.userData.a * 0.55; sp.scale.setScalar(ball.scale.x * (0.35 + 0.85 * sp.userData.a)); sp.visible = true; } else sp.visible = false; }
+  }
   // main loop: tick(dt, T); test hooks: ?d3test fixed steps, ?d3rec manual frames
   const FIXED = /d3test|d3rec/.test(location.search) ? 1 / 30 : 0, MANUAL = /d3rec/.test(location.search), FAST = /d3fast/.test(location.search); let nFast = 0;
   let last = performance.now(), raf = 0, alive = true, fpsAcc = 0, fpsN = 0, fps = 0, onTick = () => {};
@@ -287,7 +295,7 @@ export function world(cfg) {
   function step() {
     const now = performance.now(), dt = FIXED || Math.min(0.05, (now - last) / 1000); last = now; T += dt; fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     crowd.update(T, dt); for (let i = jobs.length - 1; i >= 0; i--) if (T >= jobs[i].at) { const j = jobs[i]; jobs.splice(i, 1); j.fn(); }
-    AQ.frame(now); onTick(dt, T); callFrame(); if (!FAST || (++nFast % 12) === 0) renderer.render(scene, cam);
+    AQ.frame(now); onTick(dt, T); updateTrail(dt); callFrame(); if (!FAST || (++nFast % 12) === 0) renderer.render(scene, cam);
   }
   function frame() { if (!alive) return; if (!MANUAL) raf = requestAnimationFrame(frame); step(); }
   const run = fn => { onTick = fn; frame(); };
@@ -297,7 +305,7 @@ export function world(cfg) {
     renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) {} }
 
   applyPark(scene, renderer, (me.gear && me.gear.park && me.gear.park.id) || null);
-  return { THREE, wrap, hud, $, renderer, cv, scene, cam, canvasTex, toon, crowd, drawBoard, human, makeBat, placeBat, standInBox, handPos, gloveHand, ball, ballShadow, ring,
+  return { THREE, wrap, hud, $, renderer, cv, scene, cam, canvasTex, toon, crowd, drawBoard, human, makeBat, placeBat, standInBox, handPos, gloveHand, ball, ballShadow, ring, trail: trailState,
     callout, toScreen, toPlane, setShadowArea, later, run, stop, step, cleanups, CAL, get T() { return T; }, get fps() { return fps; } };
 }
 

@@ -26,9 +26,10 @@ export function outfield(cfg) {
 
   const GL = gearLook(me), J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}) })); J.root.position.copy(meP); scene.add(J.root);
   // teammates (Spitters) and the Hornets batter + runners
-  [[BASE + 6, -BASE - 10], [18, -2 * BASE + 4], [-18, -2 * BASE + 4], [-BASE - 6, -BASE - 10], [-100, -140], [100, -140], [0, -BASE]].forEach(([x, z]) => {
-    const f = W.human(Object.assign({ lod: true, glove: true, cap: true }, S, { letters: null })); f.root.position.set(x, z === -BASE ? 0.55 : 0, z); f.face(0, 0); f.set('ready', 0); scene.add(f.root); });
-  const C = W.human(Object.assign({ helmet: true, glove: true, lod: true }, S, { letters: null, colors: Object.assign({}, S.colors, { helmet: 0x161616 }) })); C.root.position.set(0, 0, 3.2); C.set('crouch', 0); scene.add(C.root);
+  const mates = [[BASE + 6, -BASE - 10], [18, -2 * BASE + 4], [-18, -2 * BASE + 4], [-BASE - 6, -BASE - 10], [-100, -140], [100, -140], [0, -BASE]].map(([x, z]) => {
+    const f = W.human(Object.assign({ glove: true, cap: true }, S, { letters: null })); f.root.position.set(x, z === -BASE ? 0.55 : 0, z); f.face(0, 0); f.set('ready', 0); scene.add(f.root); f.home = f.root.position.clone(); return f; });
+  const C = W.human(Object.assign({ helmet: true, glove: true }, S, { letters: null, colors: Object.assign({}, S.colors, { helmet: 0x161616 }) })); C.root.position.set(0, 0, 3.2); C.set('crouch', 0); scene.add(C.root); C.home = C.root.position.clone();
+  const cover = b => b === 1 ? mates[0] : b === 2 ? mates[2] : b === 3 ? mates[3] : C;   // who takes the throw at each base
   const bat = W.makeBat(); const hitter = W.human(Object.assign({ helmet: true, lod: true }, HORNETS(12))); scene.add(hitter.root); W.standInBox(hitter, bat);
   const runners = [1, 2, 3].map(i => { const r = W.human(Object.assign({ lod: true, helmet: true }, HORNETS())); r.root.visible = false; scene.add(r.root); return r; });
   const runnerAt = (i, r) => { const [x, z] = BASES[i]; r.root.position.set(x, 0, z); r.face(0, -BASE); r.set('ready', 0); };
@@ -53,6 +54,7 @@ export function outfield(cfg) {
     if (deep) { const k = (fence(a) - 1) / d; B.x *= k; B.z *= k; }
     meP.set(0, 0, -150); snap = true; target = null; diving = 0; sit = null; thr = null; holdT = 0; phase = 'fly'; pt = 0;
     runners.forEach(r => { r.root.visible = false; });
+    for (const f of mates.concat([C])) { f.root.position.copy(f.home); f.face(0, 0); f.set(f === C ? 'crouch' : 'ready', 0); }
     hitter.set('swing', W.CAL.swing.tc); W.placeBat(hitter, bat);
     Sound.crack(); say('Fly ball! Run to it. Ball ' + (n + 1) + ' of ' + N + '.'); paint();
   }
@@ -131,6 +133,12 @@ export function outfield(cfg) {
       if (thr.t > 0.25) { if (!thr.go) { thr.go = true; W.handPos(J, thr.from); thr.to.set(BASES[thr.b][0], 3, BASES[thr.b][1]); thr.T = clamp(thr.from.distanceTo(thr.to) / 95, 0.6, 1.8); Sound.whoosh(); }
         const k = Math.min(1, (thr.t - 0.25) / thr.T); W.ball.visible = k < 1; W.ball.position.lerpVectors(thr.from, thr.to, k); W.ball.position.y += Math.sin(k * Math.PI) * thr.T * 14; W.ball.scale.setScalar(Math.max(1, cam.position.distanceTo(W.ball.position) / 45)); }
     }
+    // the teammate covering that base runs to the bag and catches the throw
+    if (phase === 'thrown' && thr && thr.b) { const f = cover(thr.b), bag = tmp.set(BASES[thr.b][0], 0, BASES[thr.b][1]); bag.addScaledVector(bag.clone().setY(0).normalize(), thr.b === 4 ? -1.5 : 0).add(new THREE.Vector3(thr.b === 4 ? 0 : -1.2, 0, thr.b === 4 ? 0 : 1.2));
+      const d = f.root.position.distanceTo(bag), arrived = thr.go && thr.t > 0.25 + thr.T;
+      if (d > 0.5 && !arrived) { f.root.position.lerp(bag, Math.min(1, dt * 17 / d)); f.face(bag.x, bag.z); f.runStep(dt, 17); }
+      else { f.face(meP.x, meP.z); f.set(arrived && thr.t > 0.6 + thr.T ? 'crouch' : 'catch', 0); }
+      if (arrived) { W.ball.visible = true; W.gloveHand(f, W.ball.position); W.ball.scale.setScalar(Math.max(1, cam.position.distanceTo(W.ball.position) / 45)); if (!thr.caught) { thr.caught = true; Sound.pop(); } } }
     if (phase === 'thrown' && pt > 2.6) { n++; W.ball.visible = false; if (n >= N) { over = true; phase = 'end'; W.later(0.3, finishGame); } else newBall(); }
     if (phase === 'throw' && pt > 4) throwTo(0);
     J.root.position.copy(meP); if (faceTo) J.face(faceTo[0], faceTo[1]); if (anim === 'run') J.runStep(dt, SPEED); else if (anim) J.set(anim, T * 1.05);

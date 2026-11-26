@@ -13,13 +13,14 @@ export function pitchrec(cfg) {
   let n = 0, pts = 0, right = 0, phase = 'intro', pt = 0, P = null, over = false; const miss = { fast: 0, change: 0, curve: 0 }, seen = { fast: 0, change: 0, curve: 0 }; let sumRead = 0, nRead = 0;
   const lefty = me.bats !== 'right', side = lefty ? 1 : -1;
 
-  const W = world({ stage, me, shadow: { x: 0, z: -20, r: 50 }, fov: a => a < 0.6 ? 40 : a < 0.8 ? 34 : a < 1.2 ? 30 : 26,
+  const W = world({ stage, me, shadow: { x: 0, z: -20, r: 50 }, fov: a => a < 0.6 ? 27 : a < 0.8 ? 23 : a < 1.2 ? 20 : 17,
     hudHTML: hudShell({ team: 'SEED SPITTERS', sub: 'PITCH READER', top: true,
       cells: [['POINTS', 'r-pts'], ['PITCH', 'r-n'], ['RIGHT', 'r-ok'], ['READ', 'r-read']],
       kicker: 'SEED SPITTERS PARK', title: 'PITCH READER',
       lines: ['Watch the ball out of his hand. Tap FASTBALL, CHANGEUP' + (level === 1 ? '' : ' or CURVEBALL') + ' as early as you can.', 'Early and right = 3 points. Late = 1. Wrong = 0.', 'Big leaguers know the pitch before it’s halfway. Train your eyes!'],
       extra: '<div class="d3btns" id="r-btns"></div><div class="d3sit" id="r-why" style="display:none"></div>' }) });
   const { scene, cam, $ } = W;
+  W.trail.on = false;   // a trail would hide the spin he's trying to read
 
   // you in the box (lefty), catcher, ump; Hornets pitcher
   const S = SPITTERS(me), GL = gearLook(me), bat = W.makeBat(GL.bat);
@@ -38,7 +39,7 @@ export function pitchrec(cfg) {
   const SPIN = new THREE.Vector3();
 
   // batter's eye camera: just behind and above the plate, looking out at the pitcher
-  const CAM = { pos: new THREE.Vector3(-side * 0.5, 5.2, 10.5), look: new THREE.Vector3(0, 4.2, -BASE) };
+  const CAM = { pos: new THREE.Vector3(-side * 0.6, 5.0, 9.5), look: new THREE.Vector3(0, 3.6, -BASE) };
   cam.position.copy(CAM.pos); cam.lookAt(CAM.look);
 
   const btns = $('r-btns');
