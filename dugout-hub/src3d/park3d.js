@@ -40,7 +40,11 @@ function calibrate() {
     if (d.lengthSq() < 1e-6) d.set(0, 0, 1); CAL[name] = Object.assign({ yaw: yawOf(d, 1), yawM: yawOf(d, -1), g }, extra || {}); };
   const tc = fastest('swing', 0.55, 1.2), tr = fastest('pitch', 0.5, 1.8);
   one('swing', 0, tc, { tc }); one('pitch', 0, Math.min(CLIPS.pitch.duration - 0.01, tr + 0.25), { tr }); one('run', 0, CLIPS.run.duration - 0.01);
+  { at('run', 0); const h0 = wp('root'); at('run', CLIPS.run.duration - 0.01); const d = wp('root').sub(h0); d.y = 0; CAL.run.dist = d.length(); CAL.run.dur = CLIPS.run.duration; }
   for (const n of ['ready', 'crouch', 'ump', 'catch', 'slide', 'dive']) if (CLIPS[n]) { at(n, 0); CAL[n] = { yaw: Math.PI, yawM: Math.PI, g: -(n === 'slide' || n === 'dive' ? lowest() : feet()) }; }
+  const flat = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  if (CLIPS.dive) { at('dive', 0); const r = wp('root'); CAL.dive.reach = Math.max(flat(wp('wristR'), r), flat(wp('wristL'), r)); }
+  if (CLIPS.slide) { at('slide', 0.3); const r = wp('root'); let m = 0; for (const n in B) if (/^(toe|foot)/.test(n)) m = Math.max(m, flat(wp(n), r)); CAL.slide.reach = m; }
   let mn = 1e9; for (let t = 0; t < CLIPS.run.duration; t += 1 / 30) { at('run', t); mn = Math.min(mn, feet()); } CAL.run.g = -mn;
   const tk = CLIPS.run.tracks.find(t => /^root\.position$/.test(t.name));
   if (tk && !tk.flat) { const v = tk.values, n = v.length / 3; for (const c of [0, 2]) { const a = v[c], b = v[(n - 1) * 3 + c]; for (let i = 0; i < n; i++) v[i * 3 + c] -= a + (b - a) * i / (n - 1); } tk.flat = true; }
