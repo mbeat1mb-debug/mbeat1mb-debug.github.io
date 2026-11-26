@@ -944,7 +944,7 @@ const HubGames = (() => {
     onExit = done; opts = opts || {};
     if (opts.me) ME = Object.assign({}, ME, opts.me);
     const lv = clamp(opts.level || 1, 1, 3);
-    if (id === 'dynasty') { const ui0 = { open, setLive: () => {}, Sound, still: still(), me: ME, level: lv, load: opts.loadDyn || (() => null), save: opts.saveDyn || (() => {}), record: opts.record || (() => {}) };
+    if (id === 'dynasty') { const ui0 = { open, setLive: () => {}, Sound, still: still(), me: ME, level: lv, load: opts.loadDyn || (() => null), save: opts.saveDyn || (() => {}), record: opts.record || (() => {}), entries: opts.entries || [] };
       const g = HubDynasty.start(ui0); live = g; onExit = done; return; }
     if (id === 'derby') derby(lv, done); else if (id === 'kking') kking(lv, done); else if (id === 'steal') steal(lv, done); else if (id === 'outfield') outfield(lv, done); else if (id === 'pitchrec') pitchrec(lv, done); else if (id === 'streak') streak(lv, done); else if (id === 'brain') brain(done);
   }

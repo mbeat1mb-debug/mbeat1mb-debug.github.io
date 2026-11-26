@@ -1,7 +1,7 @@
 // Dugout Hub offline helper: the app opens instantly and works with no signal.
 // The page itself is always fetched fresh when there's internet (so updates show right away), with the saved copy as backup.
 // Game files carry a version in their name, so a saved copy is never out of date.
-const CACHE = 'dugout-3d615a7e94';
+const CACHE = 'dugout-31fc4e0bb8';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './player.glb',
   './fonts/barlow-latin-400-normal.woff2', './fonts/barlow-latin-500-normal.woff2', './fonts/barlow-latin-600-normal.woff2',
   './fonts/barlow-condensed-latin-600-normal.woff2', './fonts/barlow-condensed-latin-700-normal.woff2', './fonts/barlow-condensed-latin-800-normal.woff2', './fonts/yellowtail-latin-400-normal.woff2',

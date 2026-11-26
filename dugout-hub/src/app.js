@@ -550,6 +550,7 @@ function renderCheer() {
       c.boss ? h('p', { class: 'say' }, c.boss.won ? 'You beat the Boss! +' + L.XP.boss + ' XP' : 'The Boss wins this time. Get him next week.') : null,
       (c.tips || []).map(t => h('p', { class: 'say coachtip' }, t)),
       c.logged ? h('p', null, 'Logged for you: ' + c.logged + '.') : null,
+      (() => { const dd = dynLoad(); return dd && dd.player ? h('p', null, '\u26be Your Road to the Show player #' + dd.player.num + ' earns +2 training points and practice XP for this. Open Road to the Show to see it.') : null; })(),
       c.badges.map(b => h('p', { class: 'say' }, 'New badge: ', h('b', null, b.name))),
       h('div', { class: 'nextsteps' },
         c.chal ? h('button', { type: 'button', class: 'btn line', onclick: () => { state.cheer = null; state.tile = 'chal'; renderCheer(); location.hash = '#today'; render(); window.scrollTo(0, 0); } }, 'Do today\u2019s challenge') : null,
@@ -1095,7 +1096,7 @@ function dynSave(d) { const v = d ? Object.assign(JSON.parse(JSON.stringify(d)),
   clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).then(() => { try { localStorage.removeItem('dugout-settings-dirty'); } catch (e) {} }).catch(() => { try { localStorage.setItem('dugout-settings-dirty', '1'); } catch (e) {} }); }, 1200); }
 function dynRecord(score) { addEntry({ kind: 'arcade', date: today(), game: 'dynasty', score }).then(() => render()).catch(() => {}); }
 function startGame(id, level) {
-  HubGames.play(id, { level, loadDyn: dynLoad, saveDyn: dynSave, record: dynRecord, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
+  HubGames.play(id, { level, loadDyn: dynLoad, saveDyn: dynSave, record: dynRecord, entries: state.entries, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
     if (score == null) { render(); return; }
     const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
     if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id !== 'brain' ? { level } : {})))) { render(); return; }

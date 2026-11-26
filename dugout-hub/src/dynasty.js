@@ -272,6 +272,32 @@ const HubDynasty = (() => {
     out.tp = 1 + (won ? 1 : 0) + (potg ? 1 : 0) + out.lvlUps * 3; p.sp += out.tp;
     return out;
   }
+  // real practice pays off: training days, drills and tests in the hub give his player XP (and training points for full training days)
+  const PRAC_SES = { A: { con: 40, pow: 40, vis: 20 }, B: { fld: 35, arm: 30, acc: 25, con: 15 }, C: { spd: 40, rea: 30, vis: 15 } };
+  const PRAC_GAME = { derby: { pow: 20, con: 10 }, streak: { con: 20, vis: 10 }, kking: { arm: 15, acc: 15 }, steal: { spd: 25 }, outfield: { fld: 15, rea: 15 }, pitchrec: { vis: 15, eye: 15 }, brain: { clu: 15, eye: 10 } };
+  const PRAC_TEST = { velo: { arm: 20 }, speed: { spd: 20 }, strength: { pow: 15 } };
+  const GAMENAME = { derby: 'Home Run Derby', streak: 'Hit Streak', kking: 'Strikeout King', steal: 'Steal Second', outfield: 'Outfield Hero', pitchrec: 'Pitch Reader', brain: 'Baseball Brain' };
+  function practice(d, entries, now) {
+    now = now || Date.now(); const p = d.player;
+    if (!d.prac) d.prac = { seen: now - 7 * 864e5, days: {}, done: [] }; if (!d.prac.done) d.prac.done = [];
+    const doneSet = new Set(d.prac.done), from = now - 7 * 864e5;
+    const out = { tp: 0, gains: {}, ups: [], items: [], lvlUps: 0 };
+    // anything from the last 7 days not counted yet (works even if it was saved offline and arrives late)
+    const list = (entries || []).filter(e => e && (e.ts || 0) > Math.min(d.prac.seen, from) && (e.ts || 0) > from && (e.ts || 0) <= now + 6e4 && !doneSet.has(e.kind + ':' + e.ts)).sort((a, b) => a.ts - b.ts);
+    const addXp = (g, mult) => { for (const a in g) { const v = Math.round(g[a] * (mult || 1)); out.gains[a] = (out.gains[a] || 0) + v; p.xp[a] = (p.xp[a] || 0) + v;
+        while (p.a[a] < 99 && p.xp[a] >= xpNeed(p.a[a])) { p.xp[a] -= xpNeed(p.a[a]); p.a[a]++; out.ups.push(a); } p.lxp += v; } };
+    for (const e of list) { d.prac.done.push(e.kind + ':' + e.ts); const day = e.date || '', rec = d.prac.days[day] || (d.prac.days[day] = { ses: 0, arc: 0, test: 0 });
+      if (e.kind === 'session' && e.complete && PRAC_SES[e.slot] && !rec.ses) { rec.ses = 1; addXp(PRAC_SES[e.slot]); out.tp += 2; out.items.push('Training day ' + e.slot + ': +2 training points'); }
+      else if (e.kind === 'arcade' && PRAC_GAME[e.game] && rec.arc < 4) { rec.arc++; addXp(PRAC_GAME[e.game]); out.items.push(GAMENAME[e.game] + ' drill'); }
+      else if (PRAC_TEST[e.kind] && !rec.test) { rec.test = 1; addXp(PRAC_TEST[e.kind]); out.tp += 1; out.items.push((e.kind === 'velo' ? 'Throwing velocity' : e.kind === 'speed' ? 'Speed' : 'Strength') + ' test: +1 training point'); } }
+    d.prac.seen = Math.max(d.prac.seen, now); if (d.prac.done.length > 300) d.prac.done = d.prac.done.slice(-300);
+    // keep the day log short
+    const keys = Object.keys(d.prac.days).sort(); if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete d.prac.days[k]);
+    while (p.lxp >= lvlNeed(p.lvl)) { p.lxp -= lvlNeed(p.lvl); p.lvl++; out.lvlUps++; out.tp += 3;
+      PERKS.filter(x => x.lvl === p.lvl).forEach(x => { if (!p.perks.owned.includes(x.id)) { p.perks.owned.push(x.id); if (p.perks.on.length < slots(p.lvl)) p.perks.on.push(x.id); } }); }
+    p.sp += out.tp;
+    return out.items.length ? out : null;
+  }
   function startPlayoffs(d) {
     const st = standings(d), top = st.slice(0, 4).map(t => t.id), i = top.indexOf('SPI');
     d.po = { seeds: top, round: i >= 0 ? 'semi' : null, games: [], out: i < 0, done: i < 0, champ: null };
@@ -294,7 +320,7 @@ const HubDynasty = (() => {
     if (d.season === 1 && a >= 0.333 && s.ab >= 15) out.push('Rookie of the Year');
     return out;
   }
-  const SIM = { eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
+  const SIM = { practice, eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
 
   /* ================= screens ================= */
   function E(tag, attrs) { const n = document.createElement(tag); if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'html') n.innerHTML = v; else n.setAttribute(k, v === true ? '' : v); }
@@ -304,7 +330,7 @@ const HubDynasty = (() => {
   function start(H) {
     const ui = H.open('Road to the Show', 'Your player · your season');
     const root = E('div', { class: 'dyn' }); ui.stage.classList.add('dynstage'); ui.stage.replaceChildren(root);
-    let d = null; try { d = H.load(); if (d && d.player) SIM.fixUp(d); } catch (e) { d = null; }
+    let d = null, pracNote = null; try { d = H.load(); if (d && d.player) { SIM.fixUp(d); pracNote = SIM.practice(d, H.entries || []); if (pracNote) H.save(d); } } catch (e) { d = null; }
     let card = null, G = null, timer = null, busy = false;
     const stop3d = () => { if (card) { try { card.stop(); } catch (e) {} card = null; } H.setLive(null); };
     const save = () => { try { H.save(d); } catch (e) {} };
@@ -345,7 +371,7 @@ const HubDynasty = (() => {
           sw('Skin', SKIN, 'skin'), sw('Hair', HAIR, 'hair'), sw('Helmet', HELMET, 'helm'),
           seg('Difficulty', [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']], 'level', paint),
           E('button', { type: 'button', class: 'dynbig', id: 'dyn-create', onclick: () => {
-            p.a = Object.assign({}, ARCH[p.arch].a); p.name = p.first; d = SIM.newDynasty(p); save(); H.Sound.cheer && H.Sound.cheer(); hub(); } }, 'Start my career'));
+            p.a = Object.assign({}, ARCH[p.arch].a); p.name = p.first; d = SIM.newDynasty(p); SIM.fixUp(d); pracNote = SIM.practice(d, H.entries || []); save(); H.Sound.cheer && H.Sound.cheer(); hub(); } }, 'Start my career'));
       }
       show(E('div', { class: 'dynhead' }, E('p', { class: 'dynkick' }, 'Road to the Show'), E('h1', null, 'Create your player'), E('p', { class: 'dynsub' }, 'Drag the 3D player to spin him around.')),
         E('div', { class: 'dyncreate' }, box, form));
@@ -369,6 +395,11 @@ const HubDynasty = (() => {
         E('div', { class: 'dynhead row' }, E('div', null, E('p', { class: 'dynkick' }, 'Season ' + d.season + ' · ' + TIERS[d.tier].name), E('h1', { class: 'dynteam' }, E('span', { class: 'script' }, 'Spitters'), E('b', null, rec.w + '–' + rec.l)), E('p', { class: 'dynsub' }, ord(place) + ' place' + (d.po ? (d.po.done ? '' : ' · in the playoffs!') : ' · top 4 make the playoffs'))),
           E('div', { class: 'dynsp' }, E('b', null, p.sp), E('span', null, 'training pts'))),
         ladder(),
+        pracNote ? E('section', { class: 'dynprac', role: 'status' }, E('p', { class: 'dynkick' }, 'REAL PRACTICE PAID OFF'),
+          E('h2', null, (pracNote.tp ? '+' + pracNote.tp + ' training points · ' : '') + Object.values(pracNote.gains).reduce((a, b) => a + b, 0) + ' XP'),
+          E('p', { class: 'dynsub' }, pracNote.items.slice(0, 6).join(' · ') + (pracNote.items.length > 6 ? ' · and more' : '')),
+          pracNote.ups.length ? E('p', { class: 'dynsub gold' }, 'Ability up: ' + [...new Set(pracNote.ups)].map(k => ATTR.find(x => x[0] === k)[1]).join(', ')) : null,
+          E('button', { type: 'button', class: 'dynlink', onclick: () => { pracNote = null; hub(); } }, 'Got it')) : null,
         E('div', { class: 'dynhub' }, nextCard,
           E('section', { class: 'dyncard' }, box, E('div', { class: 'dynovr' }, E('b', null, SIM.ovr(p.a)), E('span', null, 'OVR')),
             E('div', { class: 'dynplate' }, E('b', null, '#' + p.num + ' ' + p.first.toUpperCase()), E('span', null, POSNAME[p.pos] + ' · ' + ARCH[p.arch].name + ' · Bats ' + (p.bats === 'L' ? 'left' : 'right') + ', throws ' + (p.throws === 'R' ? 'right' : 'left'))),
