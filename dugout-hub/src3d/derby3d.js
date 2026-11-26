@@ -9,12 +9,16 @@ import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 export function start(cfg) {
   const { stage, level, me, Sound, still, end, say } = cfg;
   // Hit Streak mode: same at-bat, but every base hit counts. 3 outs, 3 strikes is an out, bananas rain on base hits.
-  const STREAK = cfg.mode === 'streak', OUTMAX = STREAK ? 3 : 10;
+  const STREAK = cfg.mode === 'streak', AB = cfg.mode === 'ab' && cfg.ab, OUTMAX = STREAK || AB ? 3 : 10;
+  // single at-bat (Road to the Show): his ratings change the swing; the game situation comes in cfg.ab.sit
+  const R_ = AB ? cfg.ab.r : null, SIT = AB ? cfg.ab.sit : null;
+  const CON = R_ ? R_.con : 55, POW = R_ ? R_.pow : 55, SPD = R_ ? R_.spd : 55;
+  let abB = 0, abS = 0, abRes = null;
   const GL = gearLook(me);
   // Seed Spitters orange and green. Opponent: Hornets navy and gold.
   const ORANGE = 0xee7f24, GREEN = 0x1d6a3b, DKGREEN = 0x0f3d22, BLACK = 0x161616, DEEP = 0xd15d0a, BLUE = 0x1f3f7a, GOLD = 0xf2c230;
   const lefty = me.bats !== 'right', side = lefty ? 1 : -1;
-  const SLOW = [0, 1.7, 1.4, 1.15][level], WIN = [0, 150, 120, 100][level], EVB = [0, 8, 5, 2][level];
+  const SLOW = [0, 1.7, 1.4, 1.15][level], WIN = [0, 150, 120, 100][level] * (AB ? 0.8 + CON / 250 : 1), EVB = [0, 8, 5, 2][level] + (AB ? (POW - 55) * 0.2 : 0), AIMTOL = 0.95 * (AB ? 0.85 + CON / 330 : 1);
   const KINDS = level === 1 ? ['fast', 'fast', 'fast', 'change'] : level === 2 ? ['fast', 'fast', 'change', 'curve'] : ['fast', 'change', 'curve', 'fast', 'curve'];
   const NAMES = { fast: 'FASTBALL', change: 'CHANGEUP', curve: 'CURVEBALL' };
   const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
@@ -28,22 +32,32 @@ export function start(cfg) {
   const wrap = document.createElement('div'); wrap.className = 'd3';
   const hud = document.createElement('div'); hud.className = 'd3hud';
   hud.innerHTML = `
+    ${AB ? `<div class="d3bug ab"><div class="d3bug-team"><b>${SIT.us} ${SIT.usR} · ${SIT.them} ${SIT.themR}</b><span>${SIT.half} ${SIT.inn}</span></div>
+      <div class="d3bug-cell"><span>COUNT</span><b id="d3-cnt">0–0</b></div>
+      <div class="d3bug-cell outs"><span>OUTS</span><div id="d3-outs"></div></div>
+      <div class="d3bug-cell"><span>ON BASE</span><b class="d3dia2">${[1, 2, 3].map(i => '<i class="' + (SIT.on[i - 1] ? 'on' : '') + ' b' + i + '"></i>').join('')}</b></div>
+      <i hidden id="d3-hr"></i><i hidden id="d3-long"></i></div>` : `
     <div class="d3bug"><div class="d3bug-team"><b>SEED SPITTERS</b><span>${STREAK ? 'HIT STREAK' : 'HR DERBY'}</span></div>
       ${STREAK ? '<div class="d3bug-cell"><span>HITS</span><b id="d3-hits">0</b></div>' : ''}
       <div class="d3bug-cell"><span>HR</span><b id="d3-hr">0</b></div>
       ${STREAK ? '<div class="d3bug-cell"><span>STRIKES</span><b id="d3-k">0</b></div>' : ''}
       <div class="d3bug-cell outs"><span>OUTS</span><div id="d3-outs"></div></div>
-      <div class="d3bug-cell"><span>${STREAK ? 'BEST RUN' : 'LONGEST'}</span><b id="d3-long">–</b></div></div>
+      <div class="d3bug-cell"><span>${STREAK ? 'BEST RUN' : 'LONGEST'}</span><b id="d3-long">–</b></div></div>`}
     <div class="d3pitch" id="d3-pitch"></div>
     <div class="d3streak" id="d3-streak"></div>
     <div class="d3call" id="d3-call"></div>
     <div class="d3tip" id="d3-tip"></div>
-    <div class="d3intro" id="d3-intro"><div class="d3card">
+    <div class="d3intro" id="d3-intro"><div class="d3card">${AB ? `
+      <div class="d3kicker">${SIT.title}</div><h2>#${me.num} ${me.name.toUpperCase()}</h2>
+      <p class="d3sitline">${SIT.line}</p>
+      <p>${SIT.pitcher}</p>
+      <p>Tap to swing when the ball reaches the box. 4 balls = walk. 3 strikes = out.</p>
+      <button type="button" class="d3go" id="d3-go">STEP IN</button></div></div>` : `
       <div class="d3kicker">SEED SPITTERS PARK</div><h2>${STREAK ? 'HIT STREAK' : 'HOME RUN DERBY'}</h2>
       <p>Tap the screen to swing when the ball reaches the box.</p>
       <p>${level === 1 ? 'Rookie: just nail the timing.' : 'Tap where the ball is: higher or lower.'} Swing early to pull it.</p>
       <p>${STREAK ? 'Every base hit counts. Bananas for hits, fireworks for homers! 3 strikes is an out. 3 outs and you’re done.' : '10 outs. Don’t swing at balls!'}</p>
-      <button type="button" class="d3go" id="d3-go">PLAY BALL</button></div></div>`;
+      <button type="button" class="d3go" id="d3-go">PLAY BALL</button></div></div>`}`;
   stage.replaceChildren(wrap); wrap.appendChild(hud);
   const $ = id => hud.querySelector('#' + id);
   const outsEl = $('d3-outs'); for (let i = 0; i < OUTMAX; i++) outsEl.appendChild(document.createElement('i'));
@@ -186,6 +200,7 @@ export function start(cfg) {
     g.fillStyle = '#0d0d0d'; g.fillRect(0, 0, W, H); g.strokeStyle = '#f28c38'; g.lineWidth = 12; g.strokeRect(6, 6, W - 12, H - 12);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#f28c38'; g.font = '800 64px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillText('SEED SPITTERS PARK', W / 2, 62);
     if (big) { g.fillStyle = '#ffd23f'; g.font = '800 150px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillText(big, W / 2, 230); }
+    else if (AB) { g.font = '800 112px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillStyle = '#ffffff'; g.fillText(SIT.us + ' ' + SIT.usR + '   ' + SIT.them + ' ' + SIT.themR, W / 2, 210); g.font = '600 46px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillStyle = '#bbbbbb'; g.fillText(SIT.half + ' ' + SIT.inn + ' · #' + me.num + ' ' + me.name.toUpperCase() + ' AT BAT', W / 2, 318); }
     else { g.font = '800 120px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillStyle = '#ffffff'; g.fillText(STREAK ? 'HITS ' + (typeof hits === 'number' ? hits + hr : 0) + '   OUTS ' + outs : 'HR ' + hr + '   OUTS ' + outs, W / 2, 220); g.font = '600 46px "Barlow Condensed", Arial Narrow, sans-serif'; g.fillStyle = '#bbbbbb'; g.fillText('#' + me.num + ' ' + me.name.toUpperCase() + ' AT BAT', W / 2, 320); }
     board.needsUpdate = true; };
   const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(96, 36), new THREE.MeshBasicMaterial({ map: board, fog: false })); boardMesh.position.set(0, 78, -fence(0) - 62); scene.add(boardMesh);
@@ -345,8 +360,8 @@ export function start(cfg) {
   const bat = (() => { const pts = []; for (let i = 0; i <= 16; i++) { const y = i / 16 * 2.45, r = i < 2 ? 0.07 : y < 1.0 ? 0.055 : Math.min(0.13, 0.055 + (y - 1.0) * 0.06); pts.push(new THREE.Vector2(i === 16 ? 0.0 : r, y)); }
     pts.unshift(new THREE.Vector2(0, -0.02)); const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 16), toon(GL.bat || 0xd9a65e, { roughness: GL.bat === 0xd4af37 ? 0.3 : 0.45, metalness: GL.bat === 0xd4af37 ? 0.6 : 0 })); m.castShadow = true;
     const tape = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.6, 12), toon(BLACK)); tape.position.y = 0.4; m.add(tape); return m; })();
-  const OPPC = { jersey: 0xd6d4cc, sleeve: BLUE, pants: 0xd8d6cf, socks: BLUE, belt: BLUE, cap: BLUE, helmet: BLUE };
-  const J = GLB ? human({ mirror: lefty, helmet: true, skin: 0xf0c8a5, hair: 0x4a2e18, finish: GL.finish, colors: Object.assign({ jersey: ORANGE, sleeve: GREEN, pants: 0xf4f2ec, socks: GREEN, belt: GREEN, helmet: GL.helmet != null ? GL.helmet : GREEN }, GL.shoes != null ? { shoes: GL.shoes } : {}),
+  const OC = AB && SIT.oc ? SIT.oc : BLUE, OPPC = { jersey: AB && SIT.oj ? SIT.oj : 0xd6d4cc, sleeve: OC, pants: 0xd8d6cf, socks: OC, belt: OC, cap: OC, helmet: OC };
+  const J = GLB ? human({ mirror: lefty, helmet: true, skin: AB && cfg.ab.skin ? cfg.ab.skin : 0xf0c8a5, hair: AB && cfg.ab.hair ? cfg.ab.hair : 0x4a2e18, finish: GL.finish, colors: Object.assign({ jersey: ORANGE, sleeve: GREEN, pants: 0xf4f2ec, socks: GREEN, belt: GREEN, helmet: GL.helmet != null ? GL.helmet : GREEN }, GL.shoes != null ? { shoes: GL.shoes } : {}),
     letters: { bg: '#ee7f24', fg: '#1d6a3b', edge: '#ffffff', num: me.num, name: me.name.toUpperCase().slice(0, 10), script: 'Spitters' } }) : player({ shirt: ORANGE, shirtCss: '#ee7f24', sleeve: ORANGE, under: GREEN, longSleeve: true, trim: GREEN, piping: true, pants: 0xf4f2ec, legStripe: GREEN, belt: GREEN, socks: GREEN, helmet: GREEN, helmetStripe: ORANGE,
     num: me.num, name: me.name.toUpperCase().slice(0, 10), numCss: '#1d6a3b', numEdge: '#ffffff', script: 'Spitters', eyeBlack: true, gloves: ORANGE, skin: 0xf0c8a5 });
   J.root.position.set(side * 2.7, 0, 0.2); J.root.rotation.y = J.h ? 0 : side * Math.PI / 2; scene.add(J.root);
@@ -367,7 +382,7 @@ export function start(cfg) {
 
   // Pitcher (Hornets: blue and gold) and the defense
   const OPP = { shirt: 0xf2f0ea, shirtCss: '#f2f0ea', sleeve: BLUE, under: BLUE, pants: 0xd8d6cf, legStripe: BLUE, belt: BLUE, socks: BLUE, cap: BLUE, brim: BLUE, trim: GOLD, piping: true, gloveSide: -1 };
-  const P1 = GLB ? human({ glove: true, colors: OPPC, letters: { bg: '#d6d4cc', fg: '#1f3f7a', edge: '#f2c230', num: '7', name: 'HORNETS', script: 'Hornets' } }) : player(Object.assign({ num: '7', numCss: '#1f3f7a', numEdge: '#f2c230', name: 'HORNETS', script: 'Hornets' }, OPP)); P1.root.position.set(0, 0.55, -BASE + 0.6); P1.root.rotation.y = Math.PI; scene.add(P1.root);
+  const P1 = GLB ? human({ glove: true, colors: OPPC, letters: AB && SIT.ol ? SIT.ol : { bg: '#d6d4cc', fg: '#1f3f7a', edge: '#f2c230', num: '7', name: 'HORNETS', script: 'Hornets' } }) : player(Object.assign({ num: '7', numCss: '#1f3f7a', numEdge: '#f2c230', name: 'HORNETS', script: 'Hornets' }, OPP)); P1.root.position.set(0, 0.55, -BASE + 0.6); P1.root.rotation.y = Math.PI; scene.add(P1.root);
   const PK = [   // windup keyframes (right-handed pitcher facing home)
     { t: 0, p: { y: -0.12, torso: [0.12, 0, 0], shL: [-0.5, 0, -0.3], elL: [-1.4, 0, 0], shR: [-0.5, 0, 0.3], elR: [-1.4, 0, 0], hipL: [-0.2, 0, -0.08], knL: [0.35, 0, 0], hipR: [-0.2, 0, 0.08], knR: [0.35, 0, 0] } },
     { t: 0.3, p: { y: 0.1, hips: [0, -0.9, 0], torso: [0, -0.2, 0], shL: [-0.6, 0, -0.3], elL: [-1.5, 0, 0], shR: [-0.6, 0, 0.3], elR: [-1.5, 0, 0], hipL: [-1.5, 0, 0], knL: [1.6, 0, 0] } },
@@ -456,7 +471,8 @@ export function start(cfg) {
   let phase = 'intro', pt = 0, P = null, sw = null, hit = null, over = false, timeScale = 1, shakeT = 0, introT = 0, camMode = 'intro', flashT = 9, arcT = 9;
   const dbg = { p: new THREE.Vector3(), l: new THREE.Vector3() }, camPos = new THREE.Vector3(0, 160, -300), camLook = new THREE.Vector3(0, 0, -60);
   drawBoard();
-  const setOuts = () => { [...outsEl.children].forEach((d, i) => d.classList.toggle('on', i < outs)); $('d3-hr').textContent = hr;
+  if (AB) outs = SIT.outs;
+  const setOuts = () => { [...outsEl.children].forEach((d, i) => d.classList.toggle('on', i < outs)); $('d3-hr').textContent = hr; if (AB) { $('d3-cnt').textContent = abB + '–' + abS; return; }
     if (STREAK) { $('d3-hits').textContent = hits + hr; $('d3-k').textContent = strikes; $('d3-long').textContent = bestRun || '–'; }
     else $('d3-long').textContent = longest ? longest + ' ft' : '–';
     const run = STREAK ? hitRun : streak, st = $('d3-streak'); st.textContent = run >= 2 ? (run >= 3 ? '🔥 ON FIRE ×' + run : run + (STREAK ? ' HITS IN A ROW' : ' IN A ROW')) : ''; st.classList.toggle('on', run >= 2); };
@@ -472,7 +488,7 @@ export function start(cfg) {
   function newPitch() {
     if (P && !P.strike) balls++;
     const kind = pick(KINDS), mph = Math.round((kind === 'fast' ? rnd(47, 56) : kind === 'change' ? rnd(38, 43) : rnd(40, 46)) + (level === 3 ? 5 : 0));
-    const strike = Math.random() < (level === 1 ? 0.88 : 0.78);
+    const strike = Math.random() < (AB && SIT.ctl != null ? SIT.ctl : level === 1 ? 0.88 : 0.78);
     let x = rnd(-0.55, 0.55), h = rnd(1.8, 3.1);
     if (!strike) { if (Math.random() < 0.5) x = pick([-1, 1]) * rnd(1.15, 1.6); else h = pick([rnd(0.8, 1.2), rnd(3.75, 4.2)]); }
     P = { kind, mph, x, h, T: 44 / (mph * 1.4667) * SLOW * (kind === 'change' ? 1.1 : 1), t: 0, drop: kind === 'curve' ? 1.5 : kind === 'change' ? 0.55 : 0, brk: kind === 'curve' ? -0.9 : 0,
@@ -496,8 +512,8 @@ export function start(cfg) {
     if (!P.strike) chases++;
     const e = (P.t - P.T) * 1000 / SLOW * 1.2, v = aimH - P.h, a = Math.abs(e);
     if (a > WIN * 1.6) { if (e < 0) early++; else late++; }
-    if (a > WIN * 1.6 || Math.abs(v) > 0.95) { sw.miss = true; result('whiff', a > WIN * 1.6 ? (e < 0 ? 'Swung too early!' : 'Swung too late!') : (v > 0 ? 'Swung over it!' : 'Swung under it!')); return; }
-    let q = 1 - 0.7 * Math.pow(Math.min(1, a / (WIN * 1.6)), 1.5) - 0.55 * Math.pow(Math.min(1, Math.abs(v) / 0.95), 1.3);
+    if (a > WIN * 1.6 || Math.abs(v) > AIMTOL) { sw.miss = true; result('whiff', a > WIN * 1.6 ? (e < 0 ? 'Swung too early!' : 'Swung too late!') : (v > 0 ? 'Swung over it!' : 'Swung under it!')); return; }
+    let q = 1 - 0.7 * Math.pow(Math.min(1, a / (WIN * 1.6)), 1.5) - 0.55 * Math.pow(Math.min(1, Math.abs(v) / AIMTOL), 1.3);
     if (!P.strike) q -= 0.25;
     // Early swing pulls it, late goes the other way; inside pitches get pulled, outside pitches go the other way.
     const nrm = () => gauss() * 3;   // about one standard deviation
@@ -548,7 +564,9 @@ export function start(cfg) {
       for (let i = 0; i < n; i++) { const q = sim.pts[i], ti = i * step; if (Math.hypot(q.x, q.z) > 120) break;
         for (let f = 0; f < 4; f++) { const d = fielders[f].home.distanceTo(tmp.set(q.x, 0, q.z)); if (q.y < 3 && 0.3 + d / 19 <= ti) {
           const sp = i + 1 < n ? sim.pts[i + 1].distanceTo(q) / step : 0; if (sp > 85 && d > 4) continue;   // smoked past him
-          h.kind = 'groundout'; h.fielder = f; h.catchT = ti; h.catchP = q.clone(); h.resultAt = ti + 0.1; return h; } } }
+          h.kind = 'groundout'; h.fielder = f; h.catchT = ti; h.catchP = q.clone(); h.resultAt = ti + 0.1;
+          if (AB && f >= 1 && ti > 0.55 && Math.random() < clamp((SPD - 45) / 180, 0.03, 0.3)) { h.kind = 'hit'; h.hitName = 'INFIELD HIT'; h.where = 'Beat the throw'; h.fielder = null; h.catchT = null; h.dist = Math.round(Math.hypot(q.x, q.z)); }
+          return h; } } }
       let tPass = sim.end; for (let i = 0; i < n; i++) if (Math.hypot(sim.pts[i].x, sim.pts[i].z) > 120) { tPass = i * step; break; }
       h.kind = 'hit'; h.hitName = 'SINGLE'; h.where = Math.abs(ang(rest)) > 25 ? 'Down the line' : 'Through the infield'; h.dist = Math.round(Math.hypot(rest.x, rest.z)); h.resultAt = Math.min(tPass, 2.2); return h;
     }
@@ -568,8 +586,25 @@ export function start(cfg) {
   }
   // Where the ball would have landed with no stands in the way.
   function carry(p0, v0) { const p = p0.clone(), v = v0.clone(), h = 1 / 120; for (let i = 0; i < 2000 && p.y > 0; i++) { const sp = v.length(), k = 0.0012; v.x -= k * sp * v.x * h; v.z -= k * sp * v.z * h; v.y -= (32.2 + k * sp * v.y) * h; p.addScaledVector(v, h); } return Math.round(Math.hypot(p.x, p.z)); }
+  function abEnd(code, main, sub, cls, extra) {
+    over = true; abRes = Object.assign({ code, text: main + (sub ? ' · ' + sub : ''), ev: hit ? hit.ev : null, dist: hit ? hit.dist : null, pitches: abB + abS }, extra || {});
+    callout(main, sub, cls); say(main + (sub ? '. ' + sub : '')); setOuts();
+    later(code === 'HR' ? 3.4 : 2.4, () => { if (alive && cfg.ab.onDone) cfg.ab.onDone(abRes); });
+  }
+  function abResult(kind, text, sub) {
+    const cnt = () => abB + '–' + abS;
+    if (kind === 'ball') { abB++; if (abB >= 4) { Sound.blip(true); return abEnd('BB', 'BALL FOUR', 'Take your base', 'hit'); } callout('BALL ' + abB, 'Count ' + cnt(), 'ball'); Sound.blip(true); say('Ball ' + abB + '. ' + cnt()); setOuts(); return; }
+    if (kind === 'look' || kind === 'whiff') { abS++; if (abS >= 3) { if (kind === 'look') Sound.say('Strike three!'); else Sound.blip(false); return abEnd('K', 'STRIKE THREE!', kind === 'look' ? 'Caught looking' : text, 'out'); }
+      callout(kind === 'look' ? 'STRIKE ' + abS : text, 'Count ' + cnt(), 'ball'); if (kind === 'look') Sound.say('Strike!'); else Sound.blip(false); say((kind === 'look' ? 'Strike ' + abS : text) + '. ' + cnt()); setOuts(); return; }
+    if (kind === 'foul') { if (abS < 2) abS++; callout('FOUL BALL', 'Count ' + cnt(), 'ball'); Sound.ooh(); say('Foul ball. ' + cnt()); setOuts(); return; }
+    if (kind === 'hr') { hr++; Sound.cheer(); crowd.cheer(1); later(0.7, () => Sound.organ()); for (let i = 0; i < 7; i++) later(0.3 + i * 0.3, () => { if (alive) firework(rnd(-120, 120), rnd(90, 150), -fence(0) - rnd(20, 90)); });
+      drawBoard('HOME RUN!'); return abEnd('HR', 'HOME RUN!', hit.dist + ' FT · ' + hit.ev + ' MPH', 'hr'); }
+    if (kind === 'hit') { const code = text === 'DOUBLE!' ? '2B' : text === 'TRIPLE!' ? '3B' : '1B'; Sound.cheer(); crowd.cheer(code === '1B' ? 0.5 : 0.8); return abEnd(code, text, sub, 'hit'); }
+    Sound.ooh(); return abEnd('OUT', text, sub, 'out', { out: hit && hit.kind === 'groundout' ? 'ground' : hit && hit.la != null && hit.la < 18 ? 'line' : 'fly', fielder: hit && hit.fielder });
+  }
   function result(kind, text, sub) {
     if (phase !== 'flight') { phase = 'after'; pt = 0; }
+    if (AB) return abResult(kind, text, sub);
     if (STREAK) {   // Hit Streak rules: strikes add up, any hit keeps the run going
       if (kind === 'hr' || kind === 'hit') { strikes = 0; hitRun++; bestRun = Math.max(bestRun, hitRun); }
       if (kind === 'hit') { bananaRain(); later(0.05, () => drawBoard()); }
@@ -619,7 +654,8 @@ export function start(cfg) {
     // fielders idle
     if (!GLB) fielders.forEach((f, i) => { f.root.position.y = Math.abs(Math.sin(T * 2 + i)) * 0.05; });
 
-    if (phase === 'gap' && pt > 0.9) { if (outs >= OUTMAX) { over = true; phase = 'end'; later(0.6, finishGame); } else { newPitch(); phase = 'wind'; pt = 0; setPose(J, BP.stance); setBat(BP.stance); } }
+    if (phase === 'gap' && pt > 0.9 && AB && over) {}
+    else if (phase === 'gap' && pt > 0.9) { if (outs >= OUTMAX) { over = true; phase = 'end'; later(0.6, finishGame); } else { newPitch(); phase = 'wind'; pt = 0; setPose(J, BP.stance); setBat(BP.stance); } }
     if (phase === 'wind') {
       playKeys(P1, PK, pt);
       setPose(J, BP.stance, BP.load, clamp((pt - 0.4) / 0.5, 0, 1)); setBat(BP.stance, BP.load, clamp((pt - 0.4) / 0.5, 0, 1));
@@ -713,11 +749,12 @@ export function start(cfg) {
     scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } });
     renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) {} }
   // Test hook (only with ?d3test in the address): lets the automated tests read the pitch and swing on time.
-  if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get phase() { return phase; }, get P() { return P; }, get hr() { return hr; }, get hits() { return hits; }, get bananas() { return bananas.length; }, get strikes() { return strikes; }, get outs() { return outs; }, get fps() { return fpsNow; },
+  if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get phase() { return phase; }, get P() { return P; }, get hr() { return hr; }, get hits() { return hits; }, get bananas() { return bananas.length; }, get strikes() { return strikes; }, get ab() { return { b: abB, s: abS, res: abRes }; }, get outs() { return outs; }, get fps() { return fpsNow; },
     setOuts: n => { outs = n; setOuts(); }, scene, J, catcher, ump, P1, step: n => { for (let i = 0; i < n; i++) tick(); }, go: () => $('d3-go').click(),
     cam: (x, y, z, lx, ly, lz) => { dbg.p.set(x, y, z); dbg.l.set(lx, ly, lz); camMode = 'debug'; },
     swingAt: (dms) => { const p = tmp.set(0, P.h, 0).project(cam), r = cv.getBoundingClientRect(); swing(r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height); } };
-  say('Home Run Derby at Seed Spitters Park. Press Play Ball.');
+  say(AB ? SIT.line + '. Press Step In.' : 'Home Run Derby at Seed Spitters Park. Press Play Ball.');
   return { stop };
 }
 export function streak(cfg) { return start(Object.assign({}, cfg, { mode: 'streak' })); }
+export function atbat(cfg) { return start(Object.assign({}, cfg, { mode: 'ab' })); }

@@ -158,7 +158,7 @@ const HubLogic = (() => {
   const GAMES = { derby: { name: 'Home Run Derby', unit: ' HR', lower: false }, kking: { name: 'Strikeout King', unit: ' K', lower: false },
     steal: { name: 'Steal Second', unit: ' SB', lower: false }, outfield: { name: 'Outfield Hero', unit: ' pts', lower: false }, brain: { name: 'Baseball Brain', unit: ' runs', lower: false }, pitchrec: { name: 'Pitch Reader', unit: ' pts', lower: false }, streak: { name: 'Hit Streak', unit: ' hits', lower: false },
     trivia: { name: 'Baseball Trivia (old)', unit: ' of 10', lower: false, retired: true }, reaction: { name: 'Color Call (old)', unit: ' ms', lower: true, retired: true },
-    zone: { name: 'Strike Zone Memory (old)', unit: ' of 10', lower: false, retired: true } };
+    zone: { name: 'Strike Zone Memory (old)', unit: ' of 10', lower: false, retired: true }, dynasty: { name: 'Road to the Show', unit: ' OVR', lower: false } };
   // Best score per game, and how many times he beat his own best (the first score does not count).
   function gameBests(entries) {
     const best = {}, beats = {};

@@ -1035,9 +1035,13 @@ function viewArcade() {
   const can = lim !== 0 && left > 0;
   const levels = id => h('div', { class: 'row' }, [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']].map(l => h('button', { type: 'button', class: 'btn' + (l[0] > 1 ? ' line' : ''), disabled: !can, onclick: () => startGame(id, l[0]) }, l[1])));
   const card = (id, icon, desc, play) => h('section', { class: 'sec game' }, h('div', { class: 'gicon', 'aria-hidden': 'true' }, icon), h('h2', null, L.GAMES[id].name), h('p', null, desc), h('p', { class: 'small mid' }, best(id)), play || levels(id));
-  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Seven baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
+  return page(strip('Arcade', lim === 0 ? 'The Arcade is closed. Ask Dad.' : left === Infinity ? 'Eight baseball games. You\u2019re #' + (state.settings.jersey || '20') + ' for the ' + (state.settings.team || 'Seed Spitters') + '.' : left + ' of ' + lim + ' games left today.'),
     !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
     lim !== 0 ? mixCard() : null,
+    h('section', { class: 'sec game rtts' }, h('div', { class: 'rttsbadge', 'aria-hidden': 'true' }, 'NEW'), h('div', { class: 'gicon', 'aria-hidden': 'true' }, '\ud83c\udfc6'), h('h2', null, L.GAMES.dynasty.name),
+      h('p', null, 'Create your own player and play full 7-inning games. You bat your own at-bats in 3D, the rest of the game plays out around you. Win games, climb the standings, make the playoffs, win the title, and upgrade your player with skill points.'),
+      h('p', { class: 'small mid' }, (() => { const dd = dynLoad(); return dd && dd.player ? 'Season ' + dd.season + ' · #' + dd.player.num + ' ' + dd.player.first + (gb.dynasty ? ' · best OVR ' + gb.dynasty.score : '') : 'Start your career'; })()),
+      h('div', { class: 'row' }, [[1, 'Play']].map(l => h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame('dynasty', 1) }, (() => { const dd = dynLoad(); return dd && dd.player ? 'Continue career' : 'Create my player'; })())))),
     h('div', { class: 'two even' },
       card('derby', '\u26be', 'Swing at fastballs, changeups and curves. Time it to pull it, tap high or low to match the pitch. 10 outs. Fireworks on every home run.'),
       card('kking', '\ud83d\udd25', 'You\u2019re on the mound. Pick the pitch, aim for the corners, nail the timing ring. Fool hitters with a changeup. Count your strikeouts.'),
@@ -1052,8 +1056,18 @@ function viewArcade() {
       h('div', null, h('button', { type: 'button', class: 'btn line', 'aria-pressed': String(sOn), onclick: () => { HubGames.Sound.set(!sOn); if (!sOn) HubGames.Sound.crack(); render(); } }, sOn ? 'Sounds are on. Turn off' : 'Sounds are off. Turn on'))),
     h('p', { class: 'small mid' }, 'Every game you finish: +' + L.XP.gamePlay + ' XP. New best score: +' + L.XP.gameBest + ' XP. A training day is worth up to 100 XP.'));
 }
+// Road to the Show saves his career in the hub's settings (and on this iPad, as a backup), and logs each finished game as an Arcade game.
+const DYN_KEY = 'dh_dynasty';
+function dynLoad() { let a = state.settings.dynasty || null, b = null; try { b = JSON.parse(localStorage.getItem(DYN_KEY) || 'null'); } catch (e) {}
+  if (a && b) return (b.saved || 0) > (a.saved || 0) ? b : a; return a || b; }
+let dynSaving = null;
+function dynSave(d) { const v = d ? Object.assign(JSON.parse(JSON.stringify(d)), { saved: Date.now() }) : null;
+  try { if (v) localStorage.setItem(DYN_KEY, JSON.stringify(v)); else localStorage.removeItem(DYN_KEY); } catch (e) {}
+  state.settings = Object.assign({}, state.settings, { dynasty: v });
+  clearTimeout(dynSaving); dynSaving = setTimeout(() => { api('settings', { data: state.settings }).catch(() => {}); }, 1200); }
+function dynRecord(score) { addEntry({ kind: 'arcade', date: today(), game: 'dynasty', score }).then(() => render()).catch(() => {}); }
 function startGame(id, level) {
-  HubGames.play(id, { level, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
+  HubGames.play(id, { level, loadDyn: dynLoad, saveDyn: dynSave, record: dynRecord, me: { name: who(), num: state.settings.jersey || '20', bats: state.settings.bats || 'left', gear: L.gearFor(state.settings, L.game(state.entries).level) } }, async (score, again) => {
     if (score == null) { render(); return; }
     const t = today(), g0 = L.game(state.entries), had = L.gameBests(state.entries).best[id], c = L.challengeFor(t, plan().arm.cleared), chalBefore = L.challengeDone(state.entries, t, c);
     if (!(await addEntry(Object.assign({ kind: 'arcade', date: t, game: id, score }, id !== 'brain' ? { level } : {})))) { render(); return; }
