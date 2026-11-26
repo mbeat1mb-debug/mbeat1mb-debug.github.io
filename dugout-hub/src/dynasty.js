@@ -14,21 +14,26 @@ const HubDynasty = (() => {
     { id: 'THU', name: 'Thunder', short: 'Thunder', c1: '#d9a400', c2: '#202020', o: 0.48, p: 0.46, j: 0x2a2a2a, a: 0xd9a400 }];
   const FIRST = ['Mason', 'Eli', 'Leo', 'Caden', 'Owen', 'Luke', 'Gavin', 'Ty', 'Bryce', 'Cole', 'Nolan', 'Jace', 'Ryder', 'Wes', 'Drew', 'Max', 'Brody', 'Kai', 'Ezra', 'Finn', 'Miles', 'Rhett', 'Beau', 'Theo', 'Asher', 'Grady', 'Hudson', 'Knox', 'Reid', 'Sawyer'];
   const LAST = ['Rivera', 'Brooks', 'Carter', 'Hayes', 'Diaz', 'Walsh', 'Kim', 'Price', 'Foster', 'Reyes', 'Bennett', 'Shaw', 'Ortiz', 'Coleman', 'Pope', 'Nash', 'Dunn', 'Vega', 'Burke', 'Lowe', 'Fields', 'Stone', 'Mack', 'Quinn', 'Ross', 'Tate', 'Webb', 'Cruz'];
-  const POS = ['CF', 'SS', '2B', '3B', '1B', 'LF', 'RF', 'C'];
-  const POSNAME = { CF: 'Center Field', SS: 'Shortstop', '2B': 'Second Base', '3B': 'Third Base', '1B': 'First Base', LF: 'Left Field', RF: 'Right Field', C: 'Catcher' };
+  const POS = ['P', 'CF', 'SS', '2B', '3B', '1B', 'LF', 'RF', 'C'];
+  const POSNAME = { P: 'Pitcher', CF: 'Center Field', SS: 'Shortstop', '2B': 'Second Base', '3B': 'Third Base', '1B': 'First Base', LF: 'Left Field', RF: 'Right Field', C: 'Catcher' };
   const ARCH = {
     contact: { name: 'Contact Hitter', blurb: 'Sprays line drives. Hard to strike out.', a: { con: 66, vis: 64, pow: 47, eye: 60, clu: 55, spd: 57, rea: 56, fld: 56, arm: 52, acc: 56 } },
     power: { name: 'Power Slugger', blurb: 'Hits it a mile when he gets it.', a: { con: 54, vis: 55, pow: 68, eye: 51, clu: 58, spd: 48, rea: 50, fld: 52, arm: 62, acc: 52 } },
     speed: { name: 'Speedster', blurb: 'Beats out grounders. Covers ground.', a: { con: 60, vis: 58, pow: 44, eye: 56, clu: 52, spd: 70, rea: 62, fld: 60, arm: 50, acc: 55 } },
     glove: { name: 'Glove Wizard', blurb: 'Takes away hits. Strong, accurate arm.', a: { con: 55, vis: 55, pow: 46, eye: 55, clu: 52, spd: 58, rea: 66, fld: 67, arm: 60, acc: 62 } },
-    five: { name: 'Five-Tool', blurb: 'A little of everything.', a: { con: 57, vis: 57, pow: 56, eye: 56, clu: 56, spd: 57, rea: 56, fld: 57, arm: 57, acc: 56 } } };
+    five: { name: 'Five-Tool', blurb: 'A little of everything.', a: { con: 57, vis: 57, pow: 56, eye: 56, clu: 56, spd: 57, rea: 56, fld: 57, arm: 57, acc: 56 } },
+    ace: { name: 'Ace Pitcher', blurb: 'Lives on the mound. Can still swing it.', a: { con: 54, vis: 54, pow: 50, eye: 52, clu: 55, spd: 52, rea: 58, fld: 55, arm: 64, acc: 60, vel: 64, ctl: 62, brk: 60, sta: 60 } } };
+  // pitching abilities start low for position players (they can grow them if they move to the mound)
+  for (const k in ARCH) if (ARCH[k].a.vel == null) Object.assign(ARCH[k].a, { vel: 46, ctl: 46, brk: 44, sta: 45 });
   // 10 abilities, each one used in the game
   const ATTR = [
     ['con', 'Contact', 'How far off the ball you can be and still hit it', 'Hitting'], ['vis', 'Vision', 'Bigger timing window on your swing', 'Hitting'], ['pow', 'Power', 'Harder hits, farther home runs', 'Hitting'],
     ['eye', 'Discipline', 'More walks, fewer strikeouts in simmed at-bats', 'Hitting'], ['clu', 'Clutch', 'Boost with runners on 2nd or 3rd', 'Hitting'],
     ['spd', 'Speed', 'Run faster, beat out grounders, score from second', 'Running'],
-    ['rea', 'Reaction', 'Quicker first step on balls hit to you', 'Fielding'], ['fld', 'Fielding', 'Bigger reach, fewer bobbles', 'Fielding'], ['arm', 'Arm Strength', 'Faster throws', 'Fielding'], ['acc', 'Arm Accuracy', 'Fewer wild throws', 'Fielding']];
-  const GROUPS = ['Hitting', 'Running', 'Fielding'];
+    ['rea', 'Reaction', 'Quicker first step on balls hit to you', 'Fielding'], ['fld', 'Fielding', 'Bigger reach, fewer bobbles', 'Fielding'], ['arm', 'Arm Strength', 'Faster throws', 'Fielding'], ['acc', 'Arm Accuracy', 'Fewer wild throws', 'Fielding'],
+    ['vel', 'Velocity', 'Faster pitches, harder to hit', 'Pitching'], ['ctl', 'Control', 'Pitches land closer to your target', 'Pitching'], ['brk', 'Break', 'Curves and changeups fool hitters more', 'Pitching'], ['sta', 'Stamina', 'More pitches before the coach takes the ball', 'Pitching']];
+  const GROUPS = ['Hitting', 'Running', 'Fielding', 'Pitching'];
+  const groupsFor = pos => pos === 'P' ? GROUPS : GROUPS.slice(0, 3);
   // perks: unlocked as he levels up; equip 1 slot at level 2, 2 at level 10, 3 at level 20
   const PERKS = [
     { id: 'moon', name: 'Moonshot', d: '+5 Power', lvl: 2, b: { pow: 5 } }, { id: 'eagle', name: 'Eagle Eye', d: '+8 Discipline', lvl: 4, b: { eye: 8 } },
@@ -44,11 +49,13 @@ const HubDynasty = (() => {
   const HELMET = [[0x1d6a3b, 'Team green'], [0x161616, 'Black'], [0xee7f24, 'Orange'], [0xb8bcc4, 'Chrome']];
   const hex = n => '#' + n.toString(16).padStart(6, '0');
   const W8 = { con: 0.14, vis: 0.12, pow: 0.14, eye: 0.08, clu: 0.07, spd: 0.15, rea: 0.07, fld: 0.1, arm: 0.07, acc: 0.06 };
-  const ovr = a => Math.round(Object.keys(W8).reduce((t, k) => t + (a[k] != null ? a[k] : 50) * W8[k], 0));
+  const ovrPos = a => Object.keys(W8).reduce((t, k) => t + (a[k] != null ? a[k] : 50) * W8[k], 0);
+  const ovrPit = a => (a.vel || 45) * 0.3 + (a.ctl || 45) * 0.3 + (a.brk || 45) * 0.25 + (a.sta || 45) * 0.15;
+  const ovr = (a, pos) => Math.round(pos === 'P' ? ovrPit(a) * 0.6 + ovrPos(a) * 0.4 : ovrPos(a));
   const xpNeed = v => v < 60 ? 100 : v < 75 ? 140 : v < 88 ? 180 : 240;          // XP for +1 in an ability
   const lvlNeed = l => 300 + 25 * l;                                                // XP for the next player level
   // his ratings in a spot: perks on top, clutch with runners in scoring position
-  function eff(p, risp) { const a = Object.assign({ con: 50, vis: p.a.con || 50, pow: 50, eye: 50, clu: 50, spd: 50, rea: p.a.fld || 50, fld: 50, arm: 50, acc: p.a.arm || 50 }, p.a); (p.perks && p.perks.on || []).forEach(id => { const k = PERKS.find(x => x.id === id); if (k) for (const q in k.b) a[q] = Math.min(99, a[q] + k.b[q]); });
+  function eff(p, risp) { const a = Object.assign({ vel: 46, ctl: 46, brk: 44, sta: 45, con: 50, vis: p.a.con || 50, pow: 50, eye: 50, clu: 50, spd: 50, rea: p.a.fld || 50, fld: 50, arm: 50, acc: p.a.arm || 50 }, p.a); (p.perks && p.perks.on || []).forEach(id => { const k = PERKS.find(x => x.id === id); if (k) for (const q in k.b) a[q] = Math.min(99, a[q] + k.b[q]); });
     if (risp) { const c = (a.clu - 50) / 4; a.con += c; a.vis += c; a.pow += c * 0.8; } return a; }
   const cost = v => v < 60 ? 1 : v < 70 ? 2 : v < 80 ? 3 : v < 90 ? 4 : 5;
   const team = (d, id) => d.teams.find(t => t.id === id);
@@ -64,7 +71,8 @@ const HubDynasty = (() => {
   // a teammate's look and ratings (old saves get them filled in)
   function mate(x) { if (x.me) return x; if (x.con == null) { x.con = Math.round(clamp(38 + x.b * 55 + rnd(-6, 6), 35, 90)); x.pow = Math.round(clamp(32 + x.b * 50 + rnd(-10, 10), 30, 90)); x.spd2 = Math.round(clamp((x.spd || 0.5) * 100, 30, 90)); x.skin = Math.floor(rnd(0, 6)); x.hair = Math.floor(rnd(0, 6)); x.bats = chance(0.3) ? 'L' : 'R'; } return x; }
   function fixUp(d) { if (!d.opts) d.opts = { bat: 'team', field: 'on' }; if (!d.opts.inn) d.opts.inn = 7;
-    const p = d.player; if (p && p.a && p.a.vis == null) { p.a.vis = p.a.con; p.a.clu = 52; p.a.rea = p.a.fld; p.a.acc = p.a.arm; }
+    const p = d.player; if (p && p.a && p.a.vel == null) Object.assign(p.a, { vel: 46, ctl: 46, brk: 44, sta: 45 });
+    if (p && p.a && p.a.vis == null) { p.a.vis = p.a.con; p.a.clu = 52; p.a.rea = p.a.fld; p.a.acc = p.a.arm; }
     if (p && !p.xp) { p.xp = {}; p.lvl = 1; p.lxp = 0; p.perks = { owned: [], on: [] }; } if (d.tier == null) d.tier = 0; if (d.roster) d.roster.lineup.forEach(mate); if (d.live && d.live.g) { d.live.g.us = d.roster; if (!d.live.g.box) d.live.g.box = {}; } return d; }
   // round robin: everyone plays everyone twice (10 rounds, 3 games each)
   function schedule(ids) {
@@ -80,7 +88,7 @@ const HubDynasty = (() => {
     return d;
   }
   // end of season: called up if he's good enough, or won the title, or was MVP
-  function promo(d) { const nxt = TIERS[d.tier + 1]; if (!nxt) return { up: false, top: true }; const o = ovr(d.player.a), champ = !!(d.po && d.po.champ === 'SPI'), mvp = awards(d).includes('League MVP');
+  function promo(d) { const nxt = TIERS[d.tier + 1]; if (!nxt) return { up: false, top: true }; const o = ovr(d.player.a, d.player.pos), champ = !!(d.po && d.po.champ === 'SPI'), mvp = awards(d).includes('League MVP');
     return { up: o >= nxt.need || champ || mvp, why: o >= nxt.need ? 'OVR ' + o + ' (needed ' + nxt.need + ')' : champ ? 'Won the title' : mvp ? 'League MVP' : '', need: nxt.need, next: nxt }; }
   function newSeason(d) {
     const pr = promo(d);
@@ -113,8 +121,9 @@ const HubDynasty = (() => {
   function newGame(d, g, playoff) {
     const usHome = g.home === 'SPI', opp = team(d, usHome ? g.away : g.home), them = roster(opp);
     return { home: g.home, away: g.away, usHome, opp: opp.id, playoff: playoff || null, inn: 1, top: true, outs: 0, bases: [null, null, null], score: { h: 0, a: 0 }, line: { h: [], a: [], hh: 0, ah: 0, he: 0, ae: 0 },
-      len: (d.opts && d.opts.inn) || 7, us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null };
+      len: (d.opts && d.opts.inn) || 7, us: d.roster, them, oSlot: 0, uSlot: 0, feed: [], over: false, my: blank(), myAB: [], rbiGame: 0, wp: 0, box: {}, pend: null, pit: null };
   }
+  const gameFor = (d, g, playoff) => { const G = newGame(d, g, playoff); if (d.player && d.player.pos === 'P') startPitching(G, d); return G; };
   const battingUs = G => (G.top && !G.usHome) || (!G.top && G.usHome);
   const side = G => G.top ? 'a' : 'h';
   function curBatter(G) { return battingUs(G) ? G.us.lineup[G.uSlot % 9] : G.them.lineup[G.oSlot % 9]; }
@@ -199,11 +208,34 @@ const HubDynasty = (() => {
   // the other team is up: roll the result; if it's hit to him (and he's playing the field), stop and let him make the play
   function oppTurn(G, d) {
     const bat = curBatter(G);
+    if (G.pit && G.pit.on) { if (G.fieldOn) return { kind: 'pitch' }; simPitch(G, d); return null; }
     if (G.fieldOn && G.mePos === 'C' && G.bases[0] && !G.bases[1] && G.outs < 2 && !G.stealTried && chance(0.3)) { G.stealTried = true; return { kind: 'steal', pos: 'C', diff: 'routine' }; }
     const code = draw(paOdds(bat.b, team(d, 'SPI').p)), w = whereTo(code);
     if (G.fieldOn && w && w.pos === G.mePos) return Object.assign({ code }, w);
     apply(G, code, bat); return null;
   }
+  // pitching: Pitch Smart daily max by level, and his Stamina
+  const PITCH_MAX = [75, 85, 95, 105, 105, 110, 110, 110];
+  const pitchSkill = a => clamp((a.vel * 0.35 + a.ctl * 0.35 + a.brk * 0.3) / 100, 0.3, 0.95);
+  function pitchLimit(d) { return Math.min(PITCH_MAX[d.tier || 0], Math.round(38 + eff(d.player).sta * 0.62)); }
+  function startPitching(G, d) { G.pit = { on: true, pc: 0, limit: pitchLimit(d), outs: 0, h: 0, r: 0, bb: 0, k: 0, bf: 0, inn0: null }; }
+  // record what happened to the batter he faced
+  function pitchApply(G, d, code, bat, extra, pitches) {
+    const P = G.pit, oppSide = G.top ? 'a' : 'h', r0 = G.score[oppSide], o0 = G.outs, inn0 = G.inn, top0 = G.top;
+    apply(G, code, bat, extra || {});
+    const changed = G.inn !== inn0 || G.top !== top0, outsMade = changed ? 3 - o0 : G.outs - o0;
+    P.outs += Math.max(0, outsMade); P.r += G.score[oppSide] - r0; P.bf++; P.pc += pitches;
+    if (['1B', '2B', '3B', 'HR'].includes(code)) P.h++; if (code === 'BB') P.bb++; if (code === 'K') P.k++;
+    // the coach comes to get him: out of pitches, or a rough day
+    if (P.on && (P.pc >= P.limit || P.r >= 8) && G.over) P.on = false;
+    if (P.on && (P.pc >= P.limit || P.r >= 8)) { P.on = false; P.pulled = true;
+      say(G, 'Coach takes the ball. Your line: ' + ipStr(P.outs) + ' IP, ' + P.h + ' H, ' + P.r + ' R, ' + P.bb + ' BB, ' + P.k + ' K on ' + P.pc + ' pitches. You move to first base.', true, true); G.mePos = '1B'; }
+    // next batter: straight back to the mound, no extra tap
+    G.pend = P.on && !G.over && !battingUs(G) && G.fieldOn ? { kind: 'pitch' } : null;
+  }
+  const ipStr = o => Math.floor(o / 3) + (o % 3 ? '.' + (o % 3) : '');
+  function simPitch(G, d) { const bat = curBatter(G), a = eff(d.player); const code = draw(paOdds(bat.b, pitchSkill(a)));
+    const pc = code === 'K' ? Math.round(rnd(4, 7)) : code === 'BB' ? Math.round(rnd(5, 7)) : Math.round(rnd(2, 5)); pitchApply(G, d, code, bat, { simD: true }, pc); return code; }
   // his fielding play comes back from 3D
   function applyField(G, r, plan) {
     const bat = curBatter(G), prev = G.bases.slice(), nm = bat.name.split(' ')[0], pick2 = o => o === 0 ? bat : prev[o - 1];
@@ -238,9 +270,11 @@ const HubDynasty = (() => {
   // after his game: the rest of the week, stats, skill points
   function finishGame(d, G) {
     const won = (G.usHome ? G.score.h > G.score.a : G.score.a > G.score.h), m = G.my;
-    const potg = m.hr >= 1 || m.h >= 3 || m.rbi >= 3 || (won && (m.h >= 2 || m.gem >= 1));
+    const pg = G.pit && G.pit.bf ? G.pit : null;
+    const potg = m.hr >= 1 || m.h >= 3 || m.rbi >= 3 || (won && (m.h >= 2 || m.gem >= 1)) || (pg && (pg.k >= 8 || (won && pg.outs >= 12 && pg.r <= 1)));
     m.g = 1; m.potg = potg ? 1 : 0;
-    for (const k in m) { d.stats[k] = (d.stats[k] || 0) + m[k]; d.career[k] = (d.career[k] || 0) + m[k]; }
+    if (G.pit && G.pit.bf) { m.pit = G.pit; const add = (t) => { t.pG = (t.pG || 0) + 1; t.pOuts = (t.pOuts || 0) + G.pit.outs; t.pK = (t.pK || 0) + G.pit.k; t.pBB = (t.pBB || 0) + G.pit.bb; t.pH = (t.pH || 0) + G.pit.h; t.pR = (t.pR || 0) + G.pit.r; t.pPC = (t.pPC || 0) + G.pit.pc; }; add(d.stats); add(d.career); }
+    for (const k in m) { if (k === 'pit') continue; d.stats[k] = (d.stats[k] || 0) + m[k]; d.career[k] = (d.career[k] || 0) + m[k]; }
     const prog = progress(d, m, won, potg);
     const sp = prog.tp;
     const res = { h: G.score.h, a: G.score.a };
@@ -262,9 +296,10 @@ const HubDynasty = (() => {
   function progress(d, m, won, potg) {
     const p = d.player, lv = d.player.level || 1, mult = 1 + 0.15 * (lv - 1), out = { gains: {}, ups: [], lvlUps: 0, tp: 0, perks: [], xp: 0 };
     const k = (m.k || 0), po = m.po || 0, as = m.as || 0, nonK = Math.max(0, m.ab - k);
-    const raw = { con: 10 * m.h + 3 * nonK, vis: 8 * m.h + 6 * m.bb + 2 * m.ab, pow: 14 * (m.d + m.t) + 35 * m.hr + 2 * m.h, eye: 16 * m.bb + 3 * nonK, clu: 15 * (m.rh || 0) + 6 * m.rbi,
+    const pt = m.pit || null, pk = pt ? pt.k : 0, po2 = pt ? pt.outs : 0;
+    const raw = { vel: pt ? 9 * pk + 2 * po2 : 0, brk: pt ? 7 * pk + 2 * po2 : 0, ctl: pt ? 4 * po2 + (pt.bb === 0 && po2 >= 6 ? 20 : 0) - 0 : 0, sta: pt ? Math.round(pt.pc / 2) : 0, con: 10 * m.h + 3 * nonK, vis: 8 * m.h + 6 * m.bb + 2 * m.ab, pow: 14 * (m.d + m.t) + 35 * m.hr + 2 * m.h, eye: 16 * m.bb + 3 * nonK, clu: 15 * (m.rh || 0) + 6 * m.rbi,
       spd: 12 * m.r + 12 * m.t + 3, rea: 10 * po + 8 * as + 15 * m.gem + 3, fld: 12 * po + 8 * as + 15 * m.gem, arm: 14 * as, acc: as && !m.e ? 12 * as : 0 };
-    for (const a in raw) { const g = Math.round((raw[a] + 5) * mult); out.gains[a] = g; out.xp += g; p.xp[a] = (p.xp[a] || 0) + g;
+    for (const a in raw) { if (['vel', 'ctl', 'brk', 'sta'].includes(a) && d.player.pos !== 'P' && !raw[a]) continue; const g = Math.round((raw[a] + 5) * mult); out.gains[a] = g; out.xp += g; p.xp[a] = (p.xp[a] || 0) + g;
       while (p.a[a] < 99 && p.xp[a] >= xpNeed(p.a[a])) { p.xp[a] -= xpNeed(p.a[a]); p.a[a]++; out.ups.push(a); } if (p.a[a] >= 99) p.xp[a] = 0; }
     out.xp += (won ? 40 : 0) + (potg ? 40 : 0);
     p.lxp += out.xp; while (p.lxp >= lvlNeed(p.lvl)) { p.lxp -= lvlNeed(p.lvl); p.lvl++; out.lvlUps++;
@@ -320,7 +355,7 @@ const HubDynasty = (() => {
     if (d.season === 1 && a >= 0.333 && s.ab >= 15) out.push('Rookie of the Year');
     return out;
   }
-  const SIM = { practice, eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
+  const SIM = { gameFor, pitchSkill, pitchLimit, startPitching, pitchApply, simPitch, ipStr, groupsFor, practice, eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
 
   /* ================= screens ================= */
   function E(tag, attrs) { const n = document.createElement(tag); if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'html') n.innerHTML = v; else n.setAttribute(k, v === true ? '' : v); }
@@ -367,7 +402,7 @@ const HubDynasty = (() => {
           seg('Position', POS.map(x => [x, x]), 'pos', paint),
           E('div', { class: 'dynfield' }, E('span', { class: 'dynlab' }, 'Player type'), E('div', { class: 'dynarch five' }, Object.keys(ARCH).map(k => E('button', { type: 'button', 'aria-pressed': String(p.arch === k), class: p.arch === k ? 'on' : '', onclick: () => { p.arch = k; tick(); paint(); } },
             E('b', null, ARCH[k].name), E('span', null, ARCH[k].blurb))))),
-          bars(a, true),
+          bars(a, true, p.pos),
           sw('Skin', SKIN, 'skin'), sw('Hair', HAIR, 'hair'), sw('Helmet', HELMET, 'helm'),
           seg('Difficulty', [[1, 'Rookie'], [2, 'Pro'], [3, 'All-Star']], 'level', paint),
           E('button', { type: 'button', class: 'dynbig', id: 'dyn-create', onclick: () => {
@@ -388,8 +423,8 @@ const HubDynasty = (() => {
         nextCard = E('section', { class: 'dynnext' }, E('p', { class: 'dynkick' }, nx.playoff ? (nx.playoff === 'final' ? '🏆 CHAMPIONSHIP GAME' : 'PLAYOFFS · SEMIFINAL') : 'GAME ' + (d.week + 1) + ' OF ' + d.rounds.length),
           E('div', { class: 'dynvs' }, chip(team(d, 'SPI'), rec), E('span', { class: 'dynat' }, home ? 'vs' : '@'), chip(opp, orec)),
           E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · ' + ((d.opts && d.opts.inn) || 7) + ' innings · you bat ' + ord(p.slot + 1)),
-          E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.newGame(d, nx.g, nx.playoff); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
-          E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.newGame(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'));
+          E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.gameFor(d, nx.g, nx.playoff); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
+          E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.gameFor(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'));
       } else nextCard = seasonOver();
       show(
         E('div', { class: 'dynhead row' }, E('div', null, E('p', { class: 'dynkick' }, 'Season ' + d.season + ' · ' + TIERS[d.tier].name), E('h1', { class: 'dynteam' }, E('span', { class: 'script' }, 'Spitters'), E('b', null, rec.w + '–' + rec.l)), E('p', { class: 'dynsub' }, ord(place) + ' place' + (d.po ? (d.po.done ? '' : ' · in the playoffs!') : ' · top 4 make the playoffs'))),
@@ -401,15 +436,15 @@ const HubDynasty = (() => {
           pracNote.ups.length ? E('p', { class: 'dynsub gold' }, 'Ability up: ' + [...new Set(pracNote.ups)].map(k => ATTR.find(x => x[0] === k)[1]).join(', ')) : null,
           E('button', { type: 'button', class: 'dynlink', onclick: () => { pracNote = null; hub(); } }, 'Got it')) : null,
         E('div', { class: 'dynhub' }, nextCard,
-          E('section', { class: 'dyncard' }, box, E('div', { class: 'dynovr' }, E('b', null, SIM.ovr(p.a)), E('span', null, 'OVR')),
+          E('section', { class: 'dyncard' }, box, E('div', { class: 'dynovr' }, E('b', null, SIM.ovr(p.a, p.pos)), E('span', null, 'OVR')),
             E('div', { class: 'dynplate' }, E('b', null, '#' + p.num + ' ' + p.first.toUpperCase()), E('span', null, POSNAME[p.pos] + ' · ' + ARCH[p.arch].name + ' · Bats ' + (p.bats === 'L' ? 'left' : 'right') + ', throws ' + (p.throws === 'R' ? 'right' : 'left'))),
             lvlBar(p),
             p.perks.on.length ? E('p', { class: 'dynperkline' }, p.perks.on.map(id => E('span', null, '★ ' + PERKS.find(x => x.id === id).name))) : null,
-            bars(p.a),
+            bars(p.a, false, p.pos),
             E('button', { type: 'button', class: 'dynghost', id: 'dyn-up', onclick: () => { tick(); upgrade(); } }, p.sp ? 'Train and upgrade (' + p.sp + ' points)' : 'Train and upgrade')),
           E('div', { class: 'dyncol' },
             E('section', { class: 'dynbox' }, E('h2', null, 'Your season'), E('div', { class: 'dynstats' },
-              [['AVG', fmt3(SIM.avg(s))], ['HR', s.hr], ['RBI', s.rbi], ['H', s.h], ['R', s.r], ['BB', s.bb], ['OPS', fmt3(SIM.obp(s) + SIM.slg(s))], ['WEB GEMS', s.gem]].map(([k, v]) => E('div', null, E('b', null, v), E('span', null, k))))),
+              [['AVG', fmt3(SIM.avg(s))], ['HR', s.hr], ['RBI', s.rbi], ['H', s.h], ['R', s.r], ['BB', s.bb], ['OPS', fmt3(SIM.obp(s) + SIM.slg(s))], ['WEB GEMS', s.gem]].concat(s.pOuts ? [['IP', SIM.ipStr(s.pOuts)], ['K', s.pK], ['ERA', (s.pR * (d.opts.inn || 7) * 3 / s.pOuts).toFixed(2)], ['WALKS', s.pBB]] : []).map(([k, v]) => E('div', null, E('b', null, v), E('span', null, k))))),
             E('section', { class: 'dynbox' }, E('h2', null, 'Game settings'),
               setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']]), setRow('Game length', 'inn', [[3, '3 innings'], [5, '5 innings'], [7, '7 innings']])),
             E('section', { class: 'dynbox' }, E('h2', null, 'Standings'), standTable(st)),
@@ -419,7 +454,7 @@ const HubDynasty = (() => {
     }
     function setRow(label, key, opts) { return E('div', { class: 'dynfield' }, E('span', { class: 'dynlab' }, label), E('div', { class: 'dynseg', role: 'radiogroup', 'aria-label': label },
       opts.map(([v, t]) => E('button', { type: 'button', role: 'radio', 'aria-checked': String(d.opts[key] === v), class: d.opts[key] === v ? 'on' : '', onclick: () => { d.opts[key] = v; if (d.live && d.live.g && key === 'field') d.live.g.fieldOn = v !== 'off'; tick(); save(); hub(); } }, t)))); }
-    function bars(a, small) { return E('div', { class: 'dynbars' + (small ? ' sm' : '') }, GROUPS.map(g => [E('p', { class: 'dyngrp' }, g), ATTR.filter(x => x[3] === g).map(([k, n]) => E('div', { class: 'dynbar' }, E('span', null, n), E('i', null, E('em', { style: 'width:' + a[k] + '%' })), E('b', null, a[k])))])); }
+    function bars(a, small, pos) { return E('div', { class: 'dynbars' + (small ? ' sm' : '') }, SIM.groupsFor(pos).map(g => [E('p', { class: 'dyngrp' }, g), ATTR.filter(x => x[3] === g).map(([k, n]) => E('div', { class: 'dynbar' }, E('span', null, n), E('i', null, E('em', { style: 'width:' + a[k] + '%' })), E('b', null, a[k])))])); }
     function ladder() { return E('ol', { class: 'dynladder', 'aria-label': 'Career path' }, TIERS.map((t, i) => E('li', { class: i < d.tier ? 'done' : i === d.tier ? 'now' : '' }, t.short))); }
     function lvlBar(p) { const need = SIM.lvlNeed(p.lvl); return E('div', { class: 'dynlvl' }, E('b', null, 'LVL ' + p.lvl), E('i', null, E('em', { style: 'width:' + Math.round(100 * p.lxp / need) + '%' })), E('span', null, p.lxp + ' / ' + need + ' XP')); }
     function confirmReset() { return TEST || window.confirm('Start over with a new player? Your current career will be erased.'); }
@@ -434,7 +469,7 @@ const HubDynasty = (() => {
         aw.length ? E('p', { class: 'dynaw' }, aw.map(a => E('span', null, '🏅 ' + a))) : null,
         (() => { const pr = SIM.promo(d); return pr.top ? E('p', { class: 'dynpromo up' }, '⭐ You made it to The Show!')
           : pr.up ? E('p', { class: 'dynpromo up' }, '📈 CALLED UP! Next season: ' + pr.next.name + ' (' + pr.why + ')')
-          : E('p', { class: 'dynpromo' }, 'Reach OVR ' + pr.need + ' (you\u2019re ' + SIM.ovr(d.player.a) + '), win the title or be MVP to move up to ' + pr.next.name + '. Another season at this level.'); })(),
+          : E('p', { class: 'dynpromo' }, 'Reach OVR ' + pr.need + ' (you\u2019re ' + SIM.ovr(d.player.a, d.player.pos) + '), win the title or be MVP to move up to ' + pr.next.name + '. Another season at this level.'); })(),
         E('button', { type: 'button', class: 'dynbig', id: 'dyn-next-season', onclick: () => { aw.forEach(a => d.trophies.push({ kind: 'award', season: d.season, text: 'Season ' + d.season + ' ' + a })); const pr = SIM.newSeason(d); if (pr.up) d.trophies.push({ kind: 'award', season: d.season - 1, text: 'Called up to ' + TIERS[d.tier].name }); d.player.sp += 3; save(); hub(); } }, 'Start Season ' + (d.season + 1)));
     }
 
@@ -442,11 +477,11 @@ const HubDynasty = (() => {
     function upgrade() {
       stop3d(); const p = d.player;
       const body = E('div', { class: 'dynup' }), hd = E('div');
-      const head = () => hd.replaceChildren(E('p', { class: 'dynkick' }, 'Training'), E('h1', null, 'OVR ' + SIM.ovr(p.a) + ' · ', E('span', { class: 'gold' }, p.sp + ' training points')), lvlBar(p),
+      const head = () => hd.replaceChildren(E('p', { class: 'dynkick' }, 'Training'), E('h1', null, 'OVR ' + SIM.ovr(p.a, p.pos) + ' · ', E('span', { class: 'gold' }, p.sp + ' training points')), lvlBar(p),
         E('p', { class: 'dynsub' }, 'Every ability also grows on its own from how you play: hits build Contact, homers build Power, walks build Discipline, plays in the field build Fielding and Reaction, throw-outs build your Arm. Level up for more training points and new perks.'));
       const paint = () => { const slotsN = SIM.slots(p.lvl);
         body.replaceChildren(
-          ...GROUPS.map(g => E('section', { class: 'dyngroup' }, E('h2', null, g), ...ATTR.filter(x => x[3] === g).map(([k, n, why]) => { const v = p.a[k], c = cost(v), can = p.sp >= c && v < 99, xp = p.xp[k] || 0, need = SIM.xpNeed(v);
+          ...SIM.groupsFor(p.pos).map(g => E('section', { class: 'dyngroup' }, E('h2', null, g), ...ATTR.filter(x => x[3] === g).map(([k, n, why]) => { const v = p.a[k], c = cost(v), can = p.sp >= c && v < 99, xp = p.xp[k] || 0, need = SIM.xpNeed(v);
             return E('div', { class: 'dynuprow' }, E('div', null, E('b', null, n), E('span', null, why)),
               E('div', { class: 'dynbar wide' }, E('i', null, E('em', { style: 'width:' + v + '%' })), E('b', null, v), E('i', { class: 'xp', title: xp + ' of ' + need + ' XP to the next point' }, E('em', { style: 'width:' + Math.round(100 * xp / need) + '%' }))),
               E('button', { type: 'button', class: 'dynplus', disabled: !can, 'aria-label': 'Add 1 to ' + n + ' for ' + c + ' points', onclick: () => { p.sp -= c; p.a[k] = Math.min(99, v + 1); tick(); save(); paint(); head(); } }, '+1', E('small', null, c + ' pt' + (c > 1 ? 's' : '')))); }))),
@@ -463,7 +498,7 @@ const HubDynasty = (() => {
     }
 
     /* ---------- the game ---------- */
-    function setupMine() { const a = SIM.eff(d.player, false); G.fieldOn = d.opts.field !== 'off'; G.mePos = d.player.pos; G.myFld = a.fld / 100; G.myArm = a.arm / 100; G.mySpd = a.spd / 100; }
+    function setupMine() { const a = SIM.eff(d.player, false); G.fieldOn = d.opts.field !== 'off'; G.mePos = G.pit && G.pit.pulled ? '1B' : d.player.pos; G.myFld = a.fld / 100; G.myArm = a.arm / 100; G.mySpd = a.spd / 100; }
     function lineScore() {
       const A = team(d, G.away), Hm = team(d, G.home), n = Math.max(G.len || 7, G.inn);
       const cells = (k) => { const out = []; for (let i = 0; i < n; i++) { const v = G.line[k][i]; out.push(E('td', { class: (G.inn === i + 1 && ((k === 'a') === G.top) && !G.over) ? 'now' : '' }, v == null ? '' : v)); } return out; };
@@ -486,9 +521,20 @@ const HubDynasty = (() => {
       const outsDots = E('div', { class: 'dynouts', 'aria-label': G.outs + ' out' + (G.outs === 1 ? '' : 's') }, [0, 1, 2].map(i => E('i', { class: i < G.outs ? 'on' : '' })), E('span', null, 'OUT'));
       const half = (G.top ? '▲ TOP ' : '▼ BOT ') + G.inn, down = (G.usHome ? G.score.h - G.score.a : G.score.a - G.score.h), sit = sitLine(down);
       let action;
-      if (G.pend) {   // the ball is coming to him
+      if (G.pend && G.pend.kind === 'pitch') {   // he's on the mound
+        const P = G.pit, left = P.limit - P.pc, tired = left <= 15;
+        action = E('section', { class: 'dynup2 def' }, E('p', { class: 'dynkick' }, 'YOU’RE PITCHING · ' + SIM.ipStr(P.outs) + ' IP · ' + P.k + ' K'), E('h2', null, 'vs ' + bat.name.toUpperCase()),
+          E('p', { class: 'dynsit' }, sit),
+          E('p', { class: 'dynsub' }, 'Bats ' + (bat.bats === 'L' ? 'left' : 'right') + ' · Contact ' + bat.con + ' · Power ' + bat.pow),
+          E('div', { class: 'dynpc' + (tired ? ' tired' : ''), role: 'img', 'aria-label': 'Pitch count ' + P.pc + ' of ' + P.limit },
+            E('span', null, 'PITCH COUNT'), E('i', null, E('em', { style: 'width:' + Math.min(100, P.pc / P.limit * 100) + '%' })), E('b', null, P.pc + ' / ' + P.limit)),
+          tired ? E('p', { class: 'dynsub' }, 'Your arm is getting tired. About ' + Math.max(0, left) + ' pitches left before Coach comes out.') : null,
+          E('div', { class: 'dynbtns three' }, E('button', { type: 'button', class: 'dynbig', id: 'dyn-pitch', onclick: () => { tick(); pitch3d(sit); } }, '🔥 Pitch'),
+            E('button', { type: 'button', class: 'dynghost', id: 'dyn-simpitch', onclick: () => { tick(); G.pend = null; SIM.simPitch(G, d); afterPlay(); } }, 'Sim this batter'),
+            E('button', { type: 'button', class: 'dynghost', id: 'dyn-simout', onclick: () => { tick(); G.pend = null; let n = 0; const half0 = G.top; while (G.pit.on && !G.over && G.top === half0 && n++ < 40) SIM.simPitch(G, d); afterPlay(); } }, 'Sim this inning')));
+      } else if (G.pend) {   // the ball is coming to him
         const pl = G.pend, steal = pl.kind === 'steal';
-        action = E('section', { class: 'dynup2 def' }, E('p', { class: 'dynkick' }, 'DEFENSE · ' + POSNAME[d.player.pos].toUpperCase()), E('h2', null, steal ? 'HE’S RUNNING!' : 'HIT TO YOU!'),
+        action = E('section', { class: 'dynup2 def' }, E('p', { class: 'dynkick' }, 'DEFENSE · ' + POSNAME[G.mePos || d.player.pos].toUpperCase()), E('h2', null, steal ? 'HE’S RUNNING!' : 'HIT TO YOU!'),
           E('p', { class: 'dynsit' }, sit), E('p', { class: 'dynsub' }, steal ? 'The runner on first is stealing. Catch it and throw to second.' : 'Batting: ' + bat.name + '. ' + ({ ground: 'A ground ball', line: 'A line drive', fly: 'A fly ball', pop: 'A pop-up' }[pl.kind]) + ' is coming your way.'),
           E('div', { class: 'dynbtns' }, E('button', { type: 'button', class: 'dynbig', id: 'dyn-field', onclick: () => { tick(); field3d(sit); } }, '🧤 Make the play'),
             E('button', { type: 'button', class: 'dynghost', id: 'dyn-simfield', onclick: () => { tick(); simField(); afterPlay(); } }, 'Sim it')));
@@ -501,7 +547,7 @@ const HubDynasty = (() => {
           E('div', { class: 'dynbtns three' }, E('button', { type: 'button', class: 'dynbig', id: 'dyn-bat', onclick: () => { tick(); bat3d(sit); } }, '⚾ Bat'),
             E('button', { type: 'button', class: 'dynghost', id: 'dyn-simab', onclick: () => { tick(); const c = isMe ? SIM.simAB(G, d) : simMate(bat); SIM.apply(G, c, bat); afterMine(c); } }, 'Sim this at-bat'),
             isMe ? null : E('button', { type: 'button', class: 'dynghost', id: 'dyn-tome', onclick: () => { tick(); playOn('me'); } }, 'Sim to my at-bat')));
-      } else action = E('section', { class: 'dynup2 calm' }, E('p', { class: 'dynkick' }, us ? 'SPITTERS BATTING' : opp.short.toUpperCase() + ' BATTING'), E('p', { class: 'dynsub' }, 'Now batting: ' + bat.name + ' · ' + (us ? 'Pitching: ' + G.them.pitcher : 'You’re in ' + POSNAME[d.player.pos].toLowerCase())),
+      } else action = E('section', { class: 'dynup2 calm' }, E('p', { class: 'dynkick' }, us ? 'SPITTERS BATTING' : opp.short.toUpperCase() + ' BATTING'), E('p', { class: 'dynsub' }, 'Now batting: ' + bat.name + ' · ' + (us ? 'Pitching: ' + G.them.pitcher : (G.pit && G.pit.on ? 'You’re pitching · ' + G.pit.pc + ' pitches' : 'You’re in ' + POSNAME[G.mePos || d.player.pos].toLowerCase()))),
         E('div', { class: 'dynbtns three' }, E('button', { type: 'button', class: 'dynbig', id: 'dyn-go', onclick: () => { tick(); playOn(); } }, teamMode ? '▶ Play on' : '▶ Play to my next at-bat'),
           teamMode ? E('button', { type: 'button', class: 'dynghost', id: 'dyn-tome', onclick: () => { tick(); playOn('me'); } }, 'Sim to my at-bat') : null,
           E('button', { type: 'button', class: 'dynghost', onclick: () => { tick(); playOn('all'); } }, 'Sim to the end')));
@@ -509,7 +555,7 @@ const HubDynasty = (() => {
         E('div', { class: 'dynscore' }, E('div', { class: 'dynhalf' }, half, G.playoff ? E('em', null, G.playoff === 'final' ? 'CHAMPIONSHIP' : 'SEMIFINAL') : null), lineScore()),
         E('div', { class: 'dynmid' }, diamond(), E('div', { class: 'dynmidr' }, outsDots, E('div', { class: 'dynbig2' }, E('span', null, A.id + ' ' + G.score.a), E('span', null, Hm.id + ' ' + G.score.h)))),
         action, feedList(), E('button', { type: 'button', class: 'dynlink', onclick: () => { save(); hub(); } }, 'Save and leave (pick up later)')));
-      status(half + '. ' + (G.pend ? 'The ball is coming to you!' : ourTurn ? (bat.me ? 'You’re up!' : bat.name + ' is up. You’re batting for him.') : 'Now batting: ' + bat.name));
+      status(half + '. ' + (G.pend && G.pend.kind === 'pitch' ? 'You’re pitching to ' + bat.name + '.' : G.pend ? 'The ball is coming to you!' : ourTurn ? (bat.me ? 'You’re up!' : bat.name + ' is up. You’re batting for him.') : 'Now batting: ' + bat.name));
       if ((ourTurn && bat.me) || G.pend) { H.Sound.organ && !TEST && H.Sound.organ(); }
     }
     function sitLine(down) {
@@ -518,6 +564,7 @@ const HubDynasty = (() => {
     }
     const simMate = bat => { const o = SIM.paOdds(bat.b, team(d, G.opp).p); let r = Math.random(), k; for (k in o) { r -= o[k]; if (r <= 0) return k; } return 'GO'; };
     function simField() { const pl = G.pend, bat = SIM.curBatter(G); if (!pl) return; G.pend = null;
+      if (pl.kind === 'pitch') { SIM.simPitch(G, d); return; }
       if (pl.kind === 'steal') SIM.applyField(G, { outs: Math.random() < 0.2 + d.player.a.arm / 400 ? 1 : 0 }, pl); else SIM.apply(G, pl.code, bat, { simD: true }); }
     // move the game along one play at a time; stop when it's our at-bat (whole team or just him) or the ball is hit to him
     function playOn(mode) {
@@ -562,6 +609,23 @@ const HubDynasty = (() => {
         catch (e) { back(null); } })
         .catch(() => { ui.stage.classList.remove('cvstage'); const c = isMe ? SIM.simAB(G, d) : simMate(hitterNow); SIM.apply(G, c, hitterNow); afterMine(c); });
     }
+    // pitching to one batter, in 3D (Strikeout King engine)
+    function pitch3d(sit) {
+      stop3d(); const opp = team(d, G.opp), p = d.player, bat = SIM.curBatter(G), a = SIM.eff(p, false);
+      const host = E('div', { class: 'dyn3dab' }); root.replaceChildren(host); ui.stage.classList.add('cvstage');
+      host.appendChild(E('div', { class: 'd3load' }, E('b', null, 'Taking the mound…'), E('i')));
+      const st = sitFor(opp), score = st.us + ' ' + st.usR + ' · ' + st.them + ' ' + st.themR;
+      const back = res => { stop3d(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend || G.pend.kind !== 'pitch' || SIM.curBatter(G) !== bat) return game();
+        G.pend = null; SIM.pitchApply(G, d, res.code, bat, { out: res.out, looking: !!res.looking }, res.pitches || 4); afterPlay(); };
+      load3d().then(m => { if (!host.isConnected) return;
+        try { const g = m.pitchPA({ stage: host, level: p.level || 1, me: meFor(p), Sound: H.Sound, still: H.still, say: t => status(t), end: () => {},
+            pa: { sit: { score, half: (G.top ? 'TOP ' : 'BOT ') + G.inn, title: st.title, line: sit, outs: G.outs, on: G.bases.map(Boolean), inn: G.inn },
+              batter: { name: bat.name, num: bat.num, hand: bat.bats === 'L' ? 'L' : 'R', contact: clamp(bat.con / 100, 0.35, 0.95), power: clamp(bat.pow / 100, 0.25, 0.95), eye: clamp(bat.b, 0.3, 0.85) },
+              r: { vel: a.vel, ctl: a.ctl, brk: a.brk }, pc0: G.pit.pc, opp: { oc: opp.a, oj: opp.j, ol: st.ol }, throws: p.throws, skin: SKIN[p.skin], hair: HAIR[p.hair], onDone: res => setTimeout(() => back(res), 0) } });
+          card = g; H.setLive(g); }
+        catch (e) { try { console.error('pitch3d: ' + e.message + ' ' + String(e.stack).split('\n')[1]); } catch (x) {} back(null); } })
+        .catch(() => { ui.stage.classList.remove('cvstage'); G.pend = null; SIM.simPitch(G, d); afterPlay(); });
+    }
     // a play in the field, in 3D
     function field3d(sit) {
       stop3d(); const opp = team(d, G.opp), p = d.player, pl = G.pend, bat = SIM.curBatter(G);
@@ -571,7 +635,7 @@ const HubDynasty = (() => {
       const back = res => { stop3d(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend) return game(); SIM.applyField(G, res, pl); afterPlay(); };
       load3d().then(m => { if (!host.isConnected) return;
         try { const g = m.fieldPlay({ stage: host, level: p.level || 1, me: meFor(p), Sound: H.Sound, say: t => status(t),
-            play: { pos: p.pos, kind: pl.kind, diff: pl.diff, on: G.bases.map(Boolean), outs: G.outs, r: SIM.eff(p, false), throws: p.throws, skin: SKIN[p.skin], hair: HAIR[p.hair],
+            play: { pos: G.mePos || p.pos, kind: pl.kind, diff: pl.diff, on: G.bases.map(Boolean), outs: G.outs, r: SIM.eff(p, false), throws: p.throws, skin: SKIN[p.skin], hair: HAIR[p.hair],
               sit: { score, half: (G.top ? 'TOP ' : 'BOT ') + G.inn, title: st.title, line: sit }, opp: { oc: opp.a, oj: opp.j, ol: st.ol }, onDone: res => setTimeout(() => back(res), 0) } });
           card = g; H.setLive(g); }
         catch (e) { back(null); } })
@@ -592,13 +656,14 @@ const HubDynasty = (() => {
       stop3d(); const m = G.my, A = team(d, G.away), Hm = team(d, G.home), first = !G.fin; if (first) { G.fin = SIM.finishGame(d, G); save(); } const r = G.fin;
       const line = m.h + ' for ' + m.ab + (m.hr ? ', ' + m.hr + ' HR' : '') + (m.d ? ', ' + m.d + ' 2B' : '') + (m.t ? ', ' + m.t + ' 3B' : '') + (m.rbi ? ', ' + m.rbi + ' RBI' : '') + (m.bb ? ', ' + m.bb + ' BB' : '') + (m.r ? ', ' + m.r + ' R' : '') + (m.gem ? ', ' + m.gem + ' web gem' + (m.gem > 1 ? 's' : '') : '');
       if (first) { if (r.won) { H.Sound.cheer && H.Sound.cheer(); } else { H.Sound.ooh && H.Sound.ooh(); } }
-      if (first) { try { H.record(SIM.ovr(d.player.a)); } catch (e) {} }
+      if (first) { try { H.record(SIM.ovr(d.player.a, d.player.pos)); } catch (e) {} }
       show(E('div', { class: 'dynpost ' + (r.won ? 'win' : 'loss') },
         E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > (G.len || 7) ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
         E('div', { class: 'dynfscore' }, E('div', null, E('i', { class: 'dot', style: 'background:' + A.c1 }), A.name, E('b', null, G.score.a)), E('div', null, E('i', { class: 'dot', style: 'background:' + Hm.c1 }), Hm.name, E('b', null, G.score.h))),
         lineScore(),
         E('section', { class: 'dynbox' }, E('h2', null, r.potg ? '⭐ PLAYER OF THE GAME' : 'Your game'), E('p', { class: 'dynmyline' }, line || 'No at-bats'),
           E('ul', { class: 'dynabs' }, G.myAB.map(a => E('li', { class: ['1B', '2B', '3B', 'HR'].includes(a.code) ? 'hit' : a.code === 'BB' ? 'bb' : '' }, E('b', null, 'Inning ' + a.inn), { '1B': 'Single', '2B': 'Double', '3B': 'Triple', HR: 'HOME RUN', BB: 'Walk', K: 'Strikeout', OUT: 'Out', GO: 'Ground out', FO: 'Fly out', LO: 'Line out', E: 'Reached on error' }[a.code] + (a.rbi ? ' · ' + a.rbi + ' RBI' : ''))))),
+        G.pit && G.pit.bf ? E('section', { class: 'dynbox' }, E('h2', null, 'On the mound'), E('p', { class: 'dynmyline' }, SIM.ipStr(G.pit.outs) + ' IP · ' + G.pit.h + ' H · ' + G.pit.r + ' R · ' + G.pit.bb + ' BB · ' + G.pit.k + ' K · ' + G.pit.pc + ' pitches')) : null,
         Object.keys(G.box || {}).length ? E('section', { class: 'dynbox' }, E('h2', null, 'Spitters batting'), E('table', { class: 'dyntable box' }, E('thead', null, E('tr', null, ['Batter', 'AB', 'H', 'HR', 'RBI', 'BB'].map(h => E('th', null, h)))),
           E('tbody', null, G.us.lineup.filter(x => G.box[x.name]).map(x => { const b = G.box[x.name]; return E('tr', { class: x.me ? 'me' : '' }, E('td', null, '#' + (x.me ? d.player.num : x.num) + ' ' + (x.me ? d.player.first : x.name)), E('td', null, b.ab), E('td', null, b.h), E('td', null, b.hr), E('td', null, b.rbi), E('td', null, b.bb)); })))) : null,
         progressBox(r.prog),

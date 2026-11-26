@@ -2,39 +2,46 @@
 import { THREE, world, GLB, rnd, pick, clamp, lerp, BASE, BASES, SPITTERS, HORNETS, UMP, gearLook } from './park3d.js';
 import { hudShell, safeSound } from './hud3d.js';
 
+export function pitchPA(cfg) { return kking(Object.assign({}, cfg, { mode: 'pa' })); }
 export function kking(cfg) {
   const { stage, level, me, end, say } = cfg, Sound = safeSound(cfg.Sound);
   const INN = level === 1 ? 2 : 3;
+  // Road to the Show: one batter at a time; his pitching ratings shape every pitch
+  const PA = cfg.mode === 'pa' && cfg.pa, PR = PA ? Object.assign({ vel: 55, ctl: 55, brk: 55 }, PA.r || {}) : null, PSIT = PA ? PA.sit : null;
+  let paRes = null;
+  // the real opponent's uniforms in Road to the Show
+  const OP = PA && PA.opp, TEAM = num => OP ? { colors: { jersey: OP.oj, sleeve: OP.oc, pants: 0xd8d6cf, socks: OP.oc, belt: OP.oc, cap: OP.oc, helmet: OP.oc }, letters: num ? Object.assign({}, OP.ol, { num: String(num) }) : null } : HORNETS(num);
   const LINEUP = [['Speedy Gonzo', 'R', 0.75, 0.3, 0.5], ['Contact Kid', 'L', 0.85, 0.35, 0.7], ['Big Bo', 'R', 0.55, 0.9, 0.35], ['Moonshot', 'L', 0.5, 0.85, 0.4],
     ['Patient Pete', 'R', 0.7, 0.45, 0.85], ['Hacker', 'R', 0.6, 0.6, 0.15], ['Lefty Lou', 'L', 0.65, 0.5, 0.5], ['The Wall', 'R', 0.6, 0.55, 0.6], ['Tiny Tim', 'L', 0.7, 0.25, 0.55]]
     .map(([name, hand, contact, power, eye]) => ({ name, hand, contact: contact * [0, 0.8, 0.95, 1.05][level], power, eye: eye * [0, 0.7, 0.9, 1.1][level] }));
+  if (PA) { LINEUP.length = 0; const b = PA.batter; LINEUP.push({ name: b.name, hand: b.hand, contact: b.contact * [0, 0.8, 0.95, 1.05][level], power: b.power, eye: b.eye * [0, 0.7, 0.9, 1.1][level] }); }
   const KINDS = level === 1 ? ['fast', 'change'] : ['fast', 'change', 'curve'];
   const NM = { fast: 'Fastball', change: 'Changeup', curve: 'Curve' }, SUB = { fast: 'Fast, straight', change: 'Slow, fools them', curve: 'Drops late' };
-  let bi = 0, balls = 0, strikes = 0, outs = 0, inning = 1, runs = 0, ks = 0, pitches = 0, strikesThrown = 0, walks = 0, hits = 0, bases = [0, 0, 0];
+  let bi = 0, balls = 0, strikes = 0, outs = PA ? PSIT.outs : 0, inning = 1, runs = 0, ks = 0, pitches = 0, strikesThrown = 0, walks = 0, hits = 0, bases = PA ? PSIT.on.map(x => x ? 1 : 0) : [0, 0, 0];
   let moves = null, play = null, camWide = false, baseFov = 0, callLen = 1.9;
   let phase = 'intro', pt = 0, sel = 'fast', aim = null, ringK = 0, P = null, prevKind = null, over = false, flyB = null;
 
   const W = world({ stage, me, shadow: { x: 0, z: -24, r: 40 }, fov: a => a < 0.6 ? 17 : a < 0.8 ? 15 : a < 1.2 ? 12.5 : 10.5,
-    hudHTML: hudShell({ team: 'SEED SPITTERS', sub: 'STRIKEOUT KING', top: true,
-      cells: [['INNING', 'k-inn'], ['COUNT', 'k-cnt'], ['OUTS', 'k-outs'], ['K', 'k-k'], ['RUNS', 'k-runs']],
-      kicker: 'SEED SPITTERS PARK', title: 'STRIKEOUT KING',
-      lines: ['You’re on the mound. Pick a pitch, then tap where to throw it.', 'Tap when the white ring shrinks onto the yellow ring: better timing = better aim.', 'A changeup after fastballs fools hitters.'],
+    hudHTML: hudShell({ team: PA ? PSIT.score : 'SEED SPITTERS', sub: PA ? PSIT.half : 'STRIKEOUT KING', top: true,
+      cells: PA ? [['COUNT', 'k-cnt'], ['OUTS', 'k-outs'], ['PITCHES', 'k-pc'], ['INNING', 'k-inn'], ['K', 'k-k'], ['RUNS', 'k-runs']] : [['INNING', 'k-inn'], ['COUNT', 'k-cnt'], ['OUTS', 'k-outs'], ['K', 'k-k'], ['RUNS', 'k-runs']],
+      kicker: PA ? PSIT.title : 'SEED SPITTERS PARK', title: PA ? '#' + me.num + ' ON THE MOUND' : 'STRIKEOUT KING',
+      lines: PA ? [PSIT.line, 'Batting: ' + PA.batter.name + ' (bats ' + (PA.batter.hand === 'L' ? 'left' : 'right') + ')', 'Pick a pitch, tap where to throw it, then tap when the rings line up.'] : ['You’re on the mound. Pick a pitch, then tap where to throw it.', 'Tap when the white ring shrinks onto the yellow ring: better timing = better aim.', 'A changeup after fastballs fools hitters.'],
       extra: '<div class="d3who" id="k-who"></div><div class="d3dia" id="k-dia"><i></i><i></i><i></i></div><div class="d3btns" id="k-btns"></div>' }) });
   const { scene, cam, $ } = W; baseFov = cam.fov;
 
   // people: Jaxson (Spitters, throws left) on the mound; Hornets hitters; Spitters defense
   const S = SPITTERS(me);
-  const GL = gearLook(me), J = W.human(Object.assign({ mirror: true, glove: true, cap: true, skin: 0xf0c8a5, hair: 0x4a2e18 }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}) }));
+  const GL = gearLook(me), J = W.human(Object.assign({ mirror: PA ? PA.throws !== 'R' : true, glove: true, cap: true, skin: PA && PA.skin ? PA.skin : 0xf0c8a5, hair: PA && PA.hair ? PA.hair : 0x4a2e18 }, S, { colors: Object.assign({}, S.colors, GL.shoes != null ? { shoes: GL.shoes } : {}) }));
   J.root.position.set(0, 0.55, -BASE); J.root.rotation.y = Math.PI; scene.add(J.root);
   const bat = W.makeBat();
-  const hitter = { R: W.human(Object.assign({ helmet: true }, HORNETS(12))), L: W.human(Object.assign({ mirror: true, helmet: true }, HORNETS(14))) };
+  const hitter = { R: W.human(Object.assign({ helmet: true }, TEAM(PA && PA.batter.num || 12))), L: W.human(Object.assign({ mirror: true, helmet: true }, TEAM(PA && PA.batter.num || 14))) };
   for (const k of ['R', 'L']) { scene.add(hitter[k].root); W.standInBox(hitter[k], bat); hitter[k].home = hitter[k].root.position.clone(); hitter[k].homeRot = hitter[k].root.rotation.y; }
   const catcher = W.human(Object.assign({ helmet: true, glove: true }, S, { colors: Object.assign({}, S.colors, { helmet: 0x161616 }), letters: null }));
   catcher.root.position.set(0, 0, 3.2); catcher.root.scale.setScalar(0.92); catcher.set('crouch', 0); scene.add(catcher.root);
   const ump = W.human(UMP); ump.root.position.set(0.8, 0, 6.6); ump.set('ump', 0); scene.add(ump.root);
   const D = [[BASE + 6, -BASE - 10], [18, -2 * BASE + 4], [-18, -2 * BASE + 4], [-BASE - 6, -BASE - 10], [-95, -150], [0, -175], [95, -150]].map(([x, z]) => {
     const f = W.human(Object.assign({ lod: true, glove: true }, S, { letters: null })); f.root.position.set(x, 0, z); f.face(0, 0); f.set('ready', 0); scene.add(f.root); f.home = f.root.position.clone(); return f; });
-  const runners = [1, 2, 3].map(i => { const r = W.human(Object.assign({ lod: true, helmet: true }, HORNETS())); const [x, z] = BASES[i]; r.root.position.set(x + (i === 2 ? 3 : -3) * (i === 1 ? -1 : 1), 0, z + 2); r.face(0, -BASE); r.set('ready', 0); r.root.visible = false; scene.add(r.root); r.home = r.root.position.clone(); r.homeRot = r.root.rotation.y; return r; });
+  const runners = [1, 2, 3].map(i => { const r = W.human(Object.assign({ lod: true, helmet: true }, TEAM())); const [x, z] = BASES[i]; r.root.position.set(x + (i === 2 ? 3 : -3) * (i === 1 ? -1 : 1), 0, z + 2); r.face(0, -BASE); r.set('ready', 0); r.root.visible = false; scene.add(r.root); r.home = r.root.position.clone(); r.homeRot = r.root.rotation.y; return r; });
 
   // strike zone at the plate, seen from the mound
   const zone = new THREE.Group(); zone.position.set(0, 2.5, 0.05); scene.add(zone);
@@ -50,7 +57,7 @@ export function kking(cfg) {
   // camera: the TV center-field shot, long lens from behind the mound, so Jaxson and the batter both read big
   const CAM = { pos: new THREE.Vector3(-5, 12, -BASE - 48), look: new THREE.Vector3(0, 2.5, -20) };
   cam.position.copy(CAM.pos); cam.lookAt(CAM.look);
-  const bat_ = () => LINEUP[bi % 9];
+  const bat_ = () => LINEUP[PA ? 0 : bi % 9];
   let H = hitter.R; const showHitter = () => { const B = bat_();
     for (const k of ['R', 'L']) { hitter[k].root.position.copy(hitter[k].home); hitter[k].root.rotation.y = hitter[k].homeRot; }
     for (const f of D) { f.root.position.copy(f.home); f.face(0, 0); f.set('ready', 0); f.goBag = false; }
@@ -65,7 +72,7 @@ export function kking(cfg) {
   btns.querySelectorAll('button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); if (over || !(phase === 'pick' || phase === 'aim')) return; sel = b.dataset.k; Sound.tick(); if (phase === 'pick') phase = 'aim'; paint(); }));
   const tip = t => { $('d3-tip').textContent = t; };
   function paint() {
-    $('k-inn').textContent = inning + '/' + INN; $('k-cnt').textContent = balls + '–' + strikes; $('k-outs').textContent = outs % 3; $('k-k').textContent = ks; $('k-runs').textContent = runs;
+    if (PA) { $('k-pc').textContent = (PA.pc0 || 0) + pitches; $('k-inn').textContent = PSIT.inn; } else $('k-inn').textContent = inning + '/' + INN; $('k-cnt').textContent = balls + '–' + strikes; $('k-outs').textContent = outs % 3; $('k-k').textContent = ks; $('k-runs').textContent = runs;
     btns.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === sel)); btns.classList.toggle('hide', !(phase === 'pick' || phase === 'aim'));
     const B = bat_(); $('k-who').innerHTML = '<span>AT BAT</span><b>' + B.name + '</b><i>' + (B.hand === 'L' ? 'Bats left' : 'Bats right') + '</i>';
     [...$('k-dia').children].forEach((d, i) => d.classList.toggle('on', !!bases[i]));
@@ -76,18 +83,18 @@ export function kking(cfg) {
 
   const inZone = (x, h) => Math.abs(x) <= 0.85 && h >= 1.5 && h <= 3.5;
   function throwIt() {
-    const acc = clamp(1 - Math.abs(ringK - 0.35) / 0.35, 0, 1), miss = (1 - acc) * [0, 0.6, 0.9, 1.1][level];
+    const acc = clamp(1 - Math.abs(ringK - 0.35) / 0.35, 0, 1), miss = (1 - acc) * [0, 0.6, 0.9, 1.1][level] * (PA ? 1.35 - PR.ctl / 140 : 1);
     const a = Math.random() * Math.PI * 2;
-    const mph = Math.round((sel === 'fast' ? rnd(48, 54) : sel === 'change' ? rnd(38, 42) : rnd(40, 45)));
+    const mph = Math.round((sel === 'fast' ? rnd(48, 54) : sel === 'change' ? rnd(38, 42) : rnd(40, 45)) + (PA ? (PR.vel - 55) * (sel === 'fast' ? 0.3 : 0.15) : 0));
     P = { kind: sel, mph, x: aim.x + Math.cos(a) * miss, h: aim.h + Math.sin(a) * miss, t: 0, T: 46 / (mph * 1.4667) * 1.35, acc, swing: null, from: new THREE.Vector3(), sw: null };
     P.zone = inZone(P.x, P.h);
     pitches++;
     target.visible = shrink.visible = dot.visible = false;
     phase = 'wind'; pt = 0; say(NM[sel] + ', ' + (acc > 0.8 ? 'right on target' : acc > 0.5 ? 'close to target' : 'off target'));
-    const B = bat_(), two = strikes === 2, edge = Math.min(1, Math.max(Math.abs(P.x) / 0.85, Math.abs(P.h - 2.5) / 1.0)), fooled = (sel === 'change' && prevKind === 'fast') || (sel === 'curve' && Math.random() < 0.45);
+    const B = bat_(), two = strikes === 2, edge = Math.min(1, Math.max(Math.abs(P.x) / 0.85, Math.abs(P.h - 2.5) / 1.0)), fooled = (sel === 'change' && prevKind === 'fast') || (sel === 'curve' && Math.random() < 0.45 * (PA ? 0.7 + PR.brk / 180 : 1)) || (PA && sel !== 'fast' && Math.random() < (PR.brk - 55) / 300);
     let sp = P.zone ? 0.5 + (two ? 0.3 : 0) + (edge < 0.5 ? 0.15 : 0) : (1 - B.eye) * (0.3 + (two ? 0.35 : 0)) + (sel !== 'fast' ? 0.15 : 0);
     if (balls === 3 && !P.zone) sp *= 0.6;
-    if (Math.random() < sp) { const cp = B.contact * (P.zone ? 1 - 0.45 * edge : 0.35) * (fooled ? 0.5 : 1) * (sel === 'fast' ? 0.9 : 1); P.swing = { contact: Math.random() < cp, edge, fooled }; }
+    if (Math.random() < sp) { const cp = B.contact * (P.zone ? 1 - 0.45 * edge : 0.35) * (fooled ? 0.5 : 1) * (sel === 'fast' ? 0.9 : 1) * (PA ? 1 - (PR.vel - 55) / 250 : 1); P.swing = { contact: Math.random() < cp, edge, fooled }; }
     prevKind = sel; paint();
   }
   function call(main, sub, cls, voice) { W.callout(main, sub, cls, 1.7); if (voice) Sound.say(voice); say(main + (sub ? '. ' + sub : '')); phase = 'call'; pt = 0; paint(); }
@@ -132,7 +139,7 @@ export function kking(cfg) {
     Sound.pop(); mark.position.set(P.x, P.h, 0.08); mark.material.color.setHex(P.zone ? 0xff4040 : 0x40a8ff); mark.lookAt(cam.position); markT = 0;
     if (P.zone || P.swing) strikesThrown++;
     const B = bat_();
-    if (P.swing && !P.swing.contact) { P.held = true; catcher.set('catch', 0); strikes++; if (strikes === 3) { ks++; Sound.crack(); W.crowd.cheer(0.5); callLen = 1.9; out('STRIKE THREE!', 'Swinging · K #' + ks, 'Strike three!'); } else call('STRIKE ' + strikes, 'Swinging' + (P.swing.fooled ? ' · fooled him!' : ''), 'ball', 'Strike!'); return; }
+    if (P.swing && !P.swing.contact) { P.held = true; catcher.set('catch', 0); strikes++; if (strikes === 3) { ks++; Sound.crack(); W.crowd.cheer(0.5); callLen = 1.9; paRes = { code: 'K' }; out('STRIKE THREE!', 'Swinging · K #' + ks, 'Strike three!'); } else call('STRIKE ' + strikes, 'Swinging' + (P.swing.fooled ? ' · fooled him!' : ''), 'ball', 'Strike!'); return; }
     if (P.swing && P.swing.contact) {
       Sound.crack();
       const r = Math.random(), hitP = 0.28 * (1 - P.swing.edge * 0.6) + B.power * 0.08 + (P.zone ? 0 : -0.12);
@@ -140,14 +147,14 @@ export function kking(cfg) {
       if (Math.random() < hitP) {
         hits++; const hrP = B.power * 0.25 * (P.swing.edge < 0.4 ? 1.4 : 0.4) * (P.acc < 0.5 ? 1.5 : 1);
         const n = Math.random() < hrP ? 4 : Math.random() < 0.25 ? 2 : 1, sc = advance(n); fly(n === 4 ? 'hr' : 'line'); flyB.endY = 0.3;
-        fieldHit(n); Sound.ooh(); nextBatter(); callLen = 3.6; call(n === 4 ? 'HOME RUN' : n === 2 ? 'DOUBLE' : 'SINGLE', B.name + (sc ? ' · ' + sc + ' run' + (sc > 1 ? 's' : '') + ' score' + (sc > 1 ? '' : 's') : ''), 'hit'); return;
+        paRes = { code: n === 4 ? 'HR' : n === 2 ? '2B' : '1B' }; fieldHit(n); Sound.ooh(); nextBatter(); callLen = 3.6; call(n === 4 ? 'HOME RUN' : n === 2 ? 'DOUBLE' : 'SINGLE', B.name + (sc ? ' · ' + sc + ' run' + (sc > 1 ? 's' : '') + ' score' + (sc > 1 ? '' : 's') : ''), 'hit'); return;
       }
       const o = pick([['GROUND OUT', 'To second', 'ground', 1], ['FLY OUT', 'To center', 'fly', 5], ['POP UP', 'To short', 'pop', 2], ['GROUND OUT', 'Back to you!', 'ground', -1], ['LINE OUT', 'To third', 'line', 3], ['FLY OUT', 'To left', 'fly', 4], ['FLY OUT', 'To right', 'fly', 6], ['GROUND OUT', 'To short', 'ground', 2]]);
-      fieldOut(o[2], o[3]); W.crowd.cheer(0.3); callLen = o[2] === 'ground' ? 3.4 : 3.0; out(o[0], o[1], null); return;
+      paRes = { code: 'OUT', out: o[2] === 'ground' ? 'ground' : o[2] === 'line' ? 'line' : 'fly' }; fieldOut(o[2], o[3]); W.crowd.cheer(0.3); callLen = o[2] === 'ground' ? 3.4 : 3.0; out(o[0], o[1], null); return;
     }
     P.held = true; catcher.set('catch', 0);
-    if (P.zone) { strikes++; if (strikes === 3) { ks++; W.crowd.cheer(0.5); callLen = 1.9; out('STRIKE THREE!', 'Caught looking · K #' + ks, 'Strike three! You’re out!'); } else call('STRIKE ' + strikes, 'Looking', 'ball', 'Strike!'); return; }
-    balls++; if (balls === 4) { walks++; const sc = advance(1, true); play = { t: 0, walk: true }; nextBatter(); callLen = 2.2; call('BALL FOUR', 'Walk' + (sc ? ' · a run scores' : ''), 'ball', 'Ball four'); } else call('BALL ' + balls, balls + '–' + strikes, 'ball', 'Ball');
+    if (P.zone) { strikes++; if (strikes === 3) { ks++; W.crowd.cheer(0.5); callLen = 1.9; paRes = { code: 'K', looking: true }; out('STRIKE THREE!', 'Caught looking · K #' + ks, 'Strike three! You’re out!'); } else call('STRIKE ' + strikes, 'Looking', 'ball', 'Strike!'); return; }
+    balls++; if (balls === 4) { walks++; paRes = { code: 'BB' }; const sc = advance(1, true); play = { t: 0, walk: true }; nextBatter(); callLen = 2.2; call('BALL FOUR', 'Walk' + (sc ? ' · a run scores' : ''), 'ball', 'Ball four'); } else call('BALL ' + balls, balls + '–' + strikes, 'ball', 'Ball');
   }
 
   // input: tap the plate area to aim, then tap again to throw
@@ -223,7 +230,8 @@ export function kking(cfg) {
       updatePlay(dt, T);
       if (pt >= callLen) {
         W.ball.visible = false; W.ballShadow.visible = false; flyB = null; catcher.set('crouch', 0); callLen = 1.9;
-        if (outs >= INN * 3 || runs >= 6) { over = true; phase = 'end'; W.later(0.4, finishGame); }
+        if (PA && paRes) { over = true; phase = 'end'; const r = Object.assign({ pitches, strikes: strikesThrown }, paRes); W.later(0.2, () => PA.onDone && PA.onDone(r)); }
+        else if (outs >= INN * 3 || runs >= 6) { over = true; phase = 'end'; W.later(0.4, finishGame); }
         else { if (outs > 0 && outs % 3 === 0 && outs / 3 + 1 > inning) { inning = outs / 3 + 1; W.callout('INNING ' + inning, 'Three up, three down!', 'hit', 1.6); }
           phase = 'pick'; aim = null; P = null; prevH = null; showHitter(); J.set('pitch', 0); paint(); }
       }
@@ -244,7 +252,7 @@ export function kking(cfg) {
       runs >= 6 ? 'Coach came to get the ball. Throw more strikes next time!' : sp >= 55 ? 'Over 55% strikes: that’s the goal in real games too.' : 'Aim for 55% strikes or more, same as in real games.',
       walks >= 3 ? 'Coach tip: ' + walks + ' walks. When you’re behind in the count, aim for the middle of the zone and trust your stuff.' : 'Coach tip: a changeup right after a fastball fools hitters the most.']);
   }
-  if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get pt() { return pt; }, get phase() { return phase; }, get outs() { return outs; }, get ks() { return ks; }, get fps() { return W.fps; }, draw: () => W.renderer.render(scene, cam), scene, step: n => { for (let i = 0; i < n; i++) W.step(); }, go: () => $('d3-go').click(), J, get play() { return play && { kind: play.kind, out: play.out, t: play.t }; }, get wide() { return camWide; } };
-  say('Strikeout King at Seed Spitters Park. Press Play Ball.');
+  if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get paRes() { return paRes; }, get pt() { return pt; }, get phase() { return phase; }, get outs() { return outs; }, get ks() { return ks; }, get fps() { return W.fps; }, draw: () => W.renderer.render(scene, cam), scene, step: n => { for (let i = 0; i < n; i++) W.step(); }, go: () => $('d3-go').click(), J, get play() { return play && { kind: play.kind, out: play.out, t: play.t }; }, get wide() { return camWide; } };
+  say(PA ? 'You’re on the mound. ' + PA.batter.name + ' is up. Press Play Ball.' : 'Strikeout King at Seed Spitters Park. Press Play Ball.');
   return { stop: W.stop };
 }
