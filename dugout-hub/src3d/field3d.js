@@ -10,7 +10,7 @@ const BASENAME = ['', '1ST', '2ND', '3RD', 'HOME'];
 
 export function fieldPlay(cfg) {
   const { stage, level, me, say } = cfg, Sound = safeSound(cfg.Sound), F = cfg.play;
-  const pos = F.pos, isIF = !!INF[pos], isC = pos === 'C', R = F.r || { fld: 55, arm: 55, spd: 55 };
+  const pos = F.pos, isIF = !!INF[pos], isC = pos === 'C', R = Object.assign({ fld: 55, arm: 55, spd: 55, rea: 55, acc: 55 }, F.r || {}), FIRST = 0.55 - R.rea / 250;   // Reaction: his first step
   const REACH = 2.3 + R.fld / 55 + (level === 1 ? 0.6 : 0), DIVE = 5.5;
   const SPEED = (isIF || isC ? 17 : 19.5) + (R.spd - 50) * 0.09 + (level === 1 ? 3 : level === 2 ? 1 : 0);
   const ARM = 58 + R.arm * 0.42, ASSIST = [0, 0.5, 0.28, 0][level], BALLK = [0, 0.82, 0.92, 1][level];
@@ -140,7 +140,7 @@ export function fieldPlay(cfg) {
     const c = mates[coverOf(b)], bag = bagSpot(b);
     if (c) c.goTo = bag.clone();
     const from = W.handPos(J, new THREE.Vector3()), to = bag.clone().setY(3.2), d = from.distanceTo(to);
-    const wild = Math.random() < (1 - R.arm / 100) * 0.05;
+    const wild = Math.random() < (1 - R.acc / 100) * 0.07;
     thr = { b, t: -recover - 0.28, from, to, T: clamp(d / ARM, 0.25, 2.2), wild };
     J.face(to.x, to.z); Sound.whoosh();
   }
@@ -208,7 +208,7 @@ export function fieldPlay(cfg) {
       if (BL.kind !== 'ground' && bp.k >= 1 && BL.state === 'air') { BL.state = 'ground'; if (!has) { W.callout(BL.kind === 'line' || isIF || isC ? 'IT FALLS IN' : 'DROPPED IN', isC ? 'Foul ball' : 'Base hit', 'out', 1.3); Sound.ooh(); } }
       // move: his finger, or a little Rookie/Pro help toward the ball
       let goal = null; if (target && !diving) goal = target; else if (!diving && (ASSIST > 0 || window.__d3auto) && ct > 0.25) { intercept(tmp); goal = { x: tmp.x, z: tmp.z, slow: window.__d3auto ? 1 : ASSIST }; }
-      if (goal) { const dx = goal.x - meP.x, dz = goal.z - meP.z, d = Math.hypot(dx, dz), st = SPEED * (goal.slow || 1) * dt; if (d > 0.8) { meP.x += dx / d * Math.min(st, d); meP.z += dz / d * Math.min(st, d); anim = 'run'; faceTo = [goal.x, goal.z]; } }
+      if (goal) { const dx = goal.x - meP.x, dz = goal.z - meP.z, d = Math.hypot(dx, dz), st = SPEED * (goal.slow || 1) * dt * (ct < FIRST ? 0.35 : 1); if (d > 0.8) { meP.x += dx / d * Math.min(st, d); meP.z += dz / d * Math.min(st, d); anim = 'run'; faceTo = [goal.x, goal.z]; } }
       if (diving && diving > 1.1 && !has) diving = 0;   // missed it: get up and keep after it
       if (diving) { diving += dt; const dx = bp.x - meP.x, dz = bp.z - meP.z, d = Math.hypot(dx, dz); if (diving < 0.45 && d > 0.6) { meP.x += dx / d * Math.min(d, 26 * dt); meP.z += dz / d * Math.min(d, 26 * dt); } anim = 'dive'; faceTo = [bp.x, bp.z]; }
       if (window.__d3auto && canDive() && Math.hypot(bp.x - meP.x, bp.z - meP.z) > REACH) { diving = 0.01; divedAt = ct; }

@@ -12,13 +12,13 @@ export function start(cfg) {
   const STREAK = cfg.mode === 'streak', AB = cfg.mode === 'ab' && cfg.ab, OUTMAX = STREAK || AB ? 3 : 10;
   // single at-bat (Road to the Show): his ratings change the swing; the game situation comes in cfg.ab.sit
   const R_ = AB ? cfg.ab.r : null, SIT = AB ? cfg.ab.sit : null;
-  const CON = R_ ? R_.con : 55, POW = R_ ? R_.pow : 55, SPD = R_ ? R_.spd : 55;
+  const CON = R_ ? R_.con : 55, POW = R_ ? R_.pow : 55, SPD = R_ ? R_.spd : 55, VIS = R_ ? (R_.vis != null ? R_.vis : R_.con) : 55;
   let abB = 0, abS = 0, abRes = null;
   const GL = gearLook(me);
   // Seed Spitters orange and green. Opponent: Hornets navy and gold.
   const ORANGE = 0xee7f24, GREEN = 0x1d6a3b, DKGREEN = 0x0f3d22, BLACK = 0x161616, DEEP = 0xd15d0a, BLUE = 0x1f3f7a, GOLD = 0xf2c230;
   const lefty = me.bats !== 'right', side = lefty ? 1 : -1;
-  const SLOW = [0, 1.7, 1.4, 1.15][level], WIN = [0, 150, 120, 100][level] * (AB ? 0.8 + CON / 250 : 1), EVB = [0, 8, 5, 2][level] + (AB ? (POW - 55) * 0.2 : 0), AIMTOL = 0.95 * (AB ? 0.85 + CON / 330 : 1);
+  const SLOW = [0, 1.7, 1.4, 1.15][level], WIN = [0, 150, 120, 100][level] * (AB ? 0.8 + VIS / 250 : 1), EVB = [0, 8, 5, 2][level] + (AB ? (POW - 55) * 0.2 : 0), AIMTOL = 0.95 * (AB ? 0.85 + CON / 330 : 1);
   const KINDS = level === 1 ? ['fast', 'fast', 'fast', 'change'] : level === 2 ? ['fast', 'fast', 'change', 'curve'] : ['fast', 'change', 'curve', 'fast', 'curve'];
   const NAMES = { fast: 'FASTBALL', change: 'CHANGEUP', curve: 'CURVEBALL' };
   const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
