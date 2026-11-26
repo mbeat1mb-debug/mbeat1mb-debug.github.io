@@ -13,6 +13,10 @@ export const ready = /nohuman/.test(location.search) ? Promise.resolve() : Promi
   new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(new URL('./player.glb', import.meta.url).href).then(g => { GLB = g; }),
   new Promise(r => setTimeout(r, 20000))]).catch(() => {});
 
+
+// Road to the Show highlights: a small photo of the big moment (the career mode asks for it through window.__dhHL)
+export function shotOf(cv) { try { const w = 640, h = Math.round(w * cv.height / cv.width), c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(cv, 0, 0, w, h); return c.toDataURL('image/jpeg', 0.6); } catch (e) { return null; } }
+export function wantShot(main, sub, cls) { try { return typeof window.__dhHL === 'function' && window.__dhHL(main, sub, cls) ? { main, sub, n: 0 } : null; } catch (e) { return null; } }
 export const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t;
 export const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -268,7 +272,8 @@ export function world(cfg) {
 
   // HUD helpers
   let call = null;
-  const callout = (main, sub, cls, dur) => { const c = $('d3-call'); if (!c) return; c.className = 'd3call js ' + (cls || ''); c.innerHTML = '<b>' + main + '</b>' + (sub ? '<span>' + sub + '</span>' : ''); call = { t0: T, dur: dur || 1.8 }; };
+  let shotReq = null;
+  const callout = (main, sub, cls, dur) => { const c = $('d3-call'); if (!c) return; const w = wantShot(main, sub, cls); if (w) shotReq = Object.assign(w, { at: T + 0.3 }); c.className = 'd3call js ' + (cls || ''); c.innerHTML = '<b>' + main + '</b>' + (sub ? '<span>' + sub + '</span>' : ''); call = { t0: T, dur: dur || 1.8 }; };
   const callFrame = () => { const c = $('d3-call'); if (!c) return; if (!call) { c.style.opacity = 0; return; } const k = (T - call.t0) / call.dur; if (k >= 1) { call = null; c.style.opacity = 0; return; }
     const s = k < 0.12 ? lerp(0.3, 1.08, k / 0.12) : k < 0.2 ? lerp(1.08, 1, (k - 0.12) / 0.08) : 1, op = k < 0.08 ? k / 0.08 : k > 0.8 ? (1 - k) / 0.2 : 1; c.style.opacity = op; c.style.transform = 'translate(-50%,-50%) scale(' + s + ')'; };
   const toScreen = (v, out) => { const p = v.clone().project(cam), r = cv.getBoundingClientRect(), w = wrap.getBoundingClientRect(); out = out || {}; out.x = (p.x + 1) / 2 * r.width + r.left - w.left; out.y = (1 - p.y) / 2 * r.height + r.top - w.top; out.behind = p.z > 1; return out; };
@@ -295,7 +300,7 @@ export function world(cfg) {
   function step() {
     const now = performance.now(), dt = FIXED || Math.min(0.05, (now - last) / 1000); last = now; T += dt; fpsAcc += dt; fpsN++; if (fpsAcc > 1) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     crowd.update(T, dt); for (let i = jobs.length - 1; i >= 0; i--) if (T >= jobs[i].at) { const j = jobs[i]; jobs.splice(i, 1); j.fn(); }
-    AQ.frame(now); onTick(dt, T); updateTrail(dt); callFrame(); if (!FAST || (++nFast % 12) === 0) renderer.render(scene, cam);
+    AQ.frame(now); onTick(dt, T); updateTrail(dt); callFrame(); if (!FAST || (++nFast % 12) === 0 || shotReq) { renderer.render(scene, cam); if (shotReq && T >= shotReq.at) { const q = shotReq; shotReq = null; const img = shotOf(renderer.domElement); try { img && window.__dhHLimg && window.__dhHLimg(img, q.main, q.sub); } catch (e) {} } }
   }
   function frame() { if (!alive) return; if (!MANUAL) raf = requestAnimationFrame(frame); step(); }
   const run = fn => { onTick = fn; frame(); };

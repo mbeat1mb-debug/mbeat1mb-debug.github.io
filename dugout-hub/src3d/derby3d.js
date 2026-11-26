@@ -2,7 +2,7 @@
 // Loaded only when the game opens. Units are feet: home plate at the origin, center field toward -z.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GLB, ready, autoQuality, applyPark, gearLook } from './park3d.js';
+import { GLB, ready, autoQuality, applyPark, gearLook, shotOf, wantShot } from './park3d.js';
 export { ready };
 import { clone as skClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -482,7 +482,8 @@ export function start(cfg) {
     const run = STREAK ? hitRun : streak, st = $('d3-streak'); st.textContent = run >= 2 ? (run >= 3 ? '🔥 ON FIRE ×' + run : run + (STREAK ? ' HITS IN A ROW' : ' IN A ROW')) : ''; st.classList.toggle('on', run >= 2); };
   setOuts();
   let callTimer = 0, call = null;
-  function callout(main, sub, cls) { const c = $('d3-call'); c.className = 'd3call js ' + (cls || ''); c.innerHTML = '<b>' + main + '</b>' + (sub ? '<span>' + sub + '</span>' : ''); call = { t0: T, dur: cls === 'hr' ? 2.6 : 1.6 }; }
+  let shotReq = null, contactImg = null, contactAt = 0;
+  function callout(main, sub, cls) { const w = wantShot(main, sub, cls); if (w && contactImg) { try { window.__dhHLimg && window.__dhHLimg(contactImg, main, sub); } catch (e) {} } else if (w) shotReq = Object.assign(w, { at: T + 0.3 }); const c = $('d3-call'); c.className = 'd3call js ' + (cls || ''); c.innerHTML = '<b>' + main + '</b>' + (sub ? '<span>' + sub + '</span>' : ''); call = { t0: T, dur: cls === 'hr' ? 2.6 : 1.6 }; }
   function callFrame() { const c = $('d3-call'); if (!call) { c.style.opacity = 0; return; } const k = (T - call.t0) / call.dur; if (k >= 1) { call = null; c.style.opacity = 0; return; }
     const sc = k < 0.12 ? lerp(0.3, 1.08, k / 0.12) : k < 0.2 ? lerp(1.08, 1, (k - 0.12) / 0.08) : 1, op = k < 0.08 ? k / 0.08 : k > 0.8 ? (1 - k) / 0.2 : 1, dy = k > 0.8 ? (k - 0.8) / 0.2 * -10 : 0;
     c.style.opacity = op; c.style.transform = 'translate(-50%,' + (-50 + dy) + '%) scale(' + sc + ')'; }
@@ -528,6 +529,7 @@ export function start(cfg) {
     ballAt(P.t / P.T, ball.position);
     hit = playOut(ball.position.clone(), new THREE.Vector3(Math.sin(spray * D2R) * Math.cos(la * D2R) * v0, Math.sin(la * D2R) * v0, -Math.cos(spray * D2R) * Math.cos(la * D2R) * v0), Math.round(ev), la);
     trailPos.length = 0; ballGlow.material.opacity = 0.85;
+    if (typeof window.__dhHL === 'function') { contactImg = null; contactAt = T + 0.1; }
     Sound.crack(); shakeT = ev > 70 ? 0.25 : 0.15; flashT = 0; flash.position.copy(ball.position);
     phase = 'flight'; pt = 0; camMode = 'flight'; tip(''); showSpot();
   }
@@ -729,6 +731,8 @@ export function start(cfg) {
     if (shakeT > 0 && !still) { shakeT -= rdt; cam.position.x += (Math.random() - 0.5) * 0.5; cam.position.y += (Math.random() - 0.5) * 0.5; }
     lookNow.lerp(camLook, camMode === 'flight' ? 0.4 : 1); if (camMode === 'debug') lookNow.copy(camLook); cam.lookAt(lookNow);
     renderer.render(scene, cam);
+    if (contactAt && T >= contactAt) { contactAt = 0; contactImg = shotOf(renderer.domElement); }
+    if (shotReq && T >= shotReq.at) { const q = shotReq; shotReq = null; const img = shotOf(renderer.domElement); try { img && window.__dhHLimg && window.__dhHLimg(img, q.main, q.sub); } catch (e) {} }
   }
   frame();
 

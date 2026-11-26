@@ -96,7 +96,10 @@ const HubDynasty = (() => {
     if (pr.up) { d.tier++; d.teams.forEach(t => { t.o = clamp(0.5 + d.tier * 0.035 + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.04)), 0.4, 0.85); t.p = clamp(0.5 + d.tier * 0.035 + (t.id === 'SPI' ? 0 : rnd(-0.03, 0.04)), 0.4, 0.85); }); }
     d.season++; d.week = 0; d.po = null; d.stats = blank(); d.live = null;
     if (!pr.up) d.teams.forEach(t => { if (t.id !== 'SPI') { t.o = clamp(t.o + 0.02 + rnd(-0.03, 0.03), 0.4, 0.75); t.p = clamp(t.p + 0.02 + rnd(-0.03, 0.03), 0.4, 0.75); } else { t.o = clamp(t.o + 0.02, 0.4, 0.75); t.p = clamp(t.p + 0.02, 0.4, 0.75); } });
-    d.rounds = schedule(d.teams.map(t => t.id)); d.roster = roster(team(d, 'SPI'), d.player);
+    d.rounds = schedule(d.teams.map(t => t.id));
+    if (pr.up || !d.roster) { d.roster = roster(team(d, 'SPI'), d.player); d.chem = 45; }
+    else d.roster.lineup.forEach(x => { if (x.me) return; const g = rnd(0.01, 0.035); x.b = clamp(x.b + g, 0.25, 0.92); x.con = Math.min(95, x.con + Math.round(g * 80)); x.pow = Math.min(95, x.pow + Math.round(g * 70)); });
+    d.fa = freeAgents(d);
     return pr;
   }
   const blank = () => ({ g: 0, pa: 0, ab: 0, h: 0, d: 0, t: 0, hr: 0, rbi: 0, r: 0, bb: 0, k: 0, gem: 0, e: 0, potg: 0 });
@@ -267,6 +270,26 @@ const HubDynasty = (() => {
     for (let i = 1; i <= 7 || h === a; i++) { a += half(A.o, H.p); if (i >= 7 && h > a) break; h += half(H.o, A.p); if (i > 12) { h++; break; } }
     return { h, a };
   }
+  /* ---------- team management ---------- */
+  // chemistry: winning together builds it; new faces cost a little. It lifts (or drags) teammates' at-bats a bit.
+  const chemB = d => ((d.chem == null ? 50 : d.chem) - 50) / 500;
+  const myOrderB = d => myB(eff(d.player, false));
+  // free agents: three better-than-average kids each offseason; he signs one
+  function freeAgents(d) { const t = team(d, 'SPI'), used = new Set(d.roster.lineup.map(x => String(x.me ? d.player.num : x.num)));
+    const num = () => { let n; do { n = String(Math.floor(rnd(1, 60))); } while (used.has(n)); used.add(n); return n; };
+    return [0, 1, 2].map(i => mate({ name: kidName(), num: num(), b: clamp(t.o + [0.05, 0.08, 0.12][i] + rnd(-0.02, 0.02), 0.3, 0.92), spd: rnd(0.4, 0.8) })); }
+  function sign(d, fa, outIdx) { const L = d.roster.lineup; if (!L[outIdx] || L[outIdx].me) return false;
+    L[outIdx] = Object.assign({}, fa); d.faUsed = d.season; d.fa = null; d.chem = clamp((d.chem == null ? 50 : d.chem) - 4, 20, 100); return true; }
+  function moveSlot(d, i, dir) { const L = d.roster.lineup, j = i + dir; if (j < 0 || j > 8) return; [L[i], L[j]] = [L[j], L[i]]; d.player.slot = L.findIndex(x => x.me); }
+  // best order: fastest good hitter leads off, best hitters 2-4, the rest by skill
+  function bestOrder(d) { const L = d.roster.lineup.slice(), val = x => x.me ? myOrderB(d) : x.b, spd = x => x.me ? eff(d.player).spd / 100 : (x.spd2 || 50) / 100;
+    L.sort((a, b) => val(b) - val(a)); const top = L.slice(0, 5); const lead = top.slice().sort((a, b) => (spd(b) + val(b)) - (spd(a) + val(a)))[0];
+    const rest = L.filter(x => x !== lead); d.roster.lineup.splice(0, 9, ...[lead].concat(rest)); d.player.slot = d.roster.lineup.findIndex(x => x.me); }
+  // career milestones
+  const MILES = [['h', [1, 10, 25, 50, 100, 200, 300], n => n === 1 ? 'First career hit!' : n + ' career hits'], ['hr', [1, 5, 10, 25, 50, 100], n => n === 1 ? 'First career home run!' : n + ' career home runs'],
+    ['rbi', [10, 25, 50, 100, 200], n => n + ' career RBI'], ['gem', [1, 5, 10, 25, 50], n => n === 1 ? 'First web gem!' : n + ' web gems'], ['pK', [1, 10, 25, 50, 100, 200], n => n === 1 ? 'First career strikeout as a pitcher!' : n + ' career strikeouts (pitching)'],
+    ['g', [10, 25, 50, 100, 200], n => n + ' career games']];
+  function milestones(before, after) { const out = []; MILES.forEach(([k, steps, txt]) => steps.forEach(n => { if ((before[k] || 0) < n && (after[k] || 0) >= n) out.push(txt(n)); })); return out; }
   // after his game: the rest of the week, stats, skill points
   function finishGame(d, G) {
     const won = (G.usHome ? G.score.h > G.score.a : G.score.a > G.score.h), m = G.my;
@@ -274,7 +297,10 @@ const HubDynasty = (() => {
     const potg = m.hr >= 1 || m.h >= 3 || m.rbi >= 3 || (won && (m.h >= 2 || m.gem >= 1)) || (pg && (pg.k >= 8 || (won && pg.outs >= 12 && pg.r <= 1)));
     m.g = 1; m.potg = potg ? 1 : 0;
     if (G.pit && G.pit.bf) { m.pit = G.pit; const add = (t) => { t.pG = (t.pG || 0) + 1; t.pOuts = (t.pOuts || 0) + G.pit.outs; t.pK = (t.pK || 0) + G.pit.k; t.pBB = (t.pBB || 0) + G.pit.bb; t.pH = (t.pH || 0) + G.pit.h; t.pR = (t.pR || 0) + G.pit.r; t.pPC = (t.pPC || 0) + G.pit.pc; }; add(d.stats); add(d.career); }
+    const before = Object.assign({}, d.career, { pK: (d.career.pK || 0) - (pg ? pg.k : 0) });
     for (const k in m) { if (k === 'pit') continue; d.stats[k] = (d.stats[k] || 0) + m[k]; d.career[k] = (d.career[k] || 0) + m[k]; }
+    const miles = milestones(before, d.career); if (!d.miles) d.miles = []; miles.forEach(t => d.miles.push({ t, season: d.season }));
+    d.chem = clamp((d.chem == null ? 50 : d.chem) + (won ? 3 : -1) + (won && G.playoff ? 3 : 0), 20, 100);
     const prog = progress(d, m, won, potg);
     const sp = prog.tp;
     const res = { h: G.score.h, a: G.score.a };
@@ -290,7 +316,7 @@ const HubDynasty = (() => {
       d.rounds[d.week].forEach(x => { if (!x.res) x.res = quickGame(d, x.home, x.away); }); d.week++;
       if (d.week >= d.rounds.length) startPlayoffs(d); }
     d.live = null;
-    return { won, sp, potg, res, prog };
+    return { won, sp, potg, res, prog, miles };
   }
   // XP from what he actually did; abilities grow on their own, levels give Training Points he spends himself
   function progress(d, m, won, potg) {
@@ -355,7 +381,7 @@ const HubDynasty = (() => {
     if (d.season === 1 && a >= 0.333 && s.ab >= 15) out.push('Rookie of the Year');
     return out;
   }
-  const SIM = { gameFor, pitchSkill, pitchLimit, startPitching, pitchApply, simPitch, ipStr, groupsFor, practice, eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
+  const SIM = { chemB, freeAgents, sign, moveSlot, bestOrder, milestones, gameFor, pitchSkill, pitchLimit, startPitching, pitchApply, simPitch, ipStr, groupsFor, practice, eff, progress, promo, TIERS, PERKS, ATTR, xpNeed, lvlNeed, slots, fixUp, oppTurn, applyField, whereTo, newDynasty, newGame, nextGame, apply, simOne, simAB, curBatter, battingUs, finishGame, standings, record, quickGame, newSeason, awards, ovr, paOdds, avg, obp, slg, blank, TEAMS };
 
   /* ================= screens ================= */
   function E(tag, attrs) { const n = document.createElement(tag); if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'html') n.innerHTML = v; else n.setAttribute(k, v === true ? '' : v); }
@@ -413,6 +439,56 @@ const HubDynasty = (() => {
       paint(); mount3d(box, p); status('Create your player.');
     }
 
+    /* ---------- highlights ---------- */
+    const HLKEY = 'dh_hl';
+    const hlAll = () => { try { return JSON.parse(localStorage.getItem(HLKEY) || '[]'); } catch (e) { return []; } };
+    const hlSave = a => { for (let n = a.length; n >= 0; n--) { try { localStorage.setItem(HLKEY, JSON.stringify(a.slice(-n))); return; } catch (e) {} } };
+    let hlCand = null;
+    // which moments are worth a photo: his hits, his catches and outs, his strikeouts on the mound
+    function hlArm(kind) { hlCand = null;
+      const want = { bat: /HOME RUN|GRAND SLAM|TRIPLE|DOUBLE|SINGLE|HIT!/i, field: /DIVING|CAUGHT|SNAGGED|OUT!|DOUBLE PLAY|CAUGHT STEALING|GOT HIM/i, pitch: /STRIKE THREE/i }[kind];
+      const rank = t => /HOME RUN|GRAND SLAM|DIVING/i.test(t) ? 3 : /TRIPLE|DOUBLE|STRIKE THREE|CAUGHT|OUT!/i.test(t) ? 2 : 1;
+      window.__dhHL = (main) => !!want && want.test(String(main || '')) && (!hlCand || rank(main) >= hlCand.rank);
+      window.__dhHLimg = (img, main, sub) => { if (!img) return; const r = rank(main); if (!hlCand || r >= hlCand.rank) hlCand = { img, main, sub: sub || '', rank: r }; }; }
+    function hlDisarm() { window.__dhHL = null; window.__dhHLimg = null; }
+    // after the play is in the books: keep the photo with the play-by-play line
+    function hlKeep() { const c = hlCand; hlCand = null; if (!c || !G) return; if (!G.gid) G.gid = Date.now();
+      const opp = team(d, G.opp), all = hlAll(), mine = all.filter(h => h.gid === G.gid).length; if (mine >= 5) return;
+      all.push({ gid: G.gid, img: c.img, title: c.main.replace(/!+$/, '!'), line: ((G.feed.find(f => f.me) || G.feed[0] || {}).t) || c.sub, inn: (G.top ? 'Top ' : 'Bot ') + G.inn, vs: (G.usHome ? 'vs ' : '@ ') + opp.short, season: d.season, ts: Date.now() });
+      hlSave(all.slice(-24)); }
+    function hlStrip(list, big) { return E('div', { class: 'dynhl' + (big ? ' big' : '') }, list.map(h => E('figure', { tabindex: '0', onclick: e => e.currentTarget.classList.toggle('open') },
+      E('img', { src: h.img, alt: h.title + '. ' + h.line, loading: 'lazy' }), E('figcaption', null, E('b', null, h.title), E('span', null, h.line), E('em', null, 'Season ' + h.season + ' · ' + h.vs + ' · ' + h.inn))))); }
+
+    /* ---------- team: batting order, chemistry, free agents ---------- */
+    function teamScreen() {
+      stop3d(); const L = d.roster.lineup, live = !!(d.live && d.live.g), canSign = !!(d.fa && d.fa.length && d.week === 0 && !live && d.faUsed !== d.season);
+      let pickFA = null;
+      const chem = d.chem == null ? 50 : d.chem, chemTxt = chem >= 80 ? 'On fire' : chem >= 65 ? 'Clicking' : chem >= 45 ? 'Getting there' : 'Still gelling';
+      const body = E('div', { class: 'dynteamwrap' });
+      const val = x => x.me ? Math.round(SIM.ovr(d.player.a, d.player.pos)) : Math.round(((x.con || 50) + (x.pow || 50) + (x.spd2 || 50)) / 3);
+      function paint() {
+        const weakest = L.reduce((w, x, i) => !x.me && (w < 0 || x.b < L[w].b) ? i : w, -1);
+        body.replaceChildren(
+          E('section', { class: 'dynbox' }, E('h2', null, 'Team chemistry'), E('div', { class: 'dynpc' + (chem < 45 ? ' tired' : ''), role: 'img', 'aria-label': 'Chemistry ' + chem + ' of 100' }, E('span', null, chemTxt.toUpperCase()), E('i', null, E('em', { style: 'width:' + chem + '%' })), E('b', null, chem)),
+            E('p', { class: 'dynsub' }, 'Wins build it (+3, playoff wins +6). Losses cost 1, a new signing costs 4. High chemistry helps your teammates hit.')),
+          canSign ? E('section', { class: 'dynbox sign' }, E('h2', null, pickFA ? 'Who sits for ' + pickFA.name.split(' ')[0] + '?' : 'Offseason: sign one player'),
+            pickFA ? E('p', { class: 'dynsub' }, 'Tap Swap on the teammate he replaces. The weakest hitter is marked.') : E('div', { class: 'dynfa' }, d.fa.map(f => E('button', { type: 'button', class: 'dynfacard', onclick: () => { tick(); pickFA = f; paint(); } },
+              E('b', null, '#' + f.num + ' ' + f.name), E('span', null, 'Contact ' + f.con + ' · Power ' + f.pow + ' · Speed ' + f.spd2), E('em', null, 'Sign')))),
+            pickFA ? E('button', { type: 'button', class: 'dynlink', onclick: () => { pickFA = null; paint(); } }, 'Pick a different player') : null) : null,
+          E('section', { class: 'dynbox' }, E('h2', null, 'Batting order'), live ? E('p', { class: 'dynsub' }, 'A game is in progress. Finish it to change the order.') : null,
+            E('ol', { class: 'dynorder' }, L.map((x, i) => E('li', { class: (x.me ? 'me ' : '') + (pickFA && i === weakest ? 'weak' : '') },
+              E('span', { class: 'n' }, i + 1), E('div', { class: 'who' }, E('b', null, '#' + (x.me ? d.player.num : x.num) + ' ' + (x.me ? d.player.first + ' (you)' : x.name)),
+                E('span', null, x.me ? 'OVR ' + val(x) + ' · ' + POSNAME[d.player.pos] : 'Contact ' + x.con + ' · Power ' + x.pow + ' · Speed ' + x.spd2)),
+              pickFA ? (x.me ? E('span') : E('button', { type: 'button', class: 'dynghost sm', onclick: () => { tick(); SIM.sign(d, pickFA, i); pickFA = null; save(); H.Sound.cheer && H.Sound.cheer(); teamScreen(); status('Signed! Welcome to the Spitters.'); } }, 'Swap'))
+                : E('div', { class: 'ud' }, E('button', { type: 'button', class: 'dynghost sm', 'aria-label': 'Move up', disabled: live || i === 0, onclick: () => { SIM.moveSlot(d, i, -1); save(); paint(); } }, '▲'),
+                  E('button', { type: 'button', class: 'dynghost sm', 'aria-label': 'Move down', disabled: live || i === 8, onclick: () => { SIM.moveSlot(d, i, 1); save(); paint(); } }, '▼'))))),
+            live ? null : E('button', { type: 'button', class: 'dynghost', id: 'dyn-best', onclick: () => { tick(); SIM.bestOrder(d); save(); paint(); status('Lineup set: best hitters at the top.'); } }, 'Set the best order for me')));
+      }
+      paint();
+      show(E('div', { class: 'dynhead' }, E('p', { class: 'dynkick' }, 'Season ' + d.season + ' · ' + TIERS[d.tier].name), E('h1', null, 'Your team')), body, E('button', { type: 'button', class: 'dynbig', onclick: () => { tick(); hub(); } }, 'Done'));
+      status(canSign ? 'Offseason. Sign one free agent.' : 'Batting order and team chemistry.');
+    }
+
     /* ---------- the season hub ---------- */
     function hub() {
       stop3d(); const p = d.player, st = SIM.standings(d), rec = SIM.record(d, 'SPI'), place = st.findIndex(t => t.id === 'SPI') + 1, s = d.stats, nx = SIM.nextGame(d);
@@ -423,13 +499,16 @@ const HubDynasty = (() => {
         nextCard = E('section', { class: 'dynnext' }, E('p', { class: 'dynkick' }, nx.playoff ? (nx.playoff === 'final' ? '🏆 CHAMPIONSHIP GAME' : 'PLAYOFFS · SEMIFINAL') : 'GAME ' + (d.week + 1) + ' OF ' + d.rounds.length),
           E('div', { class: 'dynvs' }, chip(team(d, 'SPI'), rec), E('span', { class: 'dynat' }, home ? 'vs' : '@'), chip(opp, orec)),
           E('p', { class: 'dynsub' }, (home ? 'Home at Seed Spitters Park' : 'Road game') + ' · ' + ((d.opts && d.opts.inn) || 7) + ' innings · you bat ' + ord(p.slot + 1)),
-          E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.gameFor(d, nx.g, nx.playoff); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
-          E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.gameFor(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'));
+          E('button', { type: 'button', class: 'dynbig', id: 'dyn-play', onclick: () => { tick(); if (d.live && d.live.g) { G = d.live.g; game(); } else { G = SIM.gameFor(d, nx.g, nx.playoff); G.gid = Date.now(); setupMine(); d.live = { g: G }; save(); game(); } } }, d.live && d.live.g ? 'Resume game' : 'Play ball'),
+          E('button', { type: 'button', class: 'dynghost', onclick: () => { if (busy) return; G = d.live && d.live.g ? d.live.g : SIM.gameFor(d, nx.g, nx.playoff); setupMine(); simWhole(); } }, 'Sim this game'),
+          E('button', { type: 'button', class: 'dynlink', id: 'dyn-team', onclick: () => { tick(); teamScreen(); } }, 'Lineup and team'));
       } else nextCard = seasonOver();
       show(
         E('div', { class: 'dynhead row' }, E('div', null, E('p', { class: 'dynkick' }, 'Season ' + d.season + ' · ' + TIERS[d.tier].name), E('h1', { class: 'dynteam' }, E('span', { class: 'script' }, 'Spitters'), E('b', null, rec.w + '–' + rec.l)), E('p', { class: 'dynsub' }, ord(place) + ' place' + (d.po ? (d.po.done ? '' : ' · in the playoffs!') : ' · top 4 make the playoffs'))),
           E('div', { class: 'dynsp' }, E('b', null, p.sp), E('span', null, 'training pts'))),
         ladder(),
+        d.fa && d.fa.length && d.week === 0 && !(d.live && d.live.g) && d.faUsed !== d.season ? E('section', { class: 'dynprac offs' }, E('p', { class: 'dynkick' }, 'OFFSEASON'), E('h2', null, '3 free agents want to join the Spitters'),
+          E('p', { class: 'dynsub' }, 'Sign one before the season starts. Best one: Contact ' + Math.max(...d.fa.map(f => f.con)) + ', Power ' + Math.max(...d.fa.map(f => f.pow)) + '.'), E('button', { type: 'button', class: 'dynghost', id: 'dyn-sign', onclick: () => { tick(); teamScreen(); } }, 'See the free agents')) : null,
         pracNote ? E('section', { class: 'dynprac', role: 'status' }, E('p', { class: 'dynkick' }, 'REAL PRACTICE PAID OFF'),
           E('h2', null, (pracNote.tp ? '+' + pracNote.tp + ' training points · ' : '') + Object.values(pracNote.gains).reduce((a, b) => a + b, 0) + ' XP'),
           E('p', { class: 'dynsub' }, pracNote.items.slice(0, 6).join(' · ') + (pracNote.items.length > 6 ? ' · and more' : '')),
@@ -447,8 +526,9 @@ const HubDynasty = (() => {
               [['AVG', fmt3(SIM.avg(s))], ['HR', s.hr], ['RBI', s.rbi], ['H', s.h], ['R', s.r], ['BB', s.bb], ['OPS', fmt3(SIM.obp(s) + SIM.slg(s))], ['WEB GEMS', s.gem]].concat(s.pOuts ? [['IP', SIM.ipStr(s.pOuts)], ['K', s.pK], ['ERA', (s.pR * (d.opts.inn || 7) * 3 / s.pOuts).toFixed(2)], ['WALKS', s.pBB]] : []).map(([k, v]) => E('div', null, E('b', null, v), E('span', null, k))))),
             E('section', { class: 'dynbox' }, E('h2', null, 'Game settings'),
               setRow('Batting', 'bat', [['team', 'Whole team'], ['me', 'Just me']]), setRow('Fielding', 'field', [['on', 'Play my position'], ['off', 'Sim my fielding']]), setRow('Game length', 'inn', [[3, '3 innings'], [5, '5 innings'], [7, '7 innings']])),
+            hlAll().length ? E('section', { class: 'dynbox' }, E('h2', null, 'Highlight reel'), hlStrip(hlAll().slice(-6).reverse(), false)) : null,
             E('section', { class: 'dynbox' }, E('h2', null, 'Standings'), standTable(st)),
-            d.trophies.length || d.seasons.length ? E('section', { class: 'dynbox' }, E('h2', null, 'Trophy case'), E('ul', { class: 'dyntro' }, d.trophies.map(t => E('li', null, (t.kind === 'champ' ? '🏆 ' : '🏅 ') + t.text)), d.seasons.map(x => E('li', { class: 'mid' }, 'Season ' + x.season + (x.tier != null ? ' (' + TIERS[x.tier].short + ')' : '') + ': ' + x.rec.w + '–' + x.rec.l + ' · hit ' + fmt3(SIM.avg(x.stats)) + ', ' + x.stats.hr + ' HR')))) : null,
+            d.trophies.length || d.seasons.length || (d.miles && d.miles.length) ? E('section', { class: 'dynbox' }, E('h2', null, 'Trophy case'), E('ul', { class: 'dyntro' }, d.trophies.map(t => E('li', null, (t.kind === 'champ' ? '🏆 ' : '🏅 ') + t.text)), (d.miles || []).slice(-6).reverse().map(m => E('li', { class: 'mile' }, '⭐ ' + m.t + ' (Season ' + m.season + ')')), d.seasons.map(x => E('li', { class: 'mid' }, 'Season ' + x.season + (x.tier != null ? ' (' + TIERS[x.tier].short + ')' : '') + ': ' + x.rec.w + '–' + x.rec.l + ' · hit ' + fmt3(SIM.avg(x.stats)) + ', ' + x.stats.hr + ' HR')))) : null,
             E('button', { type: 'button', class: 'dynlink', onclick: () => { if (confirmReset()) { d = null; save(); create(); } } }, 'Start a new career'))));
       mount3d(box, p); status('Season ' + d.season + '. ' + rec.w + ' wins, ' + rec.l + ' losses.');
     }
@@ -562,7 +642,7 @@ const HubDynasty = (() => {
       const b = G.bases, on = ['1st', '2nd', '3rd'].filter((_, i) => b[i]);
       return (G.top ? 'Top ' : 'Bottom ') + G.inn + ' · ' + G.outs + ' out' + (G.outs === 1 ? '' : 's') + ' · ' + (on.length === 3 ? 'bases loaded' : on.length ? 'runner' + (on.length > 1 ? 's' : '') + ' on ' + on.join(' & ') : 'nobody on') + ' · ' + (down === 0 ? 'tied ' + G.score.h + '–' + G.score.a : (down > 0 ? 'up ' : 'down ') + Math.max(G.score.h, G.score.a) + '–' + Math.min(G.score.h, G.score.a));
     }
-    const simMate = bat => { const o = SIM.paOdds(bat.b, team(d, G.opp).p); let r = Math.random(), k; for (k in o) { r -= o[k]; if (r <= 0) return k; } return 'GO'; };
+    const simMate = bat => { const o = SIM.paOdds(bat.b + SIM.chemB(d), team(d, G.opp).p); let r = Math.random(), k; for (k in o) { r -= o[k]; if (r <= 0) return k; } return 'GO'; };
     function simField() { const pl = G.pend, bat = SIM.curBatter(G); if (!pl) return; G.pend = null;
       if (pl.kind === 'pitch') { SIM.simPitch(G, d); return; }
       if (pl.kind === 'steal') SIM.applyField(G, { outs: Math.random() < 0.2 + d.player.a.arm / 400 ? 1 : 0 }, pl); else SIM.apply(G, pl.code, bat, { simD: true }); }
@@ -599,9 +679,10 @@ const HubDynasty = (() => {
       const host = E('div', { class: 'dyn3dab' }); root.replaceChildren(host); ui.stage.classList.add('cvstage');
       host.appendChild(E('div', { class: 'd3load' }, E('b', null, 'Walking up to the plate…'), E('i')));
       const sitObj = sitFor(opp, { line: sit, pitcher: 'On the mound: ' + G.them.pitcher + ' (' + opp.short + ')', ctl: clamp(0.72 + opp.p * 0.18, 0.7, 0.9) });
-      const back = res => { stop3d(); ui.stage.classList.remove('cvstage'); const bat = SIM.curBatter(G);
-        if (!res || !G || bat !== hitterNow) return game();
-        SIM.apply(G, res.code, bat, { out: res.out, text: res.text, looking: /looking/i.test(res.text || '') }); afterMine(res.code); };
+      const back = res => { stop3d(); hlDisarm(); ui.stage.classList.remove('cvstage'); const bat = SIM.curBatter(G);
+        if (!res || !G || bat !== hitterNow) { hlCand = null; return game(); }
+        SIM.apply(G, res.code, bat, { out: res.out, text: res.text, looking: /looking/i.test(res.text || '') }); if (isMe) hlKeep(); else hlCand = null; afterMine(res.code); };
+      if (isMe) hlArm('bat'); else hlDisarm();
       const who = isMe ? meFor(p) : { name: hitterNow.name.split(' ')[0], num: hitterNow.num, bats: hitterNow.bats === 'L' ? 'left' : 'right', gear: {} };
       const rr = isMe ? SIM.eff(p, !!(G.bases[1] || G.bases[2])) : { con: hitterNow.con, vis: hitterNow.con, pow: hitterNow.pow, spd: hitterNow.spd2 };
       load3d().then(m => { if (!host.isConnected) return;
@@ -615,8 +696,9 @@ const HubDynasty = (() => {
       const host = E('div', { class: 'dyn3dab' }); root.replaceChildren(host); ui.stage.classList.add('cvstage');
       host.appendChild(E('div', { class: 'd3load' }, E('b', null, 'Taking the mound…'), E('i')));
       const st = sitFor(opp), score = st.us + ' ' + st.usR + ' · ' + st.them + ' ' + st.themR;
-      const back = res => { stop3d(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend || G.pend.kind !== 'pitch' || SIM.curBatter(G) !== bat) return game();
-        G.pend = null; SIM.pitchApply(G, d, res.code, bat, { out: res.out, looking: !!res.looking }, res.pitches || 4); afterPlay(); };
+      const back = res => { stop3d(); hlDisarm(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend || G.pend.kind !== 'pitch' || SIM.curBatter(G) !== bat) { hlCand = null; return game(); }
+        G.pend = null; SIM.pitchApply(G, d, res.code, bat, { out: res.out, looking: !!res.looking }, res.pitches || 4); hlKeep(); afterPlay(); };
+      hlArm('pitch');
       load3d().then(m => { if (!host.isConnected) return;
         try { const g = m.pitchPA({ stage: host, level: p.level || 1, me: meFor(p), Sound: H.Sound, still: H.still, say: t => status(t), end: () => {},
             pa: { sit: { score, half: (G.top ? 'TOP ' : 'BOT ') + G.inn, title: st.title, line: sit, outs: G.outs, on: G.bases.map(Boolean), inn: G.inn },
@@ -632,7 +714,8 @@ const HubDynasty = (() => {
       const host = E('div', { class: 'dyn3dab' }); root.replaceChildren(host); ui.stage.classList.add('cvstage');
       host.appendChild(E('div', { class: 'd3load' }, E('b', null, 'Taking the field…'), E('i')));
       const st = sitFor(opp); const score = st.us + ' ' + st.usR + ' · ' + st.them + ' ' + st.themR;
-      const back = res => { stop3d(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend) return game(); SIM.applyField(G, res, pl); afterPlay(); };
+      const back = res => { stop3d(); hlDisarm(); ui.stage.classList.remove('cvstage'); if (!res || !G.pend) { hlCand = null; return game(); } SIM.applyField(G, res, pl); hlKeep(); afterPlay(); };
+      hlArm('field');
       load3d().then(m => { if (!host.isConnected) return;
         try { const g = m.fieldPlay({ stage: host, level: p.level || 1, me: meFor(p), Sound: H.Sound, say: t => status(t),
             play: { pos: G.mePos || p.pos, kind: pl.kind, diff: pl.diff, on: G.bases.map(Boolean), outs: G.outs, r: SIM.eff(p, false), throws: p.throws, skin: SKIN[p.skin], hair: HAIR[p.hair],
@@ -661,6 +744,8 @@ const HubDynasty = (() => {
         E('p', { class: 'dynkick' }, 'FINAL' + (G.inn > (G.len || 7) ? ' / ' + G.inn : '')), E('h1', { class: 'dynfinal' }, r.won ? 'SPITTERS WIN!' : 'Tough loss'),
         E('div', { class: 'dynfscore' }, E('div', null, E('i', { class: 'dot', style: 'background:' + A.c1 }), A.name, E('b', null, G.score.a)), E('div', null, E('i', { class: 'dot', style: 'background:' + Hm.c1 }), Hm.name, E('b', null, G.score.h))),
         lineScore(),
+        (r.miles || []).length ? E('div', { class: 'dynmiles', role: 'status' }, r.miles.map(t => E('p', null, E('span', null, 'MILESTONE'), t))) : null,
+        (() => { const hs = hlAll().filter(h => h.gid && h.gid === G.gid); return hs.length ? E('section', { class: 'dynbox' }, E('h2', null, 'Your highlights'), hlStrip(hs, true)) : null; })(),
         E('section', { class: 'dynbox' }, E('h2', null, r.potg ? '⭐ PLAYER OF THE GAME' : 'Your game'), E('p', { class: 'dynmyline' }, line || 'No at-bats'),
           E('ul', { class: 'dynabs' }, G.myAB.map(a => E('li', { class: ['1B', '2B', '3B', 'HR'].includes(a.code) ? 'hit' : a.code === 'BB' ? 'bb' : '' }, E('b', null, 'Inning ' + a.inn), { '1B': 'Single', '2B': 'Double', '3B': 'Triple', HR: 'HOME RUN', BB: 'Walk', K: 'Strikeout', OUT: 'Out', GO: 'Ground out', FO: 'Fly out', LO: 'Line out', E: 'Reached on error' }[a.code] + (a.rbi ? ' · ' + a.rbi + ' RBI' : ''))))),
         G.pit && G.pit.bf ? E('section', { class: 'dynbox' }, E('h2', null, 'On the mound'), E('p', { class: 'dynmyline' }, SIM.ipStr(G.pit.outs) + ' IP · ' + G.pit.h + ' H · ' + G.pit.r + ' R · ' + G.pit.bb + ' BB · ' + G.pit.k + ' K · ' + G.pit.pc + ' pitches')) : null,

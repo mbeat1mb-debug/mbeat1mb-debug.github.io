@@ -1,11 +1,11 @@
 // Dugout Hub offline helper: the app opens instantly and works with no signal.
 // The page itself is always fetched fresh when there's internet (so updates show right away), with the saved copy as backup.
 // Game files carry a version in their name, so a saved copy is never out of date.
-const CACHE = 'dugout-894dc21c2e';
+const CACHE = 'dugout-e82eddece5';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './player.glb',
   './fonts/barlow-latin-400-normal.woff2', './fonts/barlow-latin-500-normal.woff2', './fonts/barlow-latin-600-normal.woff2',
   './fonts/barlow-condensed-latin-600-normal.woff2', './fonts/barlow-condensed-latin-700-normal.woff2', './fonts/barlow-condensed-latin-800-normal.woff2', './fonts/yellowtail-latin-400-normal.woff2',
-  './derby3d.js?v=e44a05ad23'];
+  './derby3d.js?v=b86df3ebb3'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {})))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('dugout-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
