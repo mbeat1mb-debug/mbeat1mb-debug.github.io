@@ -37,7 +37,7 @@
 .dynsp{text-align:center;background:linear-gradient(#ffe68a,#f2c230);color:#1b1b1b;border-radius:16px;padding:8px 16px;box-shadow:0 4px 0 #8a6a00}
 .dynsp b{display:block;font-family:var(--cond);font-size:34px;line-height:1}.dynsp span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .dynhub{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
-@media (min-width:900px){.dynhub{grid-template-columns:400px minmax(0,1fr)}}
+@media (min-width:900px){.dynhub{grid-template-columns:400px minmax(0,1fr);align-items:start}.dynhub>.dyncard{grid-column:1;grid-row:1/span 2}.dynhub>.dynnext{grid-column:2;grid-row:1}.dynhub>.dyncol{grid-column:2;grid-row:2}}
 .dyncol{display:flex;flex-direction:column;gap:16px}
 .dynbox,.dynnext,.dynup2{background:linear-gradient(160deg,#18264a,#0e1730);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:16px 18px}
 .dyncard{position:relative;background:linear-gradient(180deg,#1d6a3b 0,#0f3d22 46%,#0e1730 100%);border:3px solid #f28c38;border-radius:22px;padding:0 0 16px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.45)}
@@ -125,6 +125,11 @@
 .dynup2{border:3px solid #f28c38;background:linear-gradient(160deg,#3a2208,#0e1730 75%);animation:dynglow 1.4s ease-in-out infinite alternate}
 .dynup2 h2{font-size:40px}.dynup2.calm{border:1px solid rgba(255,255,255,.12);background:linear-gradient(160deg,#18264a,#0e1730);animation:none}
 @keyframes dynglow{to{box-shadow:0 0 28px rgba(242,140,56,.55)}}
+.dynup2.def{border-color:#39d353;background:linear-gradient(160deg,#0f3a1f,#0e1730 75%);animation:dynglowg 1.2s ease-in-out infinite alternate}@keyframes dynglowg{to{box-shadow:0 0 28px rgba(57,211,83,.5)}}
+.dynup2.mate{border-color:#ffd23f;background:linear-gradient(160deg,#3a3008,#0e1730 75%);animation:none}
+@media (min-width:700px){.dynbtns.three{grid-template-columns:1.3fr 1fr 1fr;gap:12px}}
+.dyntable.box td,.dyntable.box th{text-align:center}.dyntable.box td:first-child,.dyntable.box th:first-child{text-align:left}
+@media (prefers-reduced-motion:reduce){.dynup2.def{animation:none}}
 @media (prefers-reduced-motion:reduce){.dynup2{animation:none}}
 .dynsit{font-weight:800;color:#ffd23f;font-size:18px;margin:8px 0 0}
 .dynfeed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}

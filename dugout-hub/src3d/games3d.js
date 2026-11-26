@@ -5,3 +5,4 @@ export { kking } from './kking3d.js';
 export { steal } from './steal3d.js';
 export { outfield } from './outfield3d.js';
 export { pitchrec } from './pitchrec3d.js';
+export { fieldPlay } from './field3d.js';

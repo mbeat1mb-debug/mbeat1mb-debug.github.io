@@ -1039,7 +1039,7 @@ function viewArcade() {
     !can && lim !== 0 ? h('p', { class: 'note' }, 'That\u2019s all the games for today. Go play catch, then come back tomorrow!') : null,
     lim !== 0 ? mixCard() : null,
     h('section', { class: 'sec game rtts' }, h('div', { class: 'rttsbadge', 'aria-hidden': 'true' }, 'NEW'), h('div', { class: 'gicon', 'aria-hidden': 'true' }, '\ud83c\udfc6'), h('h2', null, L.GAMES.dynasty.name),
-      h('p', null, 'Create your own player and play full 7-inning games. You bat your own at-bats in 3D, the rest of the game plays out around you. Win games, climb the standings, make the playoffs, win the title, and upgrade your player with skill points.'),
+      h('p', null, 'Create your own player and play full 7-inning games. Bat for the whole team in 3D and play your position in the field: field grounders, catch fly balls, dive, and throw runners out. Climb the standings, win the title, and upgrade your player.'),
       h('p', { class: 'small mid' }, (() => { const dd = dynLoad(); return dd && dd.player ? 'Season ' + dd.season + ' · #' + dd.player.num + ' ' + dd.player.first + (gb.dynasty ? ' · best OVR ' + gb.dynasty.score : '') : 'Start your career'; })()),
       h('div', { class: 'row' }, [[1, 'Play']].map(l => h('button', { type: 'button', class: 'btn', disabled: !can, onclick: () => startGame('dynasty', 1) }, (() => { const dd = dynLoad(); return dd && dd.player ? 'Continue career' : 'Create my player'; })())))),
     h('div', { class: 'two even' },

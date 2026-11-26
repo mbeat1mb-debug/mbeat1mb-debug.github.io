@@ -396,6 +396,10 @@ export function start(cfg) {
     const f = GLB ? human({ lod: true, glove: true, colors: OPPC }) : player(Object.assign({ lod: true }, OPP)); f.root.position.set(x, 0, z); f.root.lookAt(0, 0, 0); f.home = new THREE.Vector3(x, 0, z); f.root.rotation.y += Math.PI; setPose(f, READY); scene.add(f.root); return f; });
   const catcher = GLB ? human({ helmet: true, glove: true, colors: Object.assign({}, OPPC, { helmet: 0x1a1a1a }) }) : player(Object.assign({}, OPP, { helmet: 0x1a1a1a, cap: 0x1a1a1a })); catcher.root.position.set(0, 0, 3.2); catcher.root.rotation.y = 0; catcher.root.scale.setScalar(catcher.h ? 0.92 : 0.9); setPose(catcher, CROUCH); scene.add(catcher.root);
   const ump = GLB ? human({ size: 1.22, skin: 0xd49a72, colors: { jersey: 0x22252b, sleeve: 0x22252b, pants: 0x6a6f78, cap: 0x111111, socks: 0x111111, belt: 0x111111 } }) : player({ shirt: 0x22252b, under: 0x22252b, pants: 0x6a6f78, cap: 0x111111, socks: 0x111111, longSleeve: true }); ump.root.position.set(-side * (GLB ? 2.3 : 0.7), 0, GLB ? 7.6 : 6.9); ump.root.rotation.y = GLB ? -side * 0.18 : 0; setPose(ump, { y: -0.95, torso: [0.5, 0, 0], shL: [-0.5, 0, -0.2], elL: [-1.2, 0, 0], shR: [-0.5, 0, 0.2], elR: [-1.2, 0, 0], hipL: [-0.6, 0, -0.3], knL: [1, 0, 0], hipR: [-0.6, 0, 0.3], knR: [1, 0, 0] }); scene.add(ump.root);
+  // Road to the Show: his teammates on base, leading off
+  if (AB && GLB) [[BASE - 5, -BASE - 5], [-5, -2 * BASE + 5], [-BASE + 4, -BASE + 4]].forEach(([x, z], i) => { if (!SIT.on[i]) return;
+    const r = human({ helmet: true, colors: { jersey: ORANGE, sleeve: GREEN, pants: 0xf4f2ec, socks: GREEN, belt: GREEN, helmet: GREEN }, letters: { bg: '#ee7f24', fg: '#1d6a3b', edge: '#ffffff', num: String(3 + i * 4), name: 'SPITTERS', script: 'Spitters' } });
+    r.root.position.set(x, 0, z); r.root.lookAt(0, 0, 0); r.root.rotation.y += Math.PI; setPose(r, READY); scene.add(r.root); });
   applyPark(scene, renderer, GL.park);
   setPose(J, BP.stance); setBat(BP.stance);
   setPose(P1, PK[0].p); if (ump.h) ump.set('ump', 0); if (P1.h) playKeys(P1, PK, 0);
@@ -648,7 +652,7 @@ export function start(cfg) {
   const MANUAL = /d3rec/.test(location.search);   // recording: the test steps frames one at a time
   function frame() { if (!alive) return; if (!MANUAL) raf = requestAnimationFrame(frame); tick(); }
   function tick() {
-    if (window.__d3auto && phase === 'pitch' && P && !sw && P.t >= P.T * 0.99) { const p = tmp.set(0, P.h, 0).project(cam), r = cv.getBoundingClientRect(); swing(r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height); }
+    if (window.__d3auto && (window.__d3auto !== 'eye' || P && P.strike) && phase === 'pitch' && P && !sw && P.t >= P.T * 0.99) { const p = tmp.set(0, P.h, 0).project(cam), r = cv.getBoundingClientRect(); swing(r.left + (p.x + 1) / 2 * r.width, r.top + (1 - p.y) / 2 * r.height); }
     const now = performance.now(); AQ.frame(now); const now_ = now, rdt = FIXED || Math.min(0.05, (now - last) / 1000), dt = rdt * timeScale; last = now; T += rdt; pt += dt; fpsAcc += rdt; fpsN++; if (fpsAcc > 1) { fpsNow = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
     crowd.update(T, rdt); updateFw(rdt); updateBananas(rdt); callFrame(); for (let i = jobs.length - 1; i >= 0; i--) if (T >= jobs[i].at) { const j = jobs[i]; jobs.splice(i, 1); j.fn(); }
     // fielders idle
