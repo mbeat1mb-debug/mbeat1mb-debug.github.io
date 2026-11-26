@@ -19,13 +19,13 @@ export function steal(cfg) {
     hudHTML: hudShell({ team: 'SEED SPITTERS', sub: 'STEAL SECOND', top: true,
       cells: [['STEALS', 's-sb'], ['TRY', 's-try'], ['OUTS', 's-outs'], ['BEST JUMP', 's-jump']],
       kicker: 'SEED SPITTERS PARK', title: 'STEAL SECOND',
-      lines: ['Tap LEAD OFF to shuffle off first. Bigger lead = faster steal, but more pickoff throws.', 'Press GO the moment his knee lifts toward home.', 'Running? Tap anywhere to SLIDE about 2 big steps before the bag.', 'If he spins to first, press BACK and dive in head-first!'],
+      lines: ['Tap LEAD OFF to shuffle off first. Bigger lead = faster steal, but more pickoff throws.', 'Press GO the moment his knee lifts toward home.', 'Running? Tap anywhere to SLIDE when you reach the yellow zone before second.', 'If he spins to first, press BACK and dive in head-first!'],
       extra: '<div class="d3lead" id="s-lead"></div><div class="d3eyes" id="s-eyes">👀</div>' +
         '<div class="d3go2 three" id="s-btns"><button type="button" class="d3big back" id="s-back">◀ BACK</button><button type="button" class="d3big lead" id="s-off">LEAD OFF</button><button type="button" class="d3big go" id="s-go">GO! ▶</button></div>' +
-        '<div class="d3go2" id="s-slidebar" style="display:none"><button type="button" class="d3big slide" id="s-slide" tabindex="-1">TAP ANYWHERE TO SLIDE</button></div>' }) });
+        '<div class="d3go2" id="s-slidebar" style="display:none"><button type="button" class="d3big slide" id="s-slide" tabindex="-1">TAP ANYWHERE TO SLIDE · in the yellow zone</button></div>' }) });
   const { scene, cam, $ } = W;
   const S = SPITTERS(me), Hn = HORNETS(7), CAL = W.CAL, FTS = 3.2808;
-  const STRIDE = CAL.run && CAL.run.dist > 0.3 ? CAL.run.dist * FTS : 9, RUNDUR = (CAL.run && CAL.run.dur) || 0.8;
+  const STRIDE = CAL.run && CAL.run.dist > 0.3 ? CAL.run.dist * FTS * 0.95 : 9, RUNDUR = (CAL.run && CAL.run.dur) || 0.8;
   const DIVE = CAL.dive && CAL.dive.reach > 0.3 ? CAL.dive.reach * FTS : 3.6, SLIDEF = CAL.slide && CAL.slide.reach > 0.3 ? CAL.slide.reach * FTS : 3.2;
 
   // Jaxson on first; Hornets pitcher (right-handed) in the stretch; first baseman holding him on; shortstop covers second
@@ -45,6 +45,9 @@ export function steal(cfg) {
   for (let f = 3; f <= MAXLEAD; f += 3) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 1.6), new THREE.MeshBasicMaterial({ color: f > 11 ? 0xff6b6b : f > 8 ? 0xffd23f : 0xffffff, transparent: true, opacity: 0.85 }));
     m.rotation.x = -Math.PI / 2; m.rotation.z = Math.atan2(U.x, U.z); const p = along(f).addScaledVector(IN, -2.2); m.position.set(p.x, 0.07, p.z); scene.add(m); }
 
+  // the slide zone: a yellow strip in the dirt 2.5 to 13 ft before second, shown only while he runs
+  const zone = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 10.5), new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.7, depthWrite: false }));
+  zone.rotation.x = -Math.PI / 2; zone.rotation.z = Math.atan2(U.x, U.z); zone.position.copy(along(BASEFT - 7.75)); zone.position.y = 0.06; zone.visible = false; scene.add(zone);
   // dirt puffs for slides and dives
   const dustTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
     gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
@@ -62,7 +65,7 @@ export function steal(cfg) {
   const fly = (from, to, t0, T, arc) => { ball.seg = { from: from.clone(), to: to.clone(), t0, T, arc }; };
 
   const startTry = () => { camPos.copy(CAM.pos); camLook.copy(CAM.look); move = null; went = null; back = null; res = null; armed = false; wait = rnd(1.4, 3.4); look = 0; phase = 'set'; pt = 0; slow = 1; slowUntil = 0;
-    Object.assign(R, { mode: 'lead', x: 0, to: 0, hop: 0, arr: null, kind: '', diveT: 0, lastX: null, landed: false }); Object.assign(ball, { seg: null, pitched: false, thrown: false }); W.ball.visible = false;
+    Object.assign(R, { mode: 'lead', x: 0, to: 0, hop: 0, arr: null, kind: '', short: false, diveT: 0, lastX: null, landed: false }); Object.assign(ball, { seg: null, pitched: false, thrown: false }); W.ball.visible = false;
     SS.root.position.copy(ssHome); SS.face(0, 0); SS.set('ready', 0); F1.root.position.copy(f1Home); F1.face(0, -BASE); F1.set('ready', 0); C.root.rotation.y = 0; C.set('crouch', 0); P1.turn.rotation.y = 0; P1.set('pitch', 0);
     say('Try ' + (tries + 1) + ' of ' + TRIES + '. Tap Lead Off to take your lead, then press GO when he kicks toward home.'); paint(); };
   const leadOff = () => { if (phase !== 'set' || R.mode !== 'lead' || R.to >= MAXLEAD) return; R.to = Math.min(MAXLEAD, R.to + STEP); armed = true; Sound.tick(); paint(); };
@@ -72,8 +75,9 @@ export function steal(cfg) {
     if (back != null || went != null || phase !== 'move') return; back = move.t; paint(); };
   // tap anywhere while running = slide
   function slide() { if (R.mode !== 'go' || res || !move || move.kind !== 'home') return; const d = BASEFT - R.x; R.s0 = move.t; R.x0 = R.x; R.mode = 'slide'; R.dustT = 0; Sound.slide();
-    if (d > 11) { R.kind = 'early'; R.dur = 10 / SPEED * 1.7; R.m0 = 1.7; R.m1 = 0; R.arr = move.t + R.dur + (d - 10) / 6; }
-    else if (d >= 4) { R.kind = 'good'; R.dur = d / SPEED; R.m0 = 1; R.m1 = 0.35; R.arr = move.t + R.dur; }
+    if (d > 18) { R.kind = 'early'; R.short = true; R.dur = 12 / SPEED * 1.7; R.m0 = 1.7; R.m1 = 0; R.arr = move.t + R.dur + (d - 12) / 6; }
+    else if (d > 13) { R.kind = 'early'; R.short = false; R.dur = d / SPEED; R.m0 = 1; R.m1 = 0.2; R.arr = move.t + R.dur + 0.1; }
+    else if (d >= 2.5) { R.kind = 'good'; R.dur = d / SPEED; R.m0 = 1; R.m1 = 0.35; R.arr = move.t + R.dur; }
     else { R.kind = 'late'; R.dur = Math.max(0.08, d / SPEED); R.m0 = 1; R.m1 = 0.6; R.arr = move.t + R.dur + 0.12; }
     if (Math.abs(R.arr - THROWT) < 0.22) { slow = 0.4; slowUntil = Math.max(R.arr, THROWT) + 0.25; }
     paint(); }
@@ -149,7 +153,7 @@ export function steal(cfg) {
     // steal result: wait for both the runner and the tag
     if (move && move.kind === 'home' && R.arr != null && !res && move.t >= Math.max(R.arr, THROWT) + 0.05) {
       const margin = THROWT - R.arr, jump = Math.max(0, went), safe = margin > 0; jumps.push(Math.round(jump * 1000)); slides[R.kind]++;
-      const how = { good: safe ? 'Great slide!' : 'Good slide.', early: 'You slid too early.', late: 'Slide a step sooner.', none: 'You went in standing up. Slide!' }[R.kind];
+      const how = { good: safe ? 'Great slide!' : 'Good slide.', early: R.short ? 'Way too early! You stopped short.' : 'A little early.', late: 'Slide a step sooner.', none: 'You went in standing up. Slide!' }[R.kind];
       puff(along(BASEFT), 12, 4);
       settle('steal', safe, (safe ? (margin < 0.12 ? 'Safe by a hair! ' : '') : (margin > -0.12 ? 'Out by a hair. ' : '')) + how + ' Jump ' + Math.round(jump * 1000) + ' ms' + (!safe && jump > 250 ? '. Go sooner!' : ''), safe ? 'Safe!' : 'Out!'); }
     // the ball
@@ -157,6 +161,7 @@ export function steal(cfg) {
     if (ball.seg && move && move.t >= ball.seg.t0) { const s = ball.seg, k = clamp((move.t - s.t0) / s.T, 0, 1);
       W.ball.visible = true; W.ball.position.lerpVectors(s.from, s.to, k); W.ball.position.y += Math.sin(k * Math.PI) * s.arc; if (k < 1) W.ball.rotation.x += dt * 30; }
 
+    zone.visible = R.mode === 'go' && !!move && move.kind === 'home'; if (zone.visible) zone.material.opacity = 0.62 + 0.25 * Math.sin(T * 10);
     // ---- Jaxson ----
     J.root.position.y = 0;
     if (R.mode === 'lead') {   // side shuffle with little hops, facing the pitcher
@@ -167,9 +172,9 @@ export function steal(cfg) {
       R.ph += dt * Math.max(v, 5) / STRIDE * RUNDUR; J.root.position.copy(along(R.x)); J.face(B2.x, B2.z); J.set('run', R.ph);
     } else if (R.mode === 'caught') { J.root.position.copy(along(R.x)); J.face(B1.x, B1.z); J.set('ready', 0); }
     else if (R.mode === 'slide') {   // feet-first; feet reach the bag at R.arr (stops short and scoots in if too early)
-      const k = clamp((move.t - R.s0) / R.dur, 0, 1), len = R.kind === 'early' ? 10 : BASEFT - R.x0;
+      const k = clamp((move.t - R.s0) / R.dur, 0, 1), len = R.short ? 12 : BASEFT - R.x0;
       let fx = R.x0 + len * clamp(herm(k, R.m0, R.m1), 0, 1);
-      if (R.kind === 'early' && k >= 1) fx = Math.min(BASEFT, R.x0 + 10 + (move.t - R.s0 - R.dur) * 6);
+      if (R.short && k >= 1) fx = Math.min(BASEFT, R.x0 + 12 + (move.t - R.s0 - R.dur) * 6);
       const blend = clamp(k * 4, 0, 1); R.x = fx;
       J.root.position.copy(along(fx - SLIDEF * blend)); J.face(B2.x, B2.z); J.set('slide', 0.3 * blend);
       R.dustT -= dt; if ((k < 1 || fx < BASEFT) && R.dustT <= 0) { R.dustT = 0.045; puff(along(fx), 2, 2.5); }
@@ -189,7 +194,7 @@ export function steal(cfg) {
 
     // fielders react
     if (move && move.kind === 'home' && went != null) { const k = clamp((move.t - KICK) / 0.9, 0, 1); SS.root.position.lerpVectors(ssHome, ssBag, k);
-      if (k < 1) { SS.face(ssBag.x, ssBag.z); SS.set('run', T * 1.05); }
+      if (k < 1) { SS.face(ssBag.x, ssBag.z); SS.runStep(dt, ssHome.distanceTo(ssBag) / 0.9); }
       else { SS.face(B1.x, B1.z); SS.set(move.t > THROWT + 0.05 ? 'crouch' : 'catch', 0); } }
     if (move && move.kind === 'pick' && move.t > 0.2) { F1.face(B1.x + U.x * 3, B1.z + U.z * 3); F1.set(move.t > PICKT + 0.05 ? 'crouch' : 'catch', 0); }
     if (move && move.kind === 'home' && went == null && move.t > REL + 0.45) C.set('catch', 0);
@@ -208,9 +213,9 @@ export function steal(cfg) {
   paint();
   function finishGame() { const avg = jumps.length ? Math.round(jumps.reduce((a, b) => a + b, 0) / jumps.length) : null, nS = slides.good + slides.early + slides.late + slides.none;
     const slideLine = nS ? 'Slides: ' + slides.good + ' of ' + nS + ' just right' + (slides.early ? ' · ' + slides.early + ' too early' : '') + (slides.late ? ' · ' + slides.late + ' too late' : '') + (slides.none ? ' · ' + slides.none + ' standing up' : '') : null;
-    end(sb, [sb + ' stolen base' + (sb === 1 ? '' : 's') + '!', 'Outs: ' + outsN + (avg != null ? ' · Average jump: ' + avg + ' ms' : ''), slideLine, 'Real base stealers go on the pitcher’s first move home, and start the slide about 2 big steps from the bag.'].filter(Boolean)); }
+    end(sb, [sb + ' stolen base' + (sb === 1 ? '' : 's') + '!', 'Outs: ' + outsN + (avg != null ? ' · Average jump: ' + avg + ' ms' : ''), slideLine, 'Real base stealers go on the pitcher’s first move home, and start the slide 1 to 4 big steps from the bag.'].filter(Boolean)); }
   if (/d3test|d3rec|d3probe/.test(location.search)) window.__d3 = { get phase() { return phase; }, get sb() { return sb; }, get outs() { return outsN; }, get tries() { return tries; }, get fps() { return W.fps; },
-    get mode() { return R.mode; }, get x() { return R.x; }, get kind() { return move ? move.kind : null; }, get mt() { return move ? move.t : 0; }, get slides() { return slides; }, get bseg() { return ball.seg && [ball.seg.from.toArray().map(Math.round), ball.seg.to.toArray().map(Math.round), ball.seg.t0, ball.seg.T]; }, get bpos() { return W.ball.position.toArray().map(Math.round).concat([W.ball.visible]); }, stride: STRIDE, dive: DIVE, slidef: SLIDEF,
+    get mode() { return R.mode; }, get x() { return R.x; }, get kind() { return move ? move.kind : null; }, get mt() { return move ? move.t : 0; }, get slides() { return slides; }, get bseg() { return ball.seg && [ball.seg.from.toArray().map(Math.round), ball.seg.to.toArray().map(Math.round), ball.seg.t0, ball.seg.T]; }, get bpos() { return W.ball.position.toArray().map(Math.round).concat([W.ball.visible]); }, stride: STRIDE, dive: DIVE, slidef: SLIDEF, J, U,
     draw: () => W.renderer.render(scene, cam), scene, step: n => { for (let i = 0; i < n; i++) W.step(); }, go: () => $('d3-go').click(), steal: go, back: goBack, slide, lead: leadOff, setLead: v => { R.to = v; R.x = v; armed = true; },
     force: k => { if (phase === 'set') { move = { kind: k, t: 0 }; phase = 'move'; paint(); } } };
   say('Steal Second at Seed Spitters Park. Press Play Ball.');

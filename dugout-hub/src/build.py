@@ -8,5 +8,12 @@ for f in ['logic.js','swing.js','games.js','mp4mux.js','media.js','app.js']:
     code=open(src+f).read()
     assert '</script' not in code.lower(), f+' contains a closing script tag'
     h=h.replace(tag, '<script>\n'+code+'\n</script>')
+# version the 3D games file so iPads never run a stale cached copy next to a new page
+import hashlib, os
+d3=os.path.join(os.path.dirname(os.path.abspath(sys.argv[1])),'derby3d.js')
+if os.path.exists(d3):
+    v=hashlib.md5(open(d3,'rb').read()).hexdigest()[:10]
+    assert h.count("import('./derby3d.js')")>=1
+    h=h.replace("import('./derby3d.js')", "import('./derby3d.js?v=%s')" % v)
 open(sys.argv[1],'w').write(h)
 print('built', sys.argv[1], len(h.encode())//1024, 'KB')

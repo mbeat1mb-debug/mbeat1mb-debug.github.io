@@ -240,7 +240,9 @@ export function world(cfg) {
       mixer.setTime(name === 'run' ? t % c.duration : clamp(t, 0, c.duration - 0.001)); };
     // face a point on the ground (root -z toward it)
     const face = (x, z) => { root.rotation.y = Math.atan2(-(x - root.position.x), -(z - root.position.z)); };
-    return { h: true, root, turn, inner, parts, set, face, mir, get clip() { return cur; } };
+    // run at a given speed (ft/s) with the legs matched to it, so feet don't skate
+    let ph = 0; const runStep = (dt, speed) => { const L = CAL.run && CAL.run.dist > 0.3 ? CAL.run.dist * sc * 0.95 : 9; /* 0.95 measured so the planted foot stays put */ ph += dt * Math.max(speed, 3) / L * ((CAL.run && CAL.run.dur) || 0.8); set('run', ph); };
+    return { h: true, root, turn, inner, parts, set, face, mir, runStep, get clip() { return cur; } };
   }
   // the bat, gripped in both hands and fixed to the top hand
   const makeBat = (color) => { const pts = []; for (let i = 0; i <= 16; i++) { const y = i / 16 * 2.45, r = i < 2 ? 0.07 : y < 1.0 ? 0.055 : Math.min(0.13, 0.055 + (y - 1.0) * 0.06); pts.push(new THREE.Vector2(i === 16 ? 0.0 : r, y)); }

@@ -124,7 +124,7 @@ export function outfield(cfg) {
       // the lead runner takes off when he sees the throw coming (or right away if he's going)
       const lead = sit ? (sit.ans === 4 ? 3 : sit.ans === 3 ? (sit.r[1] ? 2 : 2) : B.deep ? 1 : 0) : 0;
       if (lead && runners[lead - 1].root.visible) { const r = runners[lead - 1], go = phase === 'thrown' ? clamp(pt / 2.4, 0, 1) * 0.85 : clamp(pt / 4, 0, 0.35); const from = BASES[lead], to = BASES[lead + 1] || BASES[4];
-        r.root.position.set(lerp(from[0], to[0], go), 0, lerp(from[1], to[1], go)); r.face(to[0], to[1]); r.set(go > 0.01 ? 'run' : 'ready', T * 1.05); }
+        r.root.position.set(lerp(from[0], to[0], go), 0, lerp(from[1], to[1], go)); r.face(to[0], to[1]); if (go > 0.01) r.runStep(dt, 18); else r.set('ready', 0); }
     }
     if (phase === 'thrown' && thr && thr.b) {
       thr.t += dt; const tr = W.CAL.pitch.tr; J.set('pitch', tr - 0.35 + Math.min(0.9, thr.t * 1.3)); anim = null;
@@ -133,7 +133,7 @@ export function outfield(cfg) {
     }
     if (phase === 'thrown' && pt > 2.6) { n++; W.ball.visible = false; if (n >= N) { over = true; phase = 'end'; W.later(0.3, finishGame); } else newBall(); }
     if (phase === 'throw' && pt > 4) throwTo(0);
-    J.root.position.copy(meP); if (faceTo) J.face(faceTo[0], faceTo[1]); if (anim) J.set(anim, T * 1.05);
+    J.root.position.copy(meP); if (faceTo) J.face(faceTo[0], faceTo[1]); if (anim === 'run') J.runStep(dt, SPEED); else if (anim) J.set(anim, T * 1.05);
     if (phase !== 'fly' && phase !== 'intro') hitter.set('swing', 1.55);
     // camera: behind Jaxson looking in toward home; higher for the throw so all four bases show
     const v = tmp.set(meP.x, 0, meP.z).normalize();
